@@ -157,7 +157,7 @@ function TextElementChrome({
     updateElement(el.id, { style: mergeElementStyle(style, s) })
 
   const chip = (active: boolean) =>
-    `min-w-[1.75rem] rounded border px-2 py-1 text-xs font-medium transition-colors ${
+    `min-w-[1.5rem] rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors lg:min-w-[1.75rem] lg:px-2 lg:py-1 lg:text-xs ${
       active
         ? 'border-violet-600 bg-violet-100 text-violet-900 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100'
         : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700'
@@ -165,7 +165,7 @@ function TextElementChrome({
 
   return (
     <div
-      className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-zinc-200 bg-zinc-50/80 px-1 py-1 dark:border-zinc-600 dark:bg-zinc-800/50"
+      className="flex flex-nowrap items-center gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50/80 px-1 py-0.5 lg:gap-2 lg:py-1 dark:border-zinc-600 dark:bg-zinc-800/50"
       onMouseDownCapture={(e) => e.button === 0 && e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
       role="group"
@@ -249,6 +249,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
   const focusedTextRunIndex = useEditorStore((s) => s.focusedTextRunIndex)
   const tableSelection = useEditorStore((s) => s.tableSelection)
   const setTableSelection = useEditorStore((s) => s.setTableSelection)
+  const tableCellEdit = useEditorStore((s) => s.tableCellEdit)
   const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
   const updateElement = useEditorStore((s) => s.updateElement)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
@@ -434,7 +435,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
 
     body = (
       <div
-        className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3"
+        className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-1.5 lg:gap-x-3"
         onMouseDownCapture={(e) => isCanvasEditing && e.button === 0 && e.preventDefault()}
       >
         {formatSection ? (
@@ -576,9 +577,9 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
     }
 
     const barBtn =
-      'rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700'
+      'rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:px-2 lg:py-1 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700'
     const barBtnHi =
-      'rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100 dark:hover:bg-emerald-900/40'
+      'rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100 lg:px-2 lg:py-1 lg:text-xs dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100 dark:hover:bg-emerald-900/40'
 
     const summaryBtn =
       `${barBtn} flex cursor-pointer list-none items-center gap-0.5 [&::-webkit-details-marker]:hidden`
@@ -601,10 +602,15 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
                 : 'Header row only — use column tools or cells to edit headers.'
               : ''
 
+    const isCellEditing = tableCellEdit != null && tableCellEdit.tableId === el.id
+
     body = (
-      <div className="flex min-w-0 flex-col gap-1 px-1 py-0.5">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Table</span>
+      <div className="flex min-w-0 flex-col gap-0.5 px-1 py-0.5">
+        {isCellEditing ? (
+          <RichTextTipTapToolbar canvasEditing />
+        ) : null}
+        <div className="flex flex-nowrap items-center gap-1 overflow-x-auto lg:gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold text-zinc-600 lg:text-xs dark:text-zinc-300">Table</span>
           <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Text</span>
           <ColorToolbarSwatch
             title="Cell text color"
@@ -692,7 +698,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
             </>
           ) : null}
           <span
-            className="max-w-[14rem] truncate text-[10px] font-medium text-violet-700 dark:text-violet-300"
+            className="max-w-[8rem] truncate text-[9px] font-medium text-violet-700 lg:max-w-[14rem] lg:text-[10px] dark:text-violet-300"
             title={selectionHint}
           >
             {selectionHint}
@@ -823,7 +829,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
             </div>
           </details>
         </div>
-        <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">{kindLine}</p>
+        <p className="hidden text-[10px] leading-snug text-zinc-500 lg:block dark:text-zinc-400">{kindLine}</p>
       </div>
     )
   } else if (el?.type === 'IMAGE') {

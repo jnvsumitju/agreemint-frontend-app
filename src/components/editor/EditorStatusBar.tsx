@@ -2,7 +2,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import { pageDimensionsPt } from '../../types/layout'
 
 const marginInputClass =
-  'w-10 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] tabular-nums dark:border-zinc-600 dark:bg-zinc-800'
+  'w-8 rounded border border-zinc-300 bg-white px-0.5 py-0.5 text-[9px] tabular-nums lg:w-10 lg:px-1 lg:text-[11px] dark:border-zinc-600 dark:bg-zinc-800'
 
 export function EditorStatusBar() {
   const pages = useEditorStore((s) => s.pages)
@@ -24,7 +24,7 @@ export function EditorStatusBar() {
     canvasPointerPt != null ? `${canvasPointerPt.x} pt, ${canvasPointerPt.y} pt` : '—'
 
   const chip =
-    'rounded border px-2 py-0.5 text-[11px] font-medium transition-colors dark:border-zinc-600'
+    'rounded border px-1.5 py-0.5 text-[9px] font-medium transition-colors lg:px-2 lg:text-[11px] dark:border-zinc-600'
   const chipOn =
     'border-violet-500 bg-violet-100 text-violet-900 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100'
   const chipOff =
@@ -52,7 +52,7 @@ export function EditorStatusBar() {
   )
 
   return (
-    <footer className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-zinc-200 bg-zinc-50 px-3 py-1.5 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+    <footer className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-zinc-200 bg-zinc-50 px-2 py-1 text-[9px] text-zinc-600 lg:gap-x-3 lg:gap-y-1.5 lg:px-3 lg:py-1.5 lg:text-[11px] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
       <span className="font-semibold text-zinc-800 dark:text-zinc-200">
         {pages[activePageIndex]?.name ?? 'Page'} ({activePageIndex + 1}/{pages.length}) · {pageSpec.size}{' '}
         {pw}×{ph} pt
@@ -62,7 +62,7 @@ export function EditorStatusBar() {
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <span className="hidden text-[10px] font-semibold uppercase tracking-wide text-zinc-500 lg:inline dark:text-zinc-400">
           Margins (pt)
         </span>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -72,14 +72,14 @@ export function EditorStatusBar() {
           {marginField('bottom', 'B')}
         </div>
       </div>
-      <span className="hidden sm:inline">Grid 10 pt</span>
-      <span className="tabular-nums">Pointer: {pointer}</span>
+      <span className="hidden lg:inline">Grid 10 pt</span>
+      <span className="hidden tabular-nums lg:inline">Pointer: {pointer}</span>
       <div
         className="flex flex-wrap items-center gap-1 border-l border-zinc-200 pl-3 dark:border-zinc-600"
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <span className="hidden text-[10px] font-semibold uppercase tracking-wide text-zinc-500 lg:inline dark:text-zinc-400">
           Canvas zoom
         </span>
         <div className="flex items-center gap-0.5 rounded border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-800">

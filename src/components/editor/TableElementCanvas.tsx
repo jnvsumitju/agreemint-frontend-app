@@ -7,7 +7,12 @@ import {
   useState,
 } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
-import { useEditorStore } from '../../stores/editorStore'
+import {
+  activeCanvasTipTapEditorByElementId,
+  registerActiveCanvasTipTapEditor,
+  unregisterActiveCanvasTipTapEditor,
+  useEditorStore,
+} from '../../stores/editorStore'
 import {
   normalizeColumnWidths,
   normalizeRowWeights,
@@ -101,6 +106,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const endHistoryBatch = useEditorStore((s) => s.endHistoryBatch)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
   const variableValues = useEditorStore((s) => s.variableValues)
+  const setInlineTipTapEditor = useEditorStore((s) => s.setInlineTipTapEditor)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
@@ -185,7 +191,6 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   } | null>(null)
 
   const [rowInsertZones, setRowInsertZones] = useState<{ top: number; insertIndex: number }[]>([])
-  const [editDraft, setEditDraft] = useState('')
 
   const dk = el.dataKey ?? 'items'
   const rawJson = variableValues[dk] ?? ''
@@ -203,14 +208,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
 
   useEffect(() => {
     if (!isEditing || !tableCellEdit || tableCellEdit.tableId !== el.id) return
-    const { row, col } = tableCellEdit
-    const c = cols[col]
-    if (!c) return
-    if (row === HEADER_ROW) {
-      // Header uses TipTap — no draft needed
-    } else {
-      setEditDraft(getDataCellStringValue(rawJson, row, c.key))
-    }
+    // Both header and body use TipTap now — no draft needed
   }, [isEditing, tableCellEdit?.tableId, tableCellEdit?.row, tableCellEdit?.col, el.id, cols, rawJson, variableValues])
 
   const clearTablePeek = useCallback(() => {
@@ -344,48 +342,46 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     [tableCellEdit, el.id, cols, updateElement]
   )
 
-  const commitCellEdit = useCallback(() => {
-    if (!tableCellEdit || tableCellEdit.tableId !== el.id) return
-    const { row, col } = tableCellEdit
-    const c = cols[col]
-    if (!c) {
-      setTableCellEdit(null)
-      return
-    }
-    if (row !== HEADER_ROW) {
-      const nextJson = setDataCellValue(rawJson, row, c.key, editDraft)
+  const onBodyTipTapChange = useCallback(
+    (serialized: string) => {
+      if (!tableCellEdit || tableCellEdit.tableId !== el.id || tableCellEdit.row === HEADER_ROW) return
+      const c = cols[tableCellEdit.col]
+      if (!c) return
+      const nextJson = setDataCellValue(rawJson, tableCellEdit.row, c.key, serialized)
       setVariableValue(dk, nextJson)
-    }
+    },
+    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue]
+  )
+
+  const tableCellEditorKey = tableCellEdit?.tableId === el.id ? `table-${el.id}-cell` : null
+
+  const onTableCellTipTapReady = useCallback(
+    (ed: import('@tiptap/core').Editor) => {
+      if (!tableCellEditorKey) return
+      registerActiveCanvasTipTapEditor(tableCellEditorKey, ed)
+      setInlineTipTapEditor(ed)
+    },
+    [tableCellEditorKey, setInlineTipTapEditor]
+  )
+
+  const onTableCellTipTapUnmount = useCallback(
+    (ed: import('@tiptap/core').Editor) => {
+      if (!tableCellEditorKey) return
+      unregisterActiveCanvasTipTapEditor(tableCellEditorKey, ed)
+      const cur = useEditorStore.getState().inlineTipTapEditor
+      if (cur === ed) setInlineTipTapEditor(null)
+    },
+    [tableCellEditorKey, setInlineTipTapEditor]
+  )
+
+  const commitCellEdit = useCallback(() => {
     setTableCellEdit(null)
-  }, [
-    tableCellEdit,
-    el.id,
-    cols,
-    editDraft,
-    rawJson,
-    dk,
-    setVariableValue,
-    setTableCellEdit,
-  ])
+  }, [setTableCellEdit])
 
   const cancelCellEdit = useCallback(() => {
     setTableCellEdit(null)
   }, [setTableCellEdit])
 
-  useEffect(() => {
-    if (!isEditing || editingIsHeader) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        cancelCellEdit()
-      } else if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        commitCellEdit()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isEditing, editingIsHeader, cancelCellEdit, commitCellEdit])
 
   const selectCell = useCallback(
     (row: number, col: number) => {
@@ -849,10 +845,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   if (ci === 0) headerRowRef.current = node
                   if (!showRowNumbers && ci === 0) headerGutterRef.current = node
                 }}
-                className={`relative flex min-h-0 min-w-0 items-center ${cellBorder} px-1 py-0.5 text-left text-[9px] font-semibold leading-tight ${
+                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] font-semibold leading-tight ${
                   fillBg ? '' : 'bg-zinc-200 dark:bg-zinc-300'
                 } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
-                style={mergeBlockSelectionStyle(fillBg, blockOutline)}
+                style={{ gridRow: 1, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => onGridCellClick(e, HEADER_ROW, ci, true)}
               >
@@ -880,6 +876,8 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                         color: el.style?.color?.trim() || undefined,
                         backgroundColor: 'transparent',
                       }}
+                      onReady={onTableCellTipTapReady}
+                      onUnmount={onTableCellTipTapUnmount}
                       canvasKeyboard={{
                         onEscape: cancelCellEdit,
                         onCommitShortcut: () => setTableCellEdit(null),
@@ -982,35 +980,55 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                         if (ci === 0) bodyRowRefs.current[ri] = node
                         if (!showRowNumbers && ci === 0) dataGutterRefs.current[ri] = node
                       }}
-                      className={`relative flex min-h-0 min-w-0 items-center ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                      className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
                         fillBg ? '' : zebra
                       } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
-                      style={mergeBlockSelectionStyle(fillBg, blockOutline)}
+                      style={{ gridRow: ri + 2, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => onGridCellClick(e, dataRowIndex, ci, dataRowIndex >= 0)}
                     >
                       {editingHere ? (
-                        <input
-                          id={`ag-table-${el.id}-body-r${dataRowIndex}-c${ci}`}
-                          name={`ag-table-${el.id}-body-r${dataRowIndex}-c${ci}`}
-                          className={`absolute inset-0 z-[5] box-border w-full min-w-0 rounded-none border-0 bg-transparent px-1 py-0.5 text-[9px] outline-none ring-2 ring-violet-500 ${
-                            tc ? '' : 'text-zinc-900 dark:text-zinc-100'
-                          }`}
-                          style={tc ? { color: tc } : undefined}
-                          value={editDraft}
-                          autoFocus
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onBlur={commitCellEdit}
+                        <div
+                          className="absolute inset-0 z-[5] box-border min-w-0 overflow-hidden ring-2 ring-violet-500"
                           onPointerDown={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span
-                          className={`min-w-0 truncate ${tc ? '' : 'text-zinc-900 dark:text-zinc-50'}`}
-                          style={tc ? { color: tc } : undefined}
-                          title={typeof text === 'string' ? text : undefined}
                         >
-                          {display}
-                        </span>
+                          <TipTapRichEditor
+                            content={getDataCellStringValue(rawJson, dataRowIndex, c.key)}
+                            emitOnChange
+                            onChange={onBodyTipTapChange}
+                            variableMentions={variableMentions}
+                            variableValues={variableValues}
+                            variableChipDetailResolver={resolveVariableChipDetail}
+                            variableSurfaceLabelResolver={variableSurfaceLabelResolver}
+                            mode="canvas"
+                            sessionKey={`${el.id}-d-r${dataRowIndex}-c${ci}`}
+                            autoFocus
+                            editorClassName="bg-transparent"
+                            editorStyle={{
+                              fontSize: 9,
+                              textAlign: 'left',
+                              color: tc || undefined,
+                              backgroundColor: 'transparent',
+                            }}
+                            onReady={onTableCellTipTapReady}
+                            onUnmount={onTableCellTipTapUnmount}
+                            canvasKeyboard={{
+                              onEscape: cancelCellEdit,
+                              onCommitShortcut: () => setTableCellEdit(null),
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <RichTextBlockPreview
+                            content={getDataCellStringValue(rawJson, dataRowIndex, c.key) || (text as string) || ''}
+                            variableValues={variableValues}
+                            variableSurfaceLabelResolver={variableSurfaceLabelResolver}
+                            fontSize={9}
+                            textAlign="left"
+                            color={tc}
+                          />
+                        </div>
                       )}
                     </div>
                   )

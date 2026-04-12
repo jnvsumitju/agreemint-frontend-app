@@ -2,7 +2,7 @@ import type { ElementStyle } from '../../types/layout'
 import { ColorToolbarSwatch } from './ColorPalettePopover'
 
 const inputClass =
-  'min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-800'
+  'min-w-0 flex-1 rounded border border-zinc-300 px-1.5 py-0.5 font-mono text-[10px] lg:px-2 lg:py-1 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800'
 
 function ColorRow({
   label,

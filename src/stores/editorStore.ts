@@ -1342,7 +1342,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       tableCellEdit: { tableId, row, col },
     }),
 
-  setTableCellEdit: (edit) => set({ tableCellEdit: edit }),
+  setTableCellEdit: (edit) => set({ tableCellEdit: edit, ...(edit === null ? { inlineTipTapEditor: null } : {}) }),
 
   setEditorSidebarTab: (tab) => set({ editorSidebarTab: tab }),
 

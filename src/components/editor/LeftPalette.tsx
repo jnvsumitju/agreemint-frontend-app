@@ -285,7 +285,7 @@ function PaletteRow({
         setPlacementElementType(elementType)
       }}
       title={title}
-      className={`flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1.5 text-center text-[10px] font-medium leading-tight transition-colors ${
+      className={`flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 rounded-md border px-0.5 py-1 text-center text-[9px] font-medium leading-tight transition-colors lg:min-h-[3.5rem] lg:px-1 lg:py-1.5 lg:text-[10px] ${
         disabledInBand
           ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
           : `cursor-grab active:cursor-grabbing ${
@@ -351,11 +351,11 @@ export function LeftPalette() {
   const savedComponents = useEditorStore((s) => s.savedComponents)
 
   return (
-    <aside className="flex w-[13.5rem] shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    <aside className="flex w-36 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 lg:w-[13.5rem] dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-700">
         <button
           type="button"
-          className={`min-w-0 flex-1 px-1.5 py-2 text-[11px] font-semibold leading-tight transition-colors ${
+          className={`min-w-0 flex-1 px-1 py-1.5 text-[9px] font-semibold leading-tight transition-colors lg:px-1.5 lg:py-2 lg:text-[11px] ${
             tab === 'insert'
               ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
               : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -366,7 +366,7 @@ export function LeftPalette() {
         </button>
         <button
           type="button"
-          className={`min-w-0 flex-1 px-1.5 py-2 text-[11px] font-semibold leading-tight transition-colors ${
+          className={`min-w-0 flex-1 px-1 py-1.5 text-[9px] font-semibold leading-tight transition-colors lg:px-1.5 lg:py-2 lg:text-[11px] ${
             tab === 'pages'
               ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
               : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
@@ -380,8 +380,8 @@ export function LeftPalette() {
         {tab === 'insert' ? (
           <div className="flex flex-col gap-3">
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Tools</p>
-              <div className="grid grid-cols-5 gap-1">
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Tools</p>
+              <div className="grid grid-cols-4 gap-1 lg:grid-cols-5">
                 {TOOLS.map(({ id, title, Icon }) => (
                   <ToolButton key={id} tool={id} title={title} Icon={Icon} />
                 ))}
@@ -393,30 +393,30 @@ export function LeftPalette() {
               )}
             </div>
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Blocks</p>
-              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Blocks</p>
+              <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
                 Drag onto the page. Row click sets the type for Place.
               </p>
-              <div className="grid grid-cols-3 gap-1" role="list">
+              <div className="grid grid-cols-2 gap-1 lg:grid-cols-3" role="list">
                 {BLOCKS.map(({ type, label }) => (
                   <PaletteRow key={type} elementType={type} label={label} />
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Shapes</p>
-              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Shapes</p>
+              <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
                 Line and box. Same drag / Place behavior as blocks.
               </p>
-              <div className="grid grid-cols-3 gap-1" role="list">
+              <div className="grid grid-cols-2 gap-1 lg:grid-cols-3" role="list">
                 {SHAPES.map(({ type, label }) => (
                   <PaletteRow key={type} elementType={type} label={label} />
                 ))}
               </div>
             </div>
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Components</p>
-              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Components</p>
+              <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
                 Right-click an element or group on the page, then <span className="font-medium">Save as component</span>. Drag a
                 saved row here onto the page to insert.
               </p>

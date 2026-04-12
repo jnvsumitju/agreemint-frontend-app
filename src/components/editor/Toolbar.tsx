@@ -29,7 +29,7 @@ function EditorSurfaceSwitcher() {
   }, [pages, bandCanvasEditElementId])
 
   const tabCls = (active: boolean) =>
-    `rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+    `rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors lg:px-2.5 lg:py-1 lg:text-xs ${
       active
         ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-50'
         : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
@@ -206,29 +206,29 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
 
   return (
     <>
-      <header className="flex min-h-[2.75rem] shrink-0 items-center gap-4 border-b border-zinc-200 bg-white px-4 py-2 dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="flex min-w-0 shrink-0 items-center gap-3">
+      <header className="flex min-h-[2.25rem] shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-2 py-1 lg:min-h-[2.75rem] lg:gap-4 lg:px-4 lg:py-2 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 lg:gap-3">
           <button
             type="button"
-            className="text-sm text-violet-600 hover:underline dark:text-violet-400"
+            className="text-[11px] text-violet-600 hover:underline lg:text-sm dark:text-violet-400"
             onClick={() => navigate('/')}
           >
             Templates
           </button>
-          <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="truncate text-[11px] font-semibold text-zinc-900 lg:text-sm dark:text-zinc-100">
             {templateName || 'Untitled'}
           </span>
           {versionNumber != null && versionNumber > 0 && (
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 lg:inline lg:text-xs dark:bg-zinc-800 dark:text-zinc-400">
               v{versionNumber}
             </span>
           )}
         </div>
         <EditorSurfaceSwitcher />
-        <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-l border-zinc-200 pl-3 dark:border-zinc-600">
+        <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-l border-zinc-200 pl-1.5 lg:pl-3 dark:border-zinc-600">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Undo (⌘Z / Ctrl+Z)"
             aria-label="Undo"
             disabled={!canUndo}
@@ -241,7 +241,7 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
           </button>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Redo (⌘⇧Z / Ctrl+Shift+Z or Ctrl+Y)"
             aria-label="Redo"
             disabled={!canRedo}
@@ -273,7 +273,7 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
           <div className="relative" ref={menuRef}>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-lg leading-none text-zinc-600 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-300 text-base leading-none text-zinc-600 hover:bg-zinc-50 lg:h-9 lg:w-9 lg:text-lg dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               aria-label="More actions"

@@ -23,6 +23,18 @@ function resolveLiveInlineEditor(editorProp: Editor | null): Editor | null {
       }
     }
   }
+  const cellEdit = st.tableCellEdit
+  if (cellEdit) {
+    const cellKey = `table-${cellEdit.tableId}-cell`
+    const fromCellMap = activeCanvasTipTapEditorByElementId.get(cellKey)
+    if (fromCellMap) {
+      if (fromCellMap.isDestroyed) {
+        activeCanvasTipTapEditorByElementId.delete(cellKey)
+      } else {
+        return fromCellMap
+      }
+    }
+  }
   const fromStore = st.inlineTipTapEditor
   if (fromStore && !fromStore.isDestroyed) return fromStore
   if (editorProp && !editorProp.isDestroyed) return editorProp
@@ -158,9 +170,19 @@ export function RichTextTipTapToolbar({
   const editorForState = (() => {
     if (editor && !editor.isDestroyed) return editor
     if (!canvasEditing) return null
-    const id = useEditorStore.getState().canvasInlineEditId
-    const r = id ? activeCanvasTipTapEditorByElementId.get(id) : undefined
-    return r && !r.isDestroyed ? r : null
+    const st = useEditorStore.getState()
+    const id = st.canvasInlineEditId
+    if (id) {
+      const r = activeCanvasTipTapEditorByElementId.get(id)
+      if (r && !r.isDestroyed) return r
+    }
+    const cellEdit = st.tableCellEdit
+    if (cellEdit) {
+      const cellKey = `table-${cellEdit.tableId}-cell`
+      const r = activeCanvasTipTapEditorByElementId.get(cellKey)
+      if (r && !r.isDestroyed) return r
+    }
+    return null
   })()
   const fmt = useEditorState({
     editor: editorForState,
