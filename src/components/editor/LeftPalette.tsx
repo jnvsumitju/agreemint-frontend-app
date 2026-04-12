@@ -1,0 +1,442 @@
+import { useState, type ReactElement } from 'react'
+import { useDrag } from 'react-dnd'
+import type { ElementType } from '../../types/layout'
+import type { EditorCanvasTool } from '../../stores/editorStore'
+import { useEditorStore } from '../../stores/editorStore'
+import { DND_COMPONENT, DND_NEW, type LayoutComponentDragItem, type NewElementDragItem } from './dndTypes'
+import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
+import { PagesSection } from './PagesSection'
+
+const BLOCKS: { type: ElementType; label: string }[] = [
+  { type: 'TEXT', label: 'Text' },
+  { type: 'HEADER', label: 'Header' },
+  { type: 'FOOTER', label: 'Footer' },
+  { type: 'TABLE', label: 'Table' },
+  { type: 'IMAGE', label: 'Image' },
+]
+
+const SHAPES: { type: ElementType; label: string }[] = [
+  { type: 'LINE', label: 'Line' },
+  { type: 'BOX', label: 'Box' },
+  { type: 'ELLIPSE', label: 'Ellipse' },
+  { type: 'TRIANGLE', label: 'Triangle' },
+  { type: 'ARROW', label: 'Arrow' },
+  { type: 'DIAMOND', label: 'Diamond' },
+  { type: 'STAR', label: 'Star' },
+  { type: 'RING', label: 'Ring' },
+]
+
+const TOOLS: {
+  id: EditorCanvasTool
+  title: string
+  Icon: () => ReactElement
+}[] = [
+  {
+    id: 'select',
+    title: 'Select — click to select, double-click text to edit',
+    Icon: IconSelect,
+  },
+  {
+    id: 'move',
+    title: 'Move — drag elements without a long press (or hold Space)',
+    Icon: IconMove,
+  },
+  {
+    id: 'draw',
+    title: 'Place — choose a block below, then click the page',
+    Icon: IconPlace,
+  },
+  {
+    id: 'pan',
+    title: 'Pan — drag the canvas to scroll',
+    Icon: IconPan,
+  },
+  {
+    id: 'mergeShapes',
+    title: 'Merge shapes — group shapes first, then click any member to union into one outline',
+    Icon: IconMergeShapes,
+  },
+]
+
+function IconSelect() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M4 3l7 7v12l4-6 6-1-18-18z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function IconMove() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3M2 12h20M12 2v20" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconPlace() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 19h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  )
+}
+
+function IconPan() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d="M12 5v3m0 8v3M5 12h3m8 0h3" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  )
+}
+
+function IconMergeShapes() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="5" width="8" height="8" rx="1" />
+      <rect x="10" y="10" width="9" height="9" rx="1" />
+      <path d="M8 13h5M13 8v5" strokeDasharray="2 1" />
+    </svg>
+  )
+}
+
+function BlockIcon({ type }: { type: ElementType }) {
+  const c = 'text-current'
+  switch (type) {
+    case 'TEXT':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M4 6h16M4 12h10M4 18h14" strokeLinecap="round" />
+        </svg>
+      )
+    case 'HEADER':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <rect x="3" y="4" width="18" height="6" rx="1" />
+          <path d="M5 14h14M5 18h10" strokeLinecap="round" />
+        </svg>
+      )
+    case 'FOOTER':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M5 6h14M5 10h10" strokeLinecap="round" />
+          <rect x="3" y="14" width="18" height="6" rx="1" />
+        </svg>
+      )
+    case 'TABLE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <rect x="4" y="4" width="16" height="16" rx="1" />
+          <path d="M4 9h16M4 14h16M9 4v16M14 4v16" />
+        </svg>
+      )
+    case 'IMAGE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <rect x="3" y="5" width="18" height="14" rx="1" />
+          <path d="M8 14l3-3 4 4 3-5 3 4" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'LINE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
+          <path d="M4 12h16" strokeLinecap="round" />
+        </svg>
+      )
+    case 'BOX':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" aria-hidden>
+          <rect x="4" y="4" width="16" height="16" rx="1" />
+        </svg>
+      )
+    case 'ELLIPSE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <ellipse cx="12" cy="12" rx="7" ry="5" />
+        </svg>
+      )
+    case 'TRIANGLE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M12 4L20 18H4L12 4z" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'ARROW':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M4 12h10M14 12l-3-3m3 3l-3 3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'DIAMOND':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M12 3l8 9-8 9-8-9 8-9z" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'STAR':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path
+            d="M12 2l2.2 6.8H21l-5.5 4 2.1 6.7L12 15.8 6.4 19.5l2.1-6.7L3 8.8h6.8L12 2z"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )
+    case 'MERGED_SHAPE':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M5 8l4-3 5 4-2 6H7L5 8z" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'RING':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="4" />
+        </svg>
+      )
+    default:
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <rect x="5" y="5" width="14" height="14" rx="1" />
+        </svg>
+      )
+  }
+}
+
+function ToolButton({
+  tool,
+  title,
+  Icon,
+}: {
+  tool: EditorCanvasTool
+  title: string
+  Icon: () => ReactElement
+}) {
+  const canvasTool = useEditorStore((s) => s.canvasTool)
+  const setCanvasTool = useEditorStore((s) => s.setCanvasTool)
+  const active = canvasTool === tool
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-pressed={active}
+      aria-label={title.split('—')[0]?.trim() ?? title}
+      onClick={() => setCanvasTool(tool)}
+      className={`flex h-8 items-center justify-center rounded-md border transition-colors ${
+        active
+          ? 'border-violet-600 bg-violet-50 text-violet-800 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-200'
+          : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-500'
+      }`}
+    >
+      <Icon />
+    </button>
+  )
+}
+
+function PaletteRow({
+  elementType,
+  label,
+}: {
+  elementType: ElementType
+  label: string
+}) {
+  const bandNestedEditorMounted = useEditorStore((s) => s.bandNestedEditorMounted)
+  const disabledInBand =
+    bandNestedEditorMounted && (elementType === 'HEADER' || elementType === 'FOOTER')
+
+  const [{ isDragging }, drag] = useDrag<NewElementDragItem, void, { isDragging: boolean }>(
+    () => ({
+      type: DND_NEW,
+      item: { type: DND_NEW, elementType },
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+      canDrag: () => {
+        const st = useEditorStore.getState()
+        if (!st.bandNestedEditorMounted) return true
+        return elementType !== 'HEADER' && elementType !== 'FOOTER'
+      },
+    }),
+    [elementType]
+  )
+
+  const placementElementType = useEditorStore((s) => s.placementElementType)
+  const setPlacementElementType = useEditorStore((s) => s.setPlacementElementType)
+  const canvasTool = useEditorStore((s) => s.canvasTool)
+  const drawActive = canvasTool === 'draw'
+  const selectedForPlace = placementElementType === elementType && !disabledInBand
+
+  const baseTitle =
+    drawActive && !disabledInBand
+      ? `${label} — click page to place (or drag)`
+      : `${label} — drag to page · sets type for Place tool`
+  const title = disabledInBand ? `${label} — not available while editing header or footer` : baseTitle
+
+  return (
+    <div
+      ref={(node) => {
+        drag(node)
+      }}
+      role="listitem"
+      aria-disabled={disabledInBand}
+      onClick={() => {
+        if (disabledInBand) return
+        setPlacementElementType(elementType)
+      }}
+      title={title}
+      className={`flex min-h-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-md border px-1 py-1.5 text-center text-[10px] font-medium leading-tight transition-colors ${
+        disabledInBand
+          ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
+          : `cursor-grab active:cursor-grabbing ${
+              isDragging ? 'opacity-50' : ''
+            } ${
+              drawActive && selectedForPlace
+                ? 'border-violet-500 bg-violet-50 text-violet-900 dark:border-violet-400 dark:bg-violet-950/40 dark:text-violet-100'
+                : 'border-zinc-200 bg-white text-zinc-800 hover:border-violet-300 hover:bg-violet-50/80 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500'
+            }`
+      }`}
+    >
+      <span className="shrink-0 opacity-80">
+        <BlockIcon type={elementType} />
+      </span>
+      <span className="w-full break-words hyphens-auto">{label}</span>
+    </div>
+  )
+}
+
+function ComponentPaletteRow({ component }: { component: SavedLayoutComponent }) {
+  const [{ isDragging }, drag] = useDrag<LayoutComponentDragItem, void, { isDragging: boolean }>(
+    () => ({
+      type: DND_COMPONENT,
+      item: { type: DND_COMPONENT, componentId: component.id },
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    }),
+    [component.id]
+  )
+  const removeLayoutComponent = useEditorStore((s) => s.removeLayoutComponent)
+  const n = component.elements.length
+
+  return (
+    <div
+      ref={(node) => {
+        drag(node)
+      }}
+      className={`flex cursor-grab items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-left text-[11px] font-medium text-zinc-800 transition-colors hover:border-violet-300 hover:bg-violet-50/80 active:cursor-grabbing dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500 ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+      title={`${component.name} — ${n} element${n === 1 ? '' : 's'} · drag onto page`}
+    >
+      <span className="min-w-0 flex-1 truncate">{component.name}</span>
+      <span className="shrink-0 text-[9px] font-normal text-zinc-400 dark:text-zinc-500">{n}</span>
+      <button
+        type="button"
+        className="shrink-0 rounded px-1 text-zinc-400 hover:bg-red-100 hover:text-red-700 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+        title="Remove component"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          removeLayoutComponent(component.id)
+        }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+export function LeftPalette() {
+  const [tab, setTab] = useState<'insert' | 'pages'>('insert')
+  const canvasTool = useEditorStore((s) => s.canvasTool)
+  const savedComponents = useEditorStore((s) => s.savedComponents)
+
+  return (
+    <aside className="flex w-[13.5rem] shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-700">
+        <button
+          type="button"
+          className={`min-w-0 flex-1 px-1.5 py-2 text-[11px] font-semibold leading-tight transition-colors ${
+            tab === 'insert'
+              ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+          onClick={() => setTab('insert')}
+        >
+          Insert &amp; tools
+        </button>
+        <button
+          type="button"
+          className={`min-w-0 flex-1 px-1.5 py-2 text-[11px] font-semibold leading-tight transition-colors ${
+            tab === 'pages'
+              ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+          onClick={() => setTab('pages')}
+        >
+          Pages
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        {tab === 'insert' ? (
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Tools</p>
+              <div className="grid grid-cols-5 gap-1">
+                {TOOLS.map(({ id, title, Icon }) => (
+                  <ToolButton key={id} tool={id} title={title} Icon={Icon} />
+                ))}
+              </div>
+              {canvasTool === 'draw' && (
+                <p className="mt-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                  Pick a block, shape, or saved component, then click the page. Drag still works.
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Blocks</p>
+              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Drag onto the page. Row click sets the type for Place.
+              </p>
+              <div className="grid grid-cols-3 gap-1" role="list">
+                {BLOCKS.map(({ type, label }) => (
+                  <PaletteRow key={type} elementType={type} label={label} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Shapes</p>
+              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Line and box. Same drag / Place behavior as blocks.
+              </p>
+              <div className="grid grid-cols-3 gap-1" role="list">
+                {SHAPES.map(({ type, label }) => (
+                  <PaletteRow key={type} elementType={type} label={label} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Components</p>
+              <p className="mb-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                Right-click an element or group on the page, then <span className="font-medium">Save as component</span>. Drag a
+                saved row here onto the page to insert.
+              </p>
+              {savedComponents.length === 0 ? (
+                <p className="rounded border border-dashed border-zinc-200 px-2 py-2 text-[10px] text-zinc-400 dark:border-zinc-600 dark:text-zinc-500">
+                  No components yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1" role="list">
+                  {savedComponents.map((c) => (
+                    <ComponentPaletteRow key={c.id} component={c} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <PagesSection />
+        )}
+      </div>
+    </aside>
+  )
+}
