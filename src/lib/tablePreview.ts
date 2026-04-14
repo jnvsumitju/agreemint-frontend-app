@@ -1,5 +1,10 @@
 import type { LayoutElement } from '../types/layout'
 import { tableRowHidden, variableValuesToDataTree } from './layoutBehaviourResolve'
+import {
+  detectTableDataFormatFromJson,
+  parseTableVariableData,
+  structuredRowToObject,
+} from './tableDataFormat'
 
 /** Default body preview rows on the editor canvas when `tablePreviewBodyRows` is omitted. */
 export const TABLE_PREVIEW_ROW_COUNT = 3
@@ -75,8 +80,19 @@ export function getTableDataSourceState(
   }
   try {
     const j = JSON.parse(raw) as unknown
+    // Structured format: { data: [[...]], cellStyle?: [...], borderStyle?: {...} }
+    if (detectTableDataFormat(j) === 'structured') {
+      const tvd = (j as Record<string, unknown>).data as string[][]
+      const n = Math.max(0, tvd.length - 1) // exclude header row
+      if (n === 0) {
+        return { kind: 'empty', message: `”${dk}” has headers only — PDF will show headers only.` }
+      }
+      const showing = Math.min(n, tablePreviewBodyRowCount(el))
+      return { kind: 'ok', totalRows: n, showingRows: showing }
+    }
+    // Legacy format: [{...}, {...}]
     if (!Array.isArray(j)) {
-      return { kind: 'invalid', message: `"${dk}" must be a JSON array of row objects.` }
+      return { kind: 'invalid', message: `”${dk}” must be a JSON array of row objects.` }
     }
     const n = j.length
     if (n === 0) {
@@ -93,6 +109,15 @@ export function getTableDataSourceState(
   }
 }
 
+function detectTableDataFormat(parsed: unknown): 'legacy' | 'structured' {
+  if (Array.isArray(parsed)) return 'legacy'
+  if (parsed != null && typeof parsed === 'object' && 'data' in parsed) {
+    const d = (parsed as Record<string, unknown>).data
+    if (Array.isArray(d) && (d.length === 0 || Array.isArray(d[0]))) return 'structured'
+  }
+  return 'legacy'
+}
+
 /** Data rows for table body preview, after behaviour rowRules hide filter. */
 export function getVisibleTableBodyRows(
   el: LayoutElement,
@@ -102,6 +127,29 @@ export function getVisibleTableBodyRows(
   if (el.type !== 'TABLE') return []
   const dk = el.dataKey ?? 'items'
   const raw = variableValues[dk]?.trim()
+
+  // Try structured format first
+  const tvd = parseTableVariableData(raw)
+  if (tvd) {
+    const dataTree = variableValuesToDataTree(variableValues)
+    const bodyCount = Math.max(0, tvd.data.length - 1)
+    if (bodyCount === 0) {
+      return Array.from({ length: maxRows }, (_, rowIndex) => ({
+        rowIndex,
+        row: {} as Record<string, unknown>,
+      }))
+    }
+    const out: { rowIndex: number; row: Record<string, unknown> }[] = []
+    for (let ri = 0; ri < bodyCount; ri++) {
+      const rowObj = structuredRowToObject(tvd, ri)
+      if (tableRowHidden(el.behaviour, rowObj, dataTree)) continue
+      out.push({ rowIndex: ri, row: rowObj })
+      if (out.length >= maxRows) break
+    }
+    return out
+  }
+
+  // Legacy format
   const all: Record<string, unknown>[] = []
   if (raw) {
     try {

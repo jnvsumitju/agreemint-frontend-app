@@ -97,6 +97,25 @@ export function deleteRowsAt(rawJson: string, rowIndices: number[]): string {
   return JSON.stringify(arr)
 }
 
+export function swapRowsAt(rawJson: string, i: number, j: number): string {
+  const p = parseJsonArray(rawJson)
+  if (!p.ok) return rawJson
+  const arr = [...p.arr]
+  if (i < 0 || j < 0 || i >= arr.length || j >= arr.length) return rawJson
+  ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  return JSON.stringify(arr)
+}
+
+export function duplicateRowAt(rawJson: string, rowIndex: number): string {
+  const p = parseJsonArray(rawJson)
+  if (!p.ok) return rawJson || '[]'
+  const arr = [...p.arr]
+  if (rowIndex < 0 || rowIndex >= arr.length) return rawJson
+  const copy = JSON.parse(JSON.stringify(arr[rowIndex])) as unknown
+  arr.splice(rowIndex + 1, 0, copy)
+  return JSON.stringify(arr)
+}
+
 function sortUniqueDesc(xs: number[]): number[] {
   return [...new Set(xs)].sort((a, b) => b - a)
 }

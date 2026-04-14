@@ -1,6 +1,7 @@
 import type { LayoutElement } from '../types/layout'
+import { applyPipes, parseVariableExpression, stripPipesFromKey, VAR_PIPE_RE } from './variablePipes'
 
-const VAR_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g
+const VAR_RE = VAR_PIPE_RE
 
 export function normalizeVariableIdentifier(raw: string): string {
   const t = raw.trim().replace(/\s+/g, '_').replace(/[^\w.]/g, '')
@@ -14,7 +15,7 @@ type PlainSegment =
 
 function parsePlainTemplateToSegments(content: string): PlainSegment[] {
   const s = content ?? ''
-  const re = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g
+  const re = new RegExp(VAR_PIPE_RE.source, 'g')
   const out: PlainSegment[] = []
   let last = 0
   let m: RegExpExecArray | null
@@ -22,7 +23,9 @@ function parsePlainTemplateToSegments(content: string): PlainSegment[] {
     if (m.index > last) {
       out.push({ type: 'text', value: s.slice(last, m.index) })
     }
-    out.push({ type: 'var', name: m[1] })
+    // Store the full expression (key + pipes) so substitution can apply pipes
+    const fullExpr = m[1] + (m[2] || '')
+    out.push({ type: 'var', name: fullExpr.trim() })
     last = re.lastIndex
   }
   if (last < s.length) {
@@ -188,7 +191,7 @@ export function serializeRunsToContent(runs: RichRun[]): string {
 export function extractVariableKeysFromRuns(runs: RichRun[]): string[] {
   const set = new Set<string>()
   for (const r of runs) {
-    if (r.type === 'var') set.add(normalizeVariableIdentifier(r.name))
+    if (r.type === 'var') set.add(normalizeVariableIdentifier(stripPipesFromKey(r.name)))
   }
   return [...set].sort()
 }
@@ -206,6 +209,16 @@ export function extractVariableKeysFromLayout(elements: LayoutElement[]): string
         for (const k of extractVariableKeysFromAnyContent(c.header)) set.add(k)
       }
     }
+    if (el.listItems?.length) {
+      const walkListNodes = (nodes: typeof el.listItems) => {
+        if (!nodes) return
+        for (const node of nodes) {
+          for (const k of extractVariableKeysFromAnyContent(node.text)) set.add(k)
+          if (node.children?.length) walkListNodes(node.children)
+        }
+      }
+      walkListNodes(el.listItems)
+    }
     if (el.bandElements?.length) {
       for (const c of el.bandElements) walk(c)
     }
@@ -214,13 +227,16 @@ export function extractVariableKeysFromLayout(elements: LayoutElement[]): string
   return [...set].sort()
 }
 
-/** Plain substitution for canvas preview (concatenated string). */
+/** Plain substitution for canvas preview (concatenated string). Applies pipes. */
 export function substituteRunsPlain(runs: RichRun[], values: Record<string, string>): string {
   return runs
     .map((r) => {
       if (r.type === 'var') {
-        const k = normalizeVariableIdentifier(r.name)
-        return values[k] ?? ''
+        const parsed = parseVariableExpression(r.name)
+        const k = normalizeVariableIdentifier(parsed.key)
+        const raw = values[k] ?? ''
+        if (parsed.pipes.length === 0) return raw
+        return applyPipes(raw, parsed.pipes)
       }
       return r.text
     })

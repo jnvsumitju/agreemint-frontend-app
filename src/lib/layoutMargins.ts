@@ -29,15 +29,15 @@ export function printMarginInnerBounds(page: PageSpec): {
  * Clamp HEADER/FOOTER so the entire box stays inside the page (0…pageW × 0…pageH).
  * Width/height are capped at page size (not only pw−x), then position is adjusted.
  */
-export function clampHeaderFooterLayoutToPage(el: LayoutElement, page: PageSpec): LayoutElement {
+export function clampHeaderFooterLayoutToPage(el: LayoutElement, page: PageSpec, gridSize?: number): LayoutElement {
   if (!isHeaderOrFooterType(el.type)) return el
   const { width: pw, height: ph } = pageDimensionsPt(page)
   const minW = 20
   const minH = 16
-  const width = snap(Math.max(minW, Math.min(pw, el.width)))
-  const height = snap(Math.max(minH, Math.min(ph, el.height)))
-  const x = snap(Math.max(0, Math.min(Math.max(0, pw - width), el.x)))
-  const y = snap(Math.max(0, Math.min(Math.max(0, ph - height), el.y)))
+  const width = snap(Math.max(minW, Math.min(pw, el.width)), gridSize)
+  const height = snap(Math.max(minH, Math.min(ph, el.height)), gridSize)
+  const x = snap(Math.max(0, Math.min(Math.max(0, pw - width), el.x)), gridSize)
+  const y = snap(Math.max(0, Math.min(Math.max(0, ph - height), el.y)), gridSize)
   return { ...el, x, y, width, height }
 }
 
@@ -46,10 +46,11 @@ export function clampElementTopLeftToPrintMargins(
   el: Pick<LayoutElement, 'type' | 'width' | 'height'>,
   x: number,
   y: number,
-  page: PageSpec
+  page: PageSpec,
+  gridSize?: number
 ): { x: number; y: number } {
   if (isHeaderOrFooterType(el.type)) {
-    const c = clampHeaderFooterLayoutToPage({ ...(el as LayoutElement), x, y } as LayoutElement, page)
+    const c = clampHeaderFooterLayoutToPage({ ...(el as LayoutElement), x, y } as LayoutElement, page, gridSize)
     return { x: c.x, y: c.y }
   }
   const { minX, maxX, minY, maxY } = printMarginInnerBounds(page)
@@ -59,7 +60,7 @@ export function clampElementTopLeftToPrintMargins(
     maxLeftX >= minX ? Math.max(minX, Math.min(maxLeftX, x)) : minX
   const cy =
     maxLeftY >= minY ? Math.max(minY, Math.min(maxLeftY, y)) : minY
-  return { x: snap(cx), y: snap(cy) }
+  return { x: snap(cx, gridSize), y: snap(cy, gridSize) }
 }
 
 /** Clamp size from current top-left; keeps right/bottom inside margins (or page for HEADER/FOOTER). */
@@ -67,7 +68,8 @@ export function clampElementSizeToPrintMargins(
   el: Pick<LayoutElement, 'type' | 'x' | 'y' | 'width' | 'height'>,
   width: number,
   height: number,
-  page: PageSpec
+  page: PageSpec,
+  gridSize?: number
 ): { width: number; height: number } {
   const { width: pw, height: ph } = pageDimensionsPt(page)
   const minW = 20
@@ -75,7 +77,8 @@ export function clampElementSizeToPrintMargins(
   if (isHeaderOrFooterType(el.type)) {
     const c = clampHeaderFooterLayoutToPage(
       { ...(el as LayoutElement), width, height } as LayoutElement,
-      page
+      page,
+      gridSize
     )
     return { width: c.width, height: c.height }
   }
@@ -83,18 +86,18 @@ export function clampElementSizeToPrintMargins(
   const maxW = Math.max(minW, maxX - el.x)
   const maxH = Math.max(minH, maxY - el.y)
   return {
-    width: snap(Math.max(minW, Math.min(maxW, width))),
-    height: snap(Math.max(minH, Math.min(maxH, height))),
+    width: snap(Math.max(minW, Math.min(maxW, width)), gridSize),
+    height: snap(Math.max(minH, Math.min(maxH, height)), gridSize),
   }
 }
 
 /** After arbitrary edits, clamp geometry (print margins, or full page for HEADER/FOOTER). */
-export function clampElementLayoutToPrintMargins(el: LayoutElement, page: PageSpec): LayoutElement {
+export function clampElementLayoutToPrintMargins(el: LayoutElement, page: PageSpec, gridSize?: number): LayoutElement {
   if (isHeaderOrFooterType(el.type)) {
-    return clampHeaderFooterLayoutToPage(el, page)
+    return clampHeaderFooterLayoutToPage(el, page, gridSize)
   }
-  const xy = clampElementTopLeftToPrintMargins(el, el.x, el.y, page)
-  const wh = clampElementSizeToPrintMargins({ ...el, ...xy }, el.width, el.height, page)
+  const xy = clampElementTopLeftToPrintMargins(el, el.x, el.y, page, gridSize)
+  const wh = clampElementSizeToPrintMargins({ ...el, ...xy }, el.width, el.height, page, gridSize)
   return { ...el, ...xy, ...wh }
 }
 
@@ -170,17 +173,18 @@ export function finalizeDragPosition(
   nx: number,
   ny: number,
   page: PageSpec,
-  snapToGrid: boolean
+  snapToGrid: boolean,
+  gridSize?: number
 ): { x: number; y: number } {
   let x = nx
   let y = ny
   for (let i = 0; i < 4; i++) {
-    const c = clampElementTopLeftToPrintMargins(el, x, y, page)
+    const c = clampElementTopLeftToPrintMargins(el, x, y, page, gridSize)
     x = c.x
     y = c.y
     if (!snapToGrid || isHeaderOrFooterType(el.type)) break
-    const sx = snap(x)
-    const sy = snap(y)
+    const sx = snap(x, gridSize)
+    const sy = snap(y, gridSize)
     if (sx === x && sy === y) break
     x = sx
     y = sy
@@ -193,17 +197,18 @@ export function finalizeResizeSize(
   width: number,
   height: number,
   page: PageSpec,
-  snapToGrid: boolean
+  snapToGrid: boolean,
+  gridSize?: number
 ): { width: number; height: number } {
   let w = width
   let h = height
   for (let i = 0; i < 4; i++) {
-    const c = clampElementSizeToPrintMargins(el, w, h, page)
+    const c = clampElementSizeToPrintMargins(el, w, h, page, gridSize)
     w = c.width
     h = c.height
     if (!snapToGrid || isHeaderOrFooterType(el.type)) break
-    const sw = snap(w)
-    const sh = snap(h)
+    const sw = snap(w, gridSize)
+    const sh = snap(h, gridSize)
     if (sw === w && sh === h) break
     w = sw
     h = sh

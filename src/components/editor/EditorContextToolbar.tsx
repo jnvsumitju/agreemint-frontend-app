@@ -1,108 +1,31 @@
+/**
+ * @deprecated This component has been superseded by FormatBar.tsx which now serves as
+ * the universal context-sensitive toolbar (Row 2). This file is kept temporarily for
+ * reference. All functionality including the rich-text help dialog, element-type
+ * branching, focused-text-run formatting, and TipTap toolbar wiring has been migrated
+ * to FormatBar.tsx. Safe to delete once the migration is validated.
+ */
 import type { ReactNode, RefObject } from 'react'
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { findElementByIdInDocumentDeep } from '../../lib/bandNestedLayout'
+import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/editorConstants'
+import { TOOLBAR_CHIP_CLASS } from './uiClasses'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 import { useEditorStore } from '../../stores/editorStore'
 import type { ElementStyle, LayoutElement } from '../../types/layout'
-import { isRichTextElement, normalizeColumnWidths } from '../../types/layout'
+import { isRichTextElement } from '../../types/layout'
+import { parseContentToRuns } from '../../lib/richContent'
 import {
-  type RichRun,
-  type TextRunFormatKey,
-  parseContentToRuns,
-  serializeRunsToContent,
-} from '../../lib/richContent'
-import { normalizeVariableIdentifier } from '../../lib/variables'
-import {
-  duplicateColumnBackgroundMap,
-  duplicateCellBackgroundColumn,
-  reindexColumnBackgroundsAfterDelete,
-  reindexCellBackgroundsAfterColumnDelete,
-  reindexRowBackgroundsAfterDelete,
-  reindexCellBackgroundsAfterRowDelete,
-  shiftColumnBackgroundsAfterInsert,
-  shiftCellBackgroundsAfterColumnInsert,
-  shiftRowBackgroundsAfterInsert,
-  shiftCellBackgroundsAfterRowInsert,
-  swapColumnBackgroundKeys,
-  swapCellBackgroundColumns,
-} from '../../lib/tableBackgroundMaps'
-import { deleteRowsAt, insertRowAt } from '../../lib/tableDataEdit'
-import { TABLE_HEADER_ROW, tableSelectionSummary } from '../../types/tableSelection'
+  patchTextRunColor,
+  mergeElementStyle,
+  omitStyleKey,
+  patchTextRunFormat,
+} from '../../lib/elementStyleHelpers'
+import { TableContextToolbar } from './TableContextToolbar'
 import { RichTextFormatToolbar } from './RichTextFormatToolbar'
 import { RichTextTipTapToolbar } from './RichTextTipTapToolbar'
 import { ColorToolbarSwatch } from './ColorPalettePopover'
-
-function patchTextRunColor(
-  el: LayoutElement,
-  runIndex: number,
-  key: 'color' | 'highlightColor',
-  value: string | undefined,
-  updateElement: (id: string, patch: Partial<LayoutElement>) => void
-) {
-  if (!isRichTextElement(el)) return
-  const runs = parseContentToRuns(el.content)
-  const r = runs[runIndex]
-  if (!r || r.type !== 'text') return
-  const next: Extract<RichRun, { type: 'text' }> = { ...r }
-  const v = value?.trim()
-  if (!v) {
-    if (key === 'color') delete next.color
-    else delete next.highlightColor
-  } else {
-    next[key] = v
-  }
-  runs[runIndex] = next
-  updateElement(el.id, { content: serializeRunsToContent(runs) })
-}
-
-function mergeElementStyle(
-  base: ElementStyle | undefined,
-  patch: Partial<ElementStyle>
-): ElementStyle | undefined {
-  const next: ElementStyle = { ...(base ?? {}), ...patch }
-  if (next.color !== undefined && String(next.color).trim() === '') delete next.color
-  if (next.backgroundColor !== undefined && String(next.backgroundColor).trim() === '')
-    delete next.backgroundColor
-  return Object.keys(next).length > 0 ? next : undefined
-}
-
-function omitStyleKey(style: ElementStyle | undefined, key: 'color' | 'backgroundColor'): ElementStyle | undefined {
-  if (!style) return undefined
-  const rest: ElementStyle = { ...style }
-  delete rest[key]
-  return Object.keys(rest).length > 0 ? rest : undefined
-}
-
-function patchTextRunFormat(
-  el: LayoutElement,
-  runIndex: number,
-  key: TextRunFormatKey,
-  updateElement: (id: string, patch: Partial<LayoutElement>) => void
-) {
-  if (!isRichTextElement(el)) return
-  const runs = parseContentToRuns(el.content)
-  const r = runs[runIndex]
-  if (!r || r.type !== 'text') return
-  const next = { ...r, type: 'text' as const }
-  if (key === 'superscript') {
-    next.superscript = !r.superscript
-    if (next.superscript) next.subscript = false
-  } else if (key === 'subscript') {
-    next.subscript = !r.subscript
-    if (next.subscript) next.superscript = false
-  } else if (key === 'bold') {
-    next.bold = !next.bold
-  } else if (key === 'italic') {
-    next.italic = !next.italic
-  } else if (key === 'underline') {
-    next.underline = !next.underline
-  } else if (key === 'strikethrough') {
-    next.strikethrough = !next.strikethrough
-  }
-  runs[runIndex] = next
-  updateElement(el.id, { content: serializeRunsToContent(runs) })
-}
 
 const RICH_TEXT_CANVAS_HINT_LONG =
   'Double-click the text on the page to edit inline. While editing, use the top bar for bold, italic, underline, strikethrough, super/subscript, text color, and highlight. Press Escape to cancel or ⌘/Ctrl+Enter to finish.'
@@ -199,7 +122,7 @@ function TextElementChrome({
         className={chip(false)}
         onMouseDown={(e) => {
           e.preventDefault()
-          patchStyle({ fontSize: Math.max(6, fs - 1) })
+          patchStyle({ fontSize: Math.max(FONT_SIZE_MIN, fs - 1) })
         }}
       >
         −
@@ -213,7 +136,7 @@ function TextElementChrome({
         className={chip(false)}
         onMouseDown={(e) => {
           e.preventDefault()
-          patchStyle({ fontSize: Math.min(96, fs + 1) })
+          patchStyle({ fontSize: Math.min(FONT_SIZE_MAX, fs + 1) })
         }}
       >
         +
@@ -247,13 +170,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
   const pages = useEditorStore((s) => s.pages)
   const canvasInlineEditId = useEditorStore((s) => s.canvasInlineEditId)
   const focusedTextRunIndex = useEditorStore((s) => s.focusedTextRunIndex)
-  const tableSelection = useEditorStore((s) => s.tableSelection)
-  const setTableSelection = useEditorStore((s) => s.setTableSelection)
-  const tableCellEdit = useEditorStore((s) => s.tableCellEdit)
-  const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
   const updateElement = useEditorStore((s) => s.updateElement)
-  const setVariableValue = useEditorStore((s) => s.setVariableValue)
-  const variableValues = useEditorStore((s) => s.variableValues)
   const inlineTipTapRaw = useEditorStore((s) => s.inlineTipTapEditor)
   const setInlineTipTapEditor = useEditorStore((s) => s.setInlineTipTapEditor)
 
@@ -448,390 +365,7 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
       </div>
     )
   } else if (el?.type === 'TABLE') {
-    const cols = el.columns ?? []
-    const HEADER_ROW = TABLE_HEADER_ROW
-    const dk = el.dataKey ?? 'items'
-    const rawJson = variableValues[dk] ?? ''
-
-    const ts = tableSelection?.tableId === el.id ? tableSelection : null
-
-    const activeColIndices =
-      ts?.mode === 'columns'
-        ? [...new Set(ts.cols)].sort((a, b) => a - b)
-        : ts?.mode === 'cell' && ts.col >= 0
-          ? [ts.col]
-          : []
-    const minCol = activeColIndices.length ? activeColIndices[0] : null
-    const maxCol = activeColIndices.length ? activeColIndices[activeColIndices.length - 1] : null
-    const singleCol = activeColIndices.length === 1 ? activeColIndices[0] : null
-
-    const dataRowIndices =
-      ts?.mode === 'rows'
-        ? [...new Set(ts.rows)].filter((r) => r >= 0).sort((a, b) => a - b)
-        : ts?.mode === 'cell' && ts.row >= 0
-          ? [ts.row]
-          : []
-
-    const insertColumnAt = (index: number) => {
-      const next = [...cols]
-      const n = next.length + 1
-      const insertAt = Math.max(0, Math.min(index, next.length))
-      next.splice(insertAt, 0, { header: `Column ${n}`, key: `col_${n}` })
-      const weights = normalizeColumnWidths(cols.length, el.columnWidths)
-      weights.splice(insertAt, 0, 1)
-      updateElement(el.id, {
-        columns: next,
-        columnWidths: weights,
-        tableColumnBackgrounds: shiftColumnBackgroundsAfterInsert(el.tableColumnBackgrounds, insertAt),
-        tableCellBackgrounds: shiftCellBackgroundsAfterColumnInsert(el.tableCellBackgrounds, insertAt),
-      })
-    }
-
-    const deleteActiveColumns = () => {
-      if (!activeColIndices.length) return
-      if (cols.length <= activeColIndices.length) return
-      const toRemove = [...activeColIndices].sort((a, b) => b - a)
-      const removedAsc = [...activeColIndices].sort((a, b) => a - b)
-      const next = [...cols]
-      const w = normalizeColumnWidths(cols.length, el.columnWidths)
-      for (const c of toRemove) {
-        if (next.length <= 1) break
-        next.splice(c, 1)
-        w.splice(c, 1)
-      }
-      updateElement(el.id, {
-        columns: next,
-        columnWidths: w,
-        tableColumnBackgrounds: reindexColumnBackgroundsAfterDelete(el.tableColumnBackgrounds, removedAsc),
-        tableCellBackgrounds: reindexCellBackgroundsAfterColumnDelete(el.tableCellBackgrounds, removedAsc),
-      })
-      setTableSelection(null)
-    }
-
-    const moveColumn = (dir: -1 | 1) => {
-      if (singleCol == null) return
-      const i = singleCol
-      const j = i + dir
-      if (j < 0 || j >= cols.length) return
-      const next = [...cols]
-      const w = normalizeColumnWidths(cols.length, el.columnWidths)
-      ;[next[i], next[j]] = [next[j], next[i]]
-      ;[w[i], w[j]] = [w[j], w[i]]
-      updateElement(el.id, {
-        columns: next,
-        columnWidths: w,
-        tableColumnBackgrounds: swapColumnBackgroundKeys(el.tableColumnBackgrounds, i, j),
-        tableCellBackgrounds: swapCellBackgroundColumns(el.tableCellBackgrounds, i, j),
-      })
-      const row =
-        ts?.mode === 'cell' ? ts.row : HEADER_ROW
-      setTableSelection({ tableId: el.id, mode: 'cell', row, col: j })
-    }
-
-    const duplicateColumn = () => {
-      const src = maxCol ?? singleCol
-      if (src == null) return
-      const c = cols[src]
-      const next = [...cols]
-      const w = normalizeColumnWidths(cols.length, el.columnWidths)
-      const newKey = normalizeVariableIdentifier(`${c.key}_2`)
-      next.splice(src + 1, 0, { header: c.header, key: newKey })
-      w.splice(src + 1, 0, w[src])
-      updateElement(el.id, {
-        columns: next,
-        columnWidths: w,
-        tableColumnBackgrounds: duplicateColumnBackgroundMap(el.tableColumnBackgrounds, src),
-        tableCellBackgrounds: duplicateCellBackgroundColumn(el.tableCellBackgrounds, src),
-      })
-      const row = ts?.mode === 'cell' ? ts.row : HEADER_ROW
-      setTableSelection({ tableId: el.id, mode: 'cell', row, col: src + 1 })
-    }
-
-    const deleteDataRows = () => {
-      if (!dataRowIndices.length) return
-      const removedAsc = [...new Set(dataRowIndices)].sort((a, b) => a - b)
-      const next = deleteRowsAt(rawJson, dataRowIndices)
-      setVariableValue(dk, next)
-      updateElement(el.id, {
-        tableRowBackgrounds: reindexRowBackgroundsAfterDelete(el.tableRowBackgrounds, removedAsc),
-        tableCellBackgrounds: reindexCellBackgroundsAfterRowDelete(el.tableCellBackgrounds, removedAsc),
-      })
-      setTableSelection(null)
-    }
-
-    const insertOneRowAfterSelection = () => {
-      let at = 0
-      if (dataRowIndices.length > 0) {
-        at = dataRowIndices[dataRowIndices.length - 1] + 1
-      } else if (ts?.mode === 'cell' && ts.row >= 0) {
-        at = ts.row + 1
-      } else if (ts?.mode === 'cell' && ts.row === HEADER_ROW) {
-        at = 0
-      }
-      const next = insertRowAt(rawJson, at)
-      setVariableValue(dk, next)
-      updateElement(el.id, {
-        tableRowBackgrounds: shiftRowBackgroundsAfterInsert(el.tableRowBackgrounds, at),
-        tableCellBackgrounds: shiftCellBackgroundsAfterRowInsert(el.tableCellBackgrounds, at),
-      })
-    }
-
-    const barBtn =
-      'rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-medium hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:px-2 lg:py-1 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700'
-    const barBtnHi =
-      'rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100 lg:px-2 lg:py-1 lg:text-xs dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100 dark:hover:bg-emerald-900/40'
-
-    const summaryBtn =
-      `${barBtn} flex cursor-pointer list-none items-center gap-0.5 [&::-webkit-details-marker]:hidden`
-
-    const selectionHint = ts ? tableSelectionSummary(ts) : 'Nothing selected on table'
-    const kindLine =
-      ts == null
-        ? 'Click a column letter, row number, or a cell. ⌘/Ctrl+click extends column or row selection.'
-        : ts.mode === 'cell'
-          ? ts.row === HEADER_ROW
-            ? 'Header cell — double-click the cell on the canvas to edit plain text (variables preserved in Properties).'
-            : 'Data cell — double-click to edit the preview value (updates Variables JSON).'
-          : ts.mode === 'columns'
-            ? activeColIndices.length > 1
-              ? `${activeColIndices.length} columns — insert wraps selection; remove deletes all selected.`
-              : 'One column — move/duplicate apply to that column.'
-            : ts.mode === 'rows'
-              ? dataRowIndices.length > 0
-                ? `${dataRowIndices.length} data row(s) in selection — remove deletes those rows from JSON.`
-                : 'Header row only — use column tools or cells to edit headers.'
-              : ''
-
-    const isCellEditing = tableCellEdit != null && tableCellEdit.tableId === el.id
-
-    body = (
-      <div className="flex min-w-0 flex-col gap-0.5 px-1 py-0.5">
-        {isCellEditing ? (
-          <RichTextTipTapToolbar canvasEditing />
-        ) : null}
-        <div className="flex flex-nowrap items-center gap-1 overflow-x-auto lg:gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold text-zinc-600 lg:text-xs dark:text-zinc-300">Table</span>
-          <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Text</span>
-          <ColorToolbarSwatch
-            title="Cell text color"
-            value={el.style?.color}
-            onChange={(v) =>
-              updateElement(el.id, {
-                style: mergeElementStyle(el.style, { color: v }),
-              })
-            }
-            onClear={() => updateElement(el.id, { style: omitStyleKey(el.style, 'color') })}
-          />
-          {ts && ts.mode === 'cell' ? (
-            <>
-              <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Cell fill</span>
-              <ColorToolbarSwatch
-                title="Background for selected cell"
-                value={el.tableCellBackgrounds?.[`${ts.row},${ts.col}`]?.trim()}
-                onChange={(hex) => {
-                  const next = { ...(el.tableCellBackgrounds ?? {}) }
-                  next[`${ts.row},${ts.col}`] = hex
-                  updateElement(el.id, { tableCellBackgrounds: next })
-                }}
-                onClear={
-                  el.tableCellBackgrounds?.[`${ts.row},${ts.col}`]?.trim()
-                    ? () => {
-                        const next = { ...(el.tableCellBackgrounds ?? {}) }
-                        delete next[`${ts.row},${ts.col}`]
-                        updateElement(el.id, {
-                          tableCellBackgrounds: Object.keys(next).length ? next : undefined,
-                        })
-                      }
-                    : undefined
-                }
-              />
-            </>
-          ) : null}
-          {ts && ts.mode === 'rows' && ts.rows.length > 0 ? (
-            <>
-              <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Row fill</span>
-              <ColorToolbarSwatch
-                title="Background for selected row(s)"
-                value={el.tableRowBackgrounds?.[String(ts.rows[0])]?.trim()}
-                onChange={(hex) => {
-                  const next = { ...(el.tableRowBackgrounds ?? {}) }
-                  for (const r of ts.rows) next[String(r)] = hex
-                  updateElement(el.id, { tableRowBackgrounds: next })
-                }}
-                onClear={
-                  ts.rows.some((r) => el.tableRowBackgrounds?.[String(r)]?.trim())
-                    ? () => {
-                        const next = { ...(el.tableRowBackgrounds ?? {}) }
-                        for (const r of ts.rows) delete next[String(r)]
-                        updateElement(el.id, {
-                          tableRowBackgrounds: Object.keys(next).length ? next : undefined,
-                        })
-                      }
-                    : undefined
-                }
-              />
-            </>
-          ) : null}
-          {ts && ts.mode === 'columns' && ts.cols.length > 0 ? (
-            <>
-              <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Col fill</span>
-              <ColorToolbarSwatch
-                title="Background for selected column(s)"
-                value={el.tableColumnBackgrounds?.[String(ts.cols[0])]?.trim()}
-                onChange={(hex) => {
-                  const next = { ...(el.tableColumnBackgrounds ?? {}) }
-                  for (const c of ts.cols) next[String(c)] = hex
-                  updateElement(el.id, { tableColumnBackgrounds: next })
-                }}
-                onClear={
-                  ts.cols.some((c) => el.tableColumnBackgrounds?.[String(c)]?.trim())
-                    ? () => {
-                        const next = { ...(el.tableColumnBackgrounds ?? {}) }
-                        for (const c of ts.cols) delete next[String(c)]
-                        updateElement(el.id, {
-                          tableColumnBackgrounds: Object.keys(next).length ? next : undefined,
-                        })
-                      }
-                    : undefined
-                }
-              />
-            </>
-          ) : null}
-          <span
-            className="max-w-[8rem] truncate text-[9px] font-medium text-violet-700 lg:max-w-[14rem] lg:text-[10px] dark:text-violet-300"
-            title={selectionHint}
-          >
-            {selectionHint}
-          </span>
-          <button
-            type="button"
-            className={barBtnHi}
-            title="Edit JSON row data in Variables tab"
-            onClick={() => setEditorSidebarTab('variables')}
-          >
-            Row data
-          </button>
-          <button
-            type="button"
-            className={barBtn}
-            disabled={!dataRowIndices.length}
-            title="Remove selected data rows from JSON"
-            onClick={deleteDataRows}
-          >
-            Remove row(s)
-          </button>
-          <button
-            type="button"
-            className={barBtn}
-            title="Insert a row (after last selected data row, after focused cell, or at start)"
-            onClick={insertOneRowAfterSelection}
-          >
-            + Row
-          </button>
-          <details className="relative">
-            <summary className={summaryBtn}>
-              Columns <span className="text-zinc-400">▾</span>
-            </summary>
-            <div className="absolute left-0 top-[calc(100%+6px)] z-[200] flex w-max min-w-[14rem] flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-600 dark:bg-zinc-800">
-              <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                {activeColIndices.length
-                  ? `${activeColIndices.length} column(s) targeted.`
-                  : 'Select a column (letter or header) or a cell.'}
-              </p>
-              <div className="flex flex-wrap gap-1">
-                <button
-                  type="button"
-                  className={barBtn}
-                  title="Insert column before leftmost selected"
-                  onClick={() => insertColumnAt(minCol ?? 0)}
-                >
-                  + Before
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  title="Insert column after rightmost selected"
-                  onClick={() => insertColumnAt(maxCol != null ? maxCol + 1 : cols.length)}
-                >
-                  + After
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  disabled={
-                    !activeColIndices.length || cols.length <= activeColIndices.length
-                  }
-                  title="Delete selected column(s)"
-                  onClick={deleteActiveColumns}
-                >
-                  Remove
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1 border-t border-zinc-100 pt-2 dark:border-zinc-700">
-                <button
-                  type="button"
-                  className={barBtn}
-                  disabled={singleCol == null || singleCol < 1}
-                  title="Move column left"
-                  onClick={() => moveColumn(-1)}
-                >
-                  ← Move
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  disabled={singleCol == null || singleCol >= cols.length - 1}
-                  title="Move column right"
-                  onClick={() => moveColumn(1)}
-                >
-                  Move →
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  disabled={maxCol == null && singleCol == null}
-                  title="Duplicate rightmost selected column"
-                  onClick={duplicateColumn}
-                >
-                  Duplicate
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1 border-t border-zinc-100 pt-2 dark:border-zinc-700">
-                <button
-                  type="button"
-                  className={barBtn}
-                  title="Reset all columns to equal width"
-                  onClick={() => updateElement(el.id, { columnWidths: undefined })}
-                >
-                  Equal widths
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  title="Reset all body rows to equal height"
-                  onClick={() => updateElement(el.id, { tableRowWeights: undefined })}
-                >
-                  Equal heights
-                </button>
-                <button
-                  type="button"
-                  className={barBtn}
-                  title="Clear all row, column, and cell fill colors"
-                  onClick={() => updateElement(el.id, {
-                    tableRowBackgrounds: undefined,
-                    tableColumnBackgrounds: undefined,
-                    tableCellBackgrounds: undefined,
-                  })}
-                >
-                  Clear fills
-                </button>
-              </div>
-            </div>
-          </details>
-        </div>
-        <p className="hidden text-[10px] leading-snug text-zinc-500 lg:block dark:text-zinc-400">{kindLine}</p>
-      </div>
-    )
+    body = <TableContextToolbar el={el} />
   } else if (el?.type === 'IMAGE') {
     const st = el.style
     body = (
@@ -868,19 +402,11 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
     body = (
       <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">Line</span>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          onClick={() => setStroke(sw - 0.5)}
-        >
-          Thinner
+        <button type="button" className={TOOLBAR_CHIP_CLASS} title="Decrease stroke width" aria-label="Thinner" onClick={() => setStroke(sw - 0.5)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M5 12h14" /></svg>
         </button>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          onClick={() => setStroke(sw + 0.5)}
-        >
-          Thicker
+        <button type="button" className={TOOLBAR_CHIP_CLASS} title="Increase stroke width" aria-label="Thicker" onClick={() => setStroke(sw + 0.5)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
         </button>
         <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{sw}px</span>
         <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Stroke</span>
@@ -953,19 +479,11 @@ export function EditorContextToolbar({ containerRef }: { containerRef: RefObject
     body = (
       <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">{label}</span>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          onClick={() => setStroke(sw - 0.5)}
-        >
-          Thinner
+        <button type="button" className={TOOLBAR_CHIP_CLASS} title="Decrease stroke width" aria-label="Thinner" onClick={() => setStroke(sw - 0.5)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M5 12h14" /></svg>
         </button>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-          onClick={() => setStroke(sw + 0.5)}
-        >
-          Thicker
+        <button type="button" className={TOOLBAR_CHIP_CLASS} title="Increase stroke width" aria-label="Thicker" onClick={() => setStroke(sw + 0.5)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><path d="M12 5v14M5 12h14" /></svg>
         </button>
         <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{sw}px</span>
         <span className="text-[10px] text-zinc-500 dark:text-zinc-400">Stroke</span>

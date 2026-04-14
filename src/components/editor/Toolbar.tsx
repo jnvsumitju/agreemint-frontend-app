@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { commitDraft, generatePdf, pdfFileUrl, putDraft } from '../../lib/api'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
@@ -6,9 +6,19 @@ import { editorDraftSyncIntervalMs, editorLocalSaveIntervalMs } from '../../lib/
 import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/editorLocalDraft'
 import { findElementByIdInDocument } from '../../lib/documentPageMerge'
 import { canSubtractPunchHoleSelection } from '../../lib/shapeGeometry'
+import { cycleDarkMode, getDarkModePreference, subscribeDarkMode, type DarkModeValue } from '../../lib/darkMode'
+import { exportTemplateJson, importTemplateJson } from '../../lib/templateExport'
+import { exportElementAsImage } from '../../lib/canvasExport'
+import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
-import { EditorContextToolbar } from './EditorContextToolbar'
+import {
+  IconUndo, IconRedo, IconScissors, IconEye, IconSave,
+  IconSun, IconMoon, IconMonitor, IconMoreVertical,
+  IconZoomIn, IconZoomOut,
+} from './ToolbarIcons'
+import { TOOLBAR_ICON_BTN, TOOLBAR_DIVIDER } from './uiClasses'
 import { PreviewModal } from './PreviewModal'
+import { VersionDiffModal } from './VersionDiffModal'
 
 function EditorSurfaceSwitcher() {
   const pages = useEditorStore((s) => s.pages)
@@ -76,10 +86,147 @@ function EditorSurfaceSwitcher() {
   )
 }
 
-export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: RefObject<HTMLDivElement | null> }) {
-  const navigate = useNavigate()
+function InlineTemplateName() {
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
+  const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEdit = useCallback(() => {
+    setDraft(templateName || '')
+    setEditing(true)
+    requestAnimationFrame(() => inputRef.current?.select())
+  }, [templateName])
+
+  const commit = useCallback(() => {
+    setEditing(false)
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== templateName && templateId) {
+      setTemplateMeta(templateId, trimmed)
+    }
+  }, [draft, templateName, templateId, setTemplateMeta])
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        className="min-w-[4rem] max-w-[12rem] truncate rounded border border-violet-400 bg-white px-1 py-0.5 text-[11px] font-semibold text-zinc-900 outline-none focus:ring-1 focus:ring-violet-400 lg:text-sm dark:border-violet-500 dark:bg-zinc-800 dark:text-zinc-100"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className="truncate rounded px-1 py-0.5 text-[11px] font-semibold text-zinc-900 hover:bg-zinc-100 lg:text-sm dark:text-zinc-100 dark:hover:bg-zinc-800"
+      title="Click to rename"
+      onClick={startEdit}
+    >
+      {templateName || 'Untitled'}
+    </button>
+  )
+}
+
+function VersionBadge({
+  versionNumber,
+  onCommit,
+  saving,
+}: {
+  versionNumber: number
+  onCommit: () => void
+  saving: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative hidden lg:inline-block">
+      <button
+        type="button"
+        className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-200 lg:text-xs dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+        title="Version info"
+        onClick={() => setOpen((o) => !o)}
+      >
+        v{versionNumber}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-[300] mt-1 min-w-[10rem] rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-600 dark:bg-zinc-800">
+          <p className="text-[11px] font-medium text-zinc-800 dark:text-zinc-100">
+            Version {versionNumber}
+          </p>
+          <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+            This is the latest committed version. Uncommitted changes are auto-saved as a draft.
+          </p>
+          <button
+            type="button"
+            className="mt-2 w-full rounded border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] font-medium text-violet-800 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-600 dark:bg-violet-900/40 dark:text-violet-100 dark:hover:bg-violet-900/60"
+            disabled={saving}
+            onClick={() => {
+              onCommit()
+              setOpen(false)
+            }}
+          >
+            {saving ? 'Saving…' : 'Commit new version'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const DARK_MODE_ICONS: Record<DarkModeValue, { icon: React.ReactNode; label: string }> = {
+  light: {
+    label: 'Light mode — click to switch to dark',
+    icon: <IconSun />,
+  },
+  dark: {
+    label: 'Dark mode — click to switch to system',
+    icon: <IconMoon />,
+  },
+  system: {
+    label: 'System theme — click to switch to light',
+    icon: <IconMonitor />,
+  },
+}
+
+function DarkModeToggle() {
+  const pref = useSyncExternalStore(subscribeDarkMode, getDarkModePreference)
+  const { icon, label } = DARK_MODE_ICONS[pref]
+  return (
+    <button
+      type="button"
+      className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+      title={label}
+      aria-label={label}
+      onClick={() => cycleDarkMode()}
+    >
+      {icon}
+    </button>
+  )
+}
+
+export function Toolbar() {
+  const navigate = useNavigate()
+  const templateId = useEditorStore((s) => s.templateId)
   const versionNumber = useEditorStore((s) => s.versionNumber)
   const currentVersionId = useEditorStore((s) => s.currentVersionId)
   const setVersionInfo = useEditorStore((s) => s.setVersionInfo)
@@ -94,12 +241,17 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
       elements: s.pages[s.activePageIndex]?.elements ?? [],
     })
   )
+  const canvasZoom = useEditorStore((s) => s.canvasZoom)
+  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
+  const setViewOnly = useEditorStore((s) => s.setViewOnly)
 
   const [saving, setSaving] = useState(false)
   const [generatingVersionPdf, setGeneratingVersionPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [versionDiffOpen, setVersionDiffOpen] = useState(false)
 
   const lastLocalJson = useRef<string>('')
   const lastDraftPayload = useRef<string>('')
@@ -169,6 +321,10 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
       setVersionInfo(v.id, v.versionNumber)
       lastDraftPayload.current = ''
       setMenuOpen(false)
+      // Capture thumbnail for gallery preview (fire-and-forget)
+      captureCanvasThumbnail().then((dataUrl) => {
+        if (dataUrl && templateId) setTemplateThumbnail(templateId, dataUrl)
+      }).catch(() => { /* non-critical */ })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Commit failed')
     } finally {
@@ -215,13 +371,9 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
           >
             Templates
           </button>
-          <span className="truncate text-[11px] font-semibold text-zinc-900 lg:text-sm dark:text-zinc-100">
-            {templateName || 'Untitled'}
-          </span>
+          <InlineTemplateName />
           {versionNumber != null && versionNumber > 0 && (
-            <span className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 lg:inline lg:text-xs dark:bg-zinc-800 dark:text-zinc-400">
-              v{versionNumber}
-            </span>
+            <VersionBadge versionNumber={versionNumber} onCommit={() => void commitVersion()} saving={saving} />
           )}
         </div>
         <EditorSurfaceSwitcher />
@@ -231,76 +383,119 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Undo (⌘Z / Ctrl+Z)"
             aria-label="Undo"
-            disabled={!canUndo}
+            disabled={viewOnly || !canUndo}
             onClick={() => undo()}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M3 7v6h6" />
-              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-            </svg>
+            <IconUndo size={18} />
           </button>
           <button
             type="button"
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Redo (⌘⇧Z / Ctrl+Shift+Z or Ctrl+Y)"
             aria-label="Redo"
-            disabled={!canRedo}
+            disabled={viewOnly || !canRedo}
             onClick={() => redo()}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M21 7v6h-6" />
-              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
-            </svg>
+            <IconRedo size={18} />
           </button>
           <button
             type="button"
             className="ml-0.5 flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-xs font-medium text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Subtract smaller shape from larger (two mergeable shapes, or a group of two)"
             aria-label="Punch hole"
-            disabled={!canPunchHole}
+            disabled={viewOnly || !canPunchHole}
             onClick={() => subtractSelectionToMergedShape()}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <rect x="4" y="4" width="16" height="16" rx="2" />
-              <rect x="9" y="9" width="6" height="6" rx="1" strokeDasharray="2 1" />
-            </svg>
+            <IconScissors />
             <span className="hidden lg:inline">Punch hole</span>
           </button>
         </div>
-        <EditorContextToolbar containerRef={contextToolbarExemptRef} />
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <span className={TOOLBAR_DIVIDER} aria-hidden />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              className={TOOLBAR_ICON_BTN}
+              title="Zoom out"
+              aria-label="Zoom out"
+              onClick={() => setCanvasZoom(Math.max(0.25, Math.round((canvasZoom - 0.1) * 100) / 100))}
+            >
+              <IconZoomOut size={14} />
+            </button>
+            <span className="min-w-[2.5rem] select-none text-center text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">
+              {Math.round(canvasZoom * 100)}%
+            </span>
+            <button
+              type="button"
+              className={TOOLBAR_ICON_BTN}
+              title="Zoom in"
+              aria-label="Zoom in"
+              onClick={() => setCanvasZoom(Math.min(3, Math.round((canvasZoom + 0.1) * 100) / 100))}
+            >
+              <IconZoomIn size={14} />
+            </button>
+          </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           {error && <span className="max-w-xs truncate text-xs text-red-600">{error}</span>}
+          <button
+            type="button"
+            className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            title="Preview PDF from current editor state"
+            disabled={!templateId}
+            onClick={() => setPreviewOpen(true)}
+          >
+            <IconEye size={15} />
+            <span className="hidden lg:inline">Preview</span>
+          </button>
+          <button
+            type="button"
+            className="flex h-7 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-[11px] font-medium text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-violet-600 dark:bg-violet-900/40 dark:text-violet-100 dark:hover:bg-violet-900/60"
+            title="Save current draft as a new numbered version"
+            disabled={!templateId || saving}
+            onClick={() => void commitVersion()}
+          >
+            <IconSave size={15} />
+            <span className="hidden lg:inline">{saving ? 'Saving…' : 'Commit'}</span>
+          </button>
+          <DarkModeToggle />
+          <button
+            type="button"
+            className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-medium lg:h-8 lg:px-3 lg:text-xs ${
+              viewOnly
+                ? 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
+                : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
+            }`}
+            title={viewOnly ? 'Switch to Edit mode' : 'Switch to View-only mode (hover elements to comment)'}
+            onClick={() => setViewOnly(!viewOnly)}
+          >
+            {viewOnly ? (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+              </svg>
+            )}
+            <span className="hidden lg:inline">{viewOnly ? 'Viewing' : 'Editing'}</span>
+          </button>
           <div className="relative" ref={menuRef}>
             <button
               type="button"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-300 text-base leading-none text-zinc-600 hover:bg-zinc-50 lg:h-9 lg:w-9 lg:text-lg dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-base leading-none text-zinc-500 hover:bg-zinc-50 lg:h-8 lg:w-8 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               aria-label="More actions"
               disabled={!templateId || saving || generatingVersionPdf}
               onClick={() => setMenuOpen((o) => !o)}
             >
-              ⋮
+              <IconMoreVertical />
             </button>
             {menuOpen && templateId ? (
               <div
                 className="absolute right-0 z-[300] mt-1 min-w-[11rem] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
                 role="menu"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    setPreviewOpen(true)
-                  }}
-                >
-                  Preview PDF
-                </button>
-                <p className="border-b border-zinc-100 px-3 pb-2 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                  PDF from current editor state (unsaved changes included).
-                </p>
                 <button
                   type="button"
                   role="menuitem"
@@ -315,22 +510,101 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
                 >
                   {generatingVersionPdf ? 'Generating…' : 'Generate PDF (latest version)'}
                 </button>
-                <p className="px-3 pb-2 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
-                  Server layout for the version shown in the header; merge fields use your current
-                  variable values.
+                <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                  Uses committed layout with current variable values.
                 </p>
+                <div className="border-t border-zinc-100 dark:border-zinc-700" />
                 <button
                   type="button"
                   role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  disabled={saving}
-                  onClick={() => void commitVersion()}
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    const s = useEditorStore.getState()
+                    exportTemplateJson(
+                      s.pages,
+                      s.pageSpec,
+                      s.globalVariableDefinitions,
+                      s.variableValues,
+                      `template-${templateId.slice(0, 8)}.json`
+                    )
+                    setMenuOpen(false)
+                  }}
                 >
-                  {saving ? 'Committing…' : 'Commit version'}
+                  Export JSON
                 </button>
-                <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                  Saves the current draft in the database as a new numbered version.
-                </p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'
+                    input.accept = '.json'
+                    input.onchange = async () => {
+                      const file = input.files?.[0]
+                      if (!file) return
+                      try {
+                        const data = await importTemplateJson(file)
+                        const s = useEditorStore.getState()
+                        s.loadLayout({
+                          pages: data.pages,
+                          page: data.pageSpec,
+                          globalVariables: data.globalVariables,
+                        })
+                        for (const [k, v] of Object.entries(data.variableValues)) {
+                          s.setVariableValue(k, v)
+                        }
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Import failed')
+                      }
+                    }
+                    input.click()
+                    setMenuOpen(false)
+                  }}
+                >
+                  Import JSON
+                </button>
+                <div className="border-t border-zinc-100 dark:border-zinc-700" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    setVersionDiffOpen(true)
+                    setMenuOpen(false)
+                  }}
+                >
+                  Version Diff
+                </button>
+                <div className="border-t border-zinc-100 dark:border-zinc-700" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
+                    if (pageEl) {
+                      void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'png')
+                    }
+                    setMenuOpen(false)
+                  }}
+                >
+                  Export as PNG
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
+                    if (pageEl) {
+                      void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'jpeg')
+                    }
+                    setMenuOpen(false)
+                  }}
+                >
+                  Export as JPEG
+                </button>
               </div>
             ) : null}
           </div>
@@ -340,6 +614,13 @@ export function Toolbar({ contextToolbarExemptRef }: { contextToolbarExemptRef: 
         <PreviewModal
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
+          templateId={templateId}
+        />
+      )}
+      {templateId && (
+        <VersionDiffModal
+          open={versionDiffOpen}
+          onClose={() => setVersionDiffOpen(false)}
           templateId={templateId}
         />
       )}

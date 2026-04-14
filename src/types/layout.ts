@@ -17,6 +17,15 @@ export type ElementType =
   | 'STAR'
   | 'RING'
   | 'MERGED_SHAPE'
+  | 'LIST'
+
+export type ListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'number' | 'alpha' | 'roman' | 'none'
+
+/** A single node in a tree-structured list. */
+export interface ListItemNode {
+  text: string
+  children?: ListItemNode[]
+}
 
 /** Polygon ring in layout-local pt. */
 export type ShapeRing = [number, number][]
@@ -24,6 +33,30 @@ export type ShapeRing = [number, number][]
 export type ShapePolygon = ShapeRing[]
 /** Disjoint polygons (e.g. boolean union result). */
 export type ShapeMultiPolygon = ShapePolygon[]
+
+export interface ElementShadow {
+  offsetX: number
+  offsetY: number
+  blur: number
+  color: string
+}
+
+/** Single colour stop in a gradient. */
+export interface GradientStop {
+  /** CSS colour string (hex, rgb, etc.). */
+  color: string
+  /** Position along gradient axis, 0–1. */
+  position: number
+}
+
+/** Linear or radial gradient definition. */
+export interface GradientDef {
+  type: 'linear' | 'radial'
+  /** Degrees for linear (0 = top→bottom, 90 = left→right). Ignored for radial. */
+  angle?: number
+  /** Colour stops, minimum 2. */
+  stops: GradientStop[]
+}
 
 export interface ElementStyle {
   fontSize?: number
@@ -34,11 +67,76 @@ export interface ElementStyle {
   color?: string
   /** CSS background (rich text blocks, BOX fill, IMAGE backdrop). */
   backgroundColor?: string
+  /** CSS font-family, e.g. "Inter", "Georgia". */
+  fontFamily?: string
+  /** 0–1; default 1 (fully opaque). */
+  opacity?: number
+  /** Degrees clockwise; default 0. */
+  rotation?: number
+  /** Border corner radius in pt (BOX, IMAGE, TABLE). */
+  borderRadius?: number
+  /** Explicit border width in pt (BOX, IMAGE). Distinct from shape strokeWidth on LayoutElement. */
+  borderWidth?: number
+  /** Stroke / border dash pattern. */
+  lineStyle?: 'solid' | 'dashed' | 'dotted'
+  /** Line-height multiplier (e.g. 1.0, 1.2, 1.5, 2.0). Default 1.4. */
+  lineHeight?: number
+  /** CSS-like drop shadow. */
+  shadow?: ElementShadow
+  /** Gradient for text color / stroke. Takes precedence over `color` when set. */
+  colorGradient?: GradientDef
+  /** Gradient for background / fill. Takes precedence over `backgroundColor` when set. */
+  bgGradient?: GradientDef
+}
+
+/** Element-anchored comment / annotation (V1: stored in layout JSON). */
+export interface ElementComment {
+  id: string
+  text: string
+  author: string
+  createdAt: string
+  resolved?: boolean
+  /** Threaded replies nested under this comment. */
+  replies?: ElementComment[]
 }
 
 export interface TableColumn {
   header: string
   key: string
+}
+
+/** Per-cell text styling within a table variable's cellStyle array. */
+export interface TableCellTextStyle {
+  color?: string
+  isBold?: boolean
+  isItalic?: boolean
+  isUnderline?: boolean
+  fontSize?: number
+  fontFamily?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+/** Styling for a single cell within the cellStyle 2D array. */
+export interface TableCellStyle {
+  cellBgColor?: string | null
+  cellText?: TableCellTextStyle
+}
+
+/** Border configuration for the table variable structure. */
+export interface TableBorderStyle {
+  width?: number
+  color?: string
+  style?: 'solid' | 'dashed' | 'dotted' | 'none'
+}
+
+/** Structured table variable value (stored as JSON string in variableValues). */
+export interface TableVariableData {
+  /** 2D array of strings; row 0 is headers, rows 1+ are data. */
+  data: string[][]
+  /** 2D array matching data dimensions; each entry styles one cell. */
+  cellStyle?: (TableCellStyle | null)[][]
+  /** Table-level border configuration. */
+  borderStyle?: TableBorderStyle
 }
 
 export interface LayoutElement {
@@ -74,9 +172,13 @@ export interface LayoutElement {
   tableShowRowNumbers?: boolean
   /** TABLE editor canvas: body preview row count (default 3). */
   tablePreviewBodyRows?: number
+  /** TABLE: when true + loop enabled, cell/border styles come from the variable data rather than canvas maps. */
+  tableStyleFromVariable?: boolean
   strokeWidth?: number
   marginTop?: number
   marginBottom?: number
+  /** Element-anchored comments (V1: stored in layout JSON). */
+  comments?: ElementComment[]
   /** When true, block move/resize and content edits on canvas until unlocked. */
   locked?: boolean
   /** Elements with the same id move together when any member is dragged (editor-only; optional in JSON). */
@@ -95,6 +197,22 @@ export interface LayoutElement {
   bandElements?: LayoutElement[]
   /** HEADER / FOOTER only: layout guides in band-local pt (same structure as page guides). */
   bandGuides?: PageGuides
+  /** LIST: marker style. Default 'disc'. */
+  listStyle?: ListStyle
+  /** LIST: tree-structured items. Each node has `text` + optional `children`. */
+  listItems?: ListItemNode[]
+  /** LIST: vertical gap between items in pt. Default 4. */
+  listItemSpacing?: number
+  /** LIST: width of the marker column in pt. Default 16. */
+  listIndent?: number
+  /** LIST: start index for numbered markers (number/alpha/roman). Default 1. */
+  listStartNumber?: number
+  /** LIST loop mode: key within each object that holds child items (default 'children'). */
+  listChildrenKey?: string
+  /** Linked text frame: ID of the continuation element on the next page. */
+  linkedNextId?: string
+  /** Linked text frame: ID of the preceding element on the previous page. */
+  linkedPrevId?: string
 }
 
 /** Elements with rich `content` + `style` (inline edit on canvas like TEXT). */
@@ -112,12 +230,27 @@ export interface PageMargins {
 
 export interface PageSpec {
   size: string
+  /** Portrait or landscape orientation. Default portrait. */
+  orientation?: 'portrait' | 'landscape'
   /** Legacy single margin; used when loading old layouts without `margins`. */
   margin: number
   margins: PageMargins
 }
 
 export const PAGE_A4_PT = { width: 595, height: 842 } as const
+
+/** All supported page size presets (portrait orientation, dimensions in pt). */
+export const PAGE_SIZE_PRESETS: Record<string, { width: number; height: number; label: string }> = {
+  A3:       { width: 842, height: 1191, label: 'A3 (297 × 420 mm)' },
+  A4:       { width: 595, height: 842,  label: 'A4 (210 × 297 mm)' },
+  A5:       { width: 420, height: 595,  label: 'A5 (148 × 210 mm)' },
+  LETTER:   { width: 612, height: 792,  label: 'Letter (8.5 × 11 in)' },
+  LEGAL:    { width: 612, height: 1008, label: 'Legal (8.5 × 14 in)' },
+  TABLOID:  { width: 792, height: 1224, label: 'Tabloid (11 × 17 in)' },
+  EXECUTIVE:{ width: 522, height: 756,  label: 'Executive (7.25 × 10.5 in)' },
+  B4:       { width: 709, height: 1001, label: 'B4 (250 × 353 mm)' },
+  B5:       { width: 499, height: 709,  label: 'B5 (176 × 250 mm)' },
+} as const
 
 /** Stable id for layouts that only had a single top-level `elements` array. */
 export const LEGACY_SINGLE_PAGE_ID = 'page_1'
@@ -150,6 +283,7 @@ export interface LayoutJson {
     size: string
     margin: number
     margins?: PageMargins
+    orientation?: 'portrait' | 'landscape'
   }
   /** Optional template / layout DSL version for migrations. */
   layoutSchemaVersion?: number
@@ -187,8 +321,13 @@ export function normalizePageSpec(raw: unknown): PageSpec {
   const legacy = Number(o.margin)
   const margin = Number.isFinite(legacy) ? legacy : d.margin
   const mr = o.margins as Partial<PageMargins> | undefined
+  const orientation =
+    o.orientation === 'landscape' ? 'landscape' as const
+    : o.orientation === 'portrait' ? 'portrait' as const
+    : undefined
   return {
     size: String(o.size ?? d.size),
+    orientation,
     margin,
     margins: {
       top: Number.isFinite(Number(mr?.top)) ? Number(mr?.top) : margin,
@@ -201,14 +340,17 @@ export function normalizePageSpec(raw: unknown): PageSpec {
 
 export function pageDimensionsPt(spec: PageSpec): { width: number; height: number } {
   const s = String(spec.size ?? 'A4').toUpperCase()
-  if (s === 'A4') return { ...PAGE_A4_PT }
-  return { ...PAGE_A4_PT }
+  const preset = PAGE_SIZE_PRESETS[s] ?? PAGE_SIZE_PRESETS.A4
+  const landscape = spec.orientation === 'landscape'
+  return landscape
+    ? { width: preset.height, height: preset.width }
+    : { width: preset.width, height: preset.height }
 }
 
-const GRID = 10
+const DEFAULT_GRID = 10
 
-export function snap(n: number): number {
-  return Math.round(n / GRID) * GRID
+export function snap(n: number, gridSize: number = DEFAULT_GRID): number {
+  return Math.round(n / gridSize) * gridSize
 }
 
 /** Safe numeric for layout / CSS: avoids NaN from bad JSON or `Number("…")`. */
@@ -263,6 +405,7 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
     height: el.height,
   }
   if (el.style && Object.keys(el.style).length > 0) {
+    // Serialize style — gradient objects are stored as-is (JSON-safe plain objects)
     base.style = el.style
   }
   if (el.content != null) base.content = el.content
@@ -305,6 +448,8 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   ) {
     base.tablePreviewBodyRows = el.tablePreviewBodyRows
   }
+  if (el.tableStyleFromVariable === true) base.tableStyleFromVariable = true
+  if (el.comments?.length) base.comments = el.comments
   if (el.strokeWidth != null) base.strokeWidth = el.strokeWidth
   if (el.marginTop != null) base.marginTop = el.marginTop
   if (el.marginBottom != null) base.marginBottom = el.marginBottom
@@ -319,6 +464,16 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   if (el.bandGuides && (el.bandGuides.vertical.length > 0 || el.bandGuides.horizontal.length > 0)) {
     base.bandGuides = { vertical: [...el.bandGuides.vertical], horizontal: [...el.bandGuides.horizontal] }
   }
+  // LIST fields
+  if (el.listStyle && el.listStyle !== 'disc') base.listStyle = el.listStyle
+  if (el.listItems?.length) base.listItems = el.listItems
+  if (el.listItemSpacing != null && el.listItemSpacing !== 4) base.listItemSpacing = el.listItemSpacing
+  if (el.listIndent != null && el.listIndent !== 16) base.listIndent = el.listIndent
+  if (el.listStartNumber != null && el.listStartNumber !== 1) base.listStartNumber = el.listStartNumber
+  if (el.listChildrenKey?.trim() && el.listChildrenKey !== 'children') base.listChildrenKey = el.listChildrenKey
+  // Linked text frame fields
+  if (el.linkedNextId?.trim()) base.linkedNextId = el.linkedNextId
+  if (el.linkedPrevId?.trim()) base.linkedPrevId = el.linkedPrevId
   return base
 }
 
@@ -331,8 +486,38 @@ function parseCssColorRecord(raw: unknown): Record<string, string> | undefined {
   return Object.keys(out).length > 0 ? out : undefined
 }
 
+function parseGradientDef(raw: unknown): GradientDef | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as Record<string, unknown>
+  const type = o.type
+  if (type !== 'linear' && type !== 'radial') return undefined
+  const stops = o.stops
+  if (!Array.isArray(stops) || stops.length < 2) return undefined
+  const parsed: GradientStop[] = []
+  for (const s of stops) {
+    if (!s || typeof s !== 'object') continue
+    const so = s as Record<string, unknown>
+    const color = typeof so.color === 'string' ? so.color : undefined
+    const pos = Number(so.position)
+    if (!color || !Number.isFinite(pos)) continue
+    parsed.push({ color, position: Math.max(0, Math.min(1, pos)) })
+  }
+  if (parsed.length < 2) return undefined
+  const angle = Number(o.angle)
+  return { type, angle: Number.isFinite(angle) ? angle : undefined, stops: parsed }
+}
+
+function sanitizeElementStyle(raw: unknown): ElementStyle | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const s = { ...(raw as ElementStyle) }
+  // Parse gradient sub-objects through validation
+  if (s.colorGradient) s.colorGradient = parseGradientDef(s.colorGradient) ?? undefined
+  if (s.bgGradient) s.bgGradient = parseGradientDef(s.bgGradient) ?? undefined
+  return Object.keys(s).length > 0 ? s : undefined
+}
+
 export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
-  const style = raw.style as ElementStyle | undefined
+  const style = sanitizeElementStyle(raw.style)
   let type = String(raw.type ?? 'TEXT').toUpperCase()
   if (type === 'PARAGRAPH') type = 'TEXT'
   return {
@@ -372,6 +557,10 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
       if (!Number.isFinite(n)) return undefined
       return Math.max(1, Math.min(30, Math.floor(n)))
     })(),
+    tableStyleFromVariable: raw.tableStyleFromVariable === true ? true : undefined,
+    comments: Array.isArray(raw.comments) && raw.comments.length > 0
+      ? (raw.comments as ElementComment[])
+      : undefined,
     strokeWidth: raw.strokeWidth != null ? Number(raw.strokeWidth) : undefined,
     marginTop: raw.marginTop != null ? Number(raw.marginTop) : undefined,
     marginBottom: raw.marginBottom != null ? Number(raw.marginBottom) : undefined,
@@ -398,7 +587,116 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
       if (!v.length && !h.length) return undefined
       return { vertical: v, horizontal: h }
     })(),
+    // LIST fields
+    listStyle: (() => {
+      const v = raw.listStyle
+      if (typeof v !== 'string') return undefined
+      const valid: ListStyle[] = ['disc', 'circle', 'square', 'dash', 'number', 'alpha', 'roman', 'none']
+      return valid.includes(v as ListStyle) ? (v as ListStyle) : undefined
+    })(),
+    listItems: (() => {
+      if (!Array.isArray(raw.listItems)) return undefined
+      const arr = raw.listItems as unknown[]
+      if (arr.length === 0) return undefined
+      // New tree format: array of { text, children? }
+      if (typeof arr[0] === 'object' && arr[0] !== null && 'text' in (arr[0] as Record<string, unknown>)) {
+        return parseListItemNodes(arr)
+      }
+      // Legacy flat format: string[] + optional listItemIndents[]
+      const texts = arr.filter((x): x is string => typeof x === 'string')
+      if (texts.length === 0) return undefined
+      const indents: number[] = Array.isArray(raw.listItemIndents)
+        ? (raw.listItemIndents as unknown[]).map((x) => {
+            const n = Number(x)
+            return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0
+          })
+        : texts.map(() => 0)
+      return buildListTree(texts, indents)
+    })(),
+    listItemSpacing: (() => {
+      if (raw.listItemSpacing == null) return undefined
+      const n = Number(raw.listItemSpacing)
+      return Number.isFinite(n) && n >= 0 ? n : undefined
+    })(),
+    listIndent: (() => {
+      if (raw.listIndent == null) return undefined
+      const n = Number(raw.listIndent)
+      return Number.isFinite(n) && n >= 0 ? n : undefined
+    })(),
+    listStartNumber: (() => {
+      if (raw.listStartNumber == null) return undefined
+      const n = Number(raw.listStartNumber)
+      return Number.isFinite(n) && Number.isInteger(n) && n >= 0 ? n : undefined
+    })(),
+    listChildrenKey: (() => {
+      if (typeof raw.listChildrenKey !== 'string') return undefined
+      const v = raw.listChildrenKey.trim()
+      return v && v !== 'children' ? v : undefined
+    })(),
+    // Linked text frame fields
+    linkedNextId: typeof raw.linkedNextId === 'string' && raw.linkedNextId.trim() ? raw.linkedNextId : undefined,
+    linkedPrevId: typeof raw.linkedPrevId === 'string' && raw.linkedPrevId.trim() ? raw.linkedPrevId : undefined,
   }
+}
+
+// ── List tree helpers ──
+
+/** Parse raw JSON into validated ListItemNode[]. */
+function parseListItemNodes(arr: unknown[]): ListItemNode[] | undefined {
+  const result: ListItemNode[] = []
+  for (const item of arr) {
+    if (!item || typeof item !== 'object') continue
+    const obj = item as Record<string, unknown>
+    const text = typeof obj.text === 'string' ? obj.text : ''
+    const node: ListItemNode = { text }
+    if (Array.isArray(obj.children) && obj.children.length > 0) {
+      const parsed = parseListItemNodes(obj.children)
+      if (parsed?.length) node.children = parsed
+    }
+    result.push(node)
+  }
+  return result.length > 0 ? result : undefined
+}
+
+/** Convert legacy flat string[] + number[] into a ListItemNode tree. */
+export function buildListTree(texts: string[], indents: number[]): ListItemNode[] {
+  const root: ListItemNode[] = []
+  const stack: [ListItemNode[], number][] = [[root, -1]]
+  for (let i = 0; i < texts.length; i++) {
+    const indent = indents[i] ?? 0
+    const node: ListItemNode = { text: texts[i] }
+    // Pop stack until we find the correct parent depth
+    while (stack.length > 1 && stack[stack.length - 1][1] >= indent) stack.pop()
+    stack[stack.length - 1][0].push(node)
+    // This node's children array becomes the next potential parent
+    const children: ListItemNode[] = []
+    node.children = children
+    stack.push([children, indent])
+  }
+  // Clean up empty children arrays
+  const clean = (nodes: ListItemNode[]) => {
+    for (const n of nodes) {
+      if (n.children && n.children.length === 0) delete n.children
+      else if (n.children) clean(n.children)
+    }
+  }
+  clean(root)
+  return root
+}
+
+/** Flatten a ListItemNode tree into parallel text[] + indent[] arrays. */
+export function flattenListTree(nodes: ListItemNode[]): { texts: string[]; indents: number[] } {
+  const texts: string[] = []
+  const indents: number[] = []
+  const walk = (arr: ListItemNode[], depth: number) => {
+    for (const node of arr) {
+      texts.push(node.text)
+      indents.push(depth)
+      if (node.children?.length) walk(node.children, depth + 1)
+    }
+  }
+  walk(nodes, 0)
+  return { texts, indents }
 }
 
 function parseShapeMultiPolygon(raw: unknown): ShapeMultiPolygon | undefined {
@@ -493,8 +791,9 @@ export function buildLayoutJson(
       size: page.size,
       margin: page.margin,
       margins: page.margins,
+      ...(page.orientation ? { orientation: page.orientation } : {}),
     },
-    layoutSchemaVersion: 1,
+    layoutSchemaVersion: 2,
     ...(globals.length ? { globalVariables: globals } : {}),
     elements: firstElements,
     pages: serialized,

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Variable chips inside canvas inline editor */
 .am-inline-var {
   background: rgb(237 233 254);

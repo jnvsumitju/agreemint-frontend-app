@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { documentBandElementsFromFirstPage, findElementByIdInDocument } from '../../lib/documentPageMerge'
 import { editorDiagLogOnce } from '../../lib/editorDiagnostics'
 import { selectActivePageElements, useEditorStore } from '../../stores/editorStore'
@@ -119,6 +119,19 @@ export function LayersSection() {
   /** Front (top) → back (bottom), matching design tools. */
   const frontToBack = [...elements].reverse()
 
+  const [layerSearch, setLayerSearch] = useState('')
+  const filteredLayers = useMemo(() => {
+    const q = layerSearch.trim().toLowerCase()
+    if (!q) return frontToBack
+    return frontToBack.filter(
+      (el) =>
+        el.id.toLowerCase().includes(q) ||
+        el.type.toLowerCase().includes(q) ||
+        (el.content ?? '').toLowerCase().includes(q) ||
+        (el.dataKey ?? '').toLowerCase().includes(q)
+    )
+  }, [frontToBack, layerSearch])
+
   if (elements.length === 0) {
     return (
       <div className="p-3 text-sm text-zinc-500 dark:text-zinc-400">
@@ -173,6 +186,15 @@ export function LayersSection() {
 
   return (
     <div className="flex flex-col gap-2 p-3">
+      {elements.length > 4 && (
+        <input
+          type="text"
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] placeholder-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:placeholder-zinc-500"
+          placeholder="Search layers (type, id, content)…"
+          value={layerSearch}
+          onChange={(e) => setLayerSearch(e.target.value)}
+        />
+      )}
       {bandNestedMode ? (
         <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           Layers inside the band you’re editing (band coordinates). Top draws{' '}
@@ -191,7 +213,7 @@ export function LayersSection() {
         </p>
       )}
       <ul className="flex flex-col gap-1">
-        {frontToBack.map((el) => {
+        {filteredLayers.map((el) => {
           const stackIndex = elements.findIndex((e) => e.id === el.id)
           const isFront = stackIndex === elements.length - 1
           const isBack = stackIndex === 0

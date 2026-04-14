@@ -6,8 +6,9 @@ import type { ElementStyle, LayoutElement, LayoutDocumentPage, VariableDefinitio
 import { normalizeCatalogVariableKey } from '../types/layout'
 import { extractVariableKeys } from './variables'
 import type { BehaviourCondition, ElementBehaviour } from '../types/layoutBehaviour'
+import { substituteWithPipes, VAR_PIPE_RE } from './variablePipes'
 
-const VAR_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g
+const VAR_RE = VAR_PIPE_RE
 
 export type ResolveWarning = { code: string; message: string }
 
@@ -74,16 +75,7 @@ export function substituteTemplate(
   row: Record<string, unknown> | null
 ): string {
   if (!template) return ''
-  return template.replace(VAR_RE, (_, key: string) => {
-    const v = lookup(String(key), globalData, row)
-    if (v == null) return ''
-    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v)
-    try {
-      return JSON.stringify(v)
-    } catch {
-      return ''
-    }
-  })
+  return substituteWithPipes(template, (key) => lookup(key, globalData, row))
 }
 
 function coerceNumber(v: unknown): number | null {

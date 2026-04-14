@@ -17,6 +17,10 @@ export type EditorUndoSnapshot = {
   focusedTextRunIndex: number | null
   tableSelection: TableSelection
   tableCellEdit: { tableId: string; row: number; col: number } | null
+  /** Human-readable label for this snapshot (shown in history timeline). */
+  undoLabel?: string
+  /** Timestamp when this snapshot was captured. */
+  timestamp?: number
 }
 
 type SnapshotSource = Pick<
@@ -50,8 +54,8 @@ export function isUndoSuppressed(): boolean {
   return suppressDepth > 0
 }
 
-export function captureEditorUndoSnapshot(s: SnapshotSource): EditorUndoSnapshot {
-  return JSON.parse(
+export function captureEditorUndoSnapshot(s: SnapshotSource, label?: string): EditorUndoSnapshot {
+  const snap = JSON.parse(
     JSON.stringify({
       pages: s.pages,
       pageSpec: s.pageSpec,
@@ -67,6 +71,9 @@ export function captureEditorUndoSnapshot(s: SnapshotSource): EditorUndoSnapshot
       tableCellEdit: s.tableCellEdit,
     })
   ) as EditorUndoSnapshot
+  snap.timestamp = Date.now()
+  if (label) snap.undoLabel = label
+  return snap
 }
 
 /** Deep-cloned fields safe to merge into editor state. */

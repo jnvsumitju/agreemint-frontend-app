@@ -8,7 +8,6 @@ import {
 } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import {
-  activeCanvasTipTapEditorByElementId,
   registerActiveCanvasTipTapEditor,
   unregisterActiveCanvasTipTapEditor,
   useEditorStore,
@@ -20,7 +19,6 @@ import {
 } from '../../types/layout'
 import {
   excelColumnLabel,
-  formatPreviewCellValue,
   getTableDataSourceState,
   getVisibleTableBodyRows,
   tablePreviewBodyRowCount,
@@ -53,6 +51,17 @@ import {
   insertRowAt,
   setDataCellValue,
 } from '../../lib/tableDataEdit'
+import {
+  parseTableVariableData,
+  setStructuredCellValue,
+  setStructuredHeaderValue,
+  insertStructuredRowAt,
+  insertStructuredColumnAt,
+  serializeTableVariableData,
+  getStructuredCellValue,
+  getStructuredHeaderValue,
+} from '../../lib/tableDataFormat'
+import type { TableVariableData } from '../../types/layout'
 import { TipTapRichEditor } from './TipTapRichEditor'
 import type { VariableMentionItem } from '../../lib/layoutBehaviourResolve'
 import {
@@ -76,18 +85,27 @@ function mergeBlockSelectionStyle(
   return undefined
 }
 
-/** Effective background: cell fill > column fill > row fill. */
+/** Effective background: cell fill > column fill > row fill > table fill. */
 function tableCellEffectiveBackground(
   table: LayoutElement,
   row: number,
-  col: number
+  col: number,
+  structuredData?: TableVariableData | null
 ): string | undefined {
+  // When tableStyleFromVariable is enabled and structured data has cellStyle, use it
+  if (table.tableStyleFromVariable && structuredData?.cellStyle) {
+    // Map: row -1 (header) → cellStyle[0], row 0 (data row 0) → cellStyle[1], etc.
+    const styleRowIdx = row === -1 ? 0 : row + 1
+    const cs = structuredData.cellStyle[styleRowIdx]?.[col]
+    if (cs?.cellBgColor) return cs.cellBgColor
+  }
   const cellBg = table.tableCellBackgrounds?.[`${row},${col}`]?.trim()
   if (cellBg) return cellBg
   const colBg = table.tableColumnBackgrounds?.[String(col)]?.trim()
   if (colBg) return colBg
   const rowBg = table.tableRowBackgrounds?.[String(row)]?.trim()
-  return rowBg || undefined
+  if (rowBg) return rowBg
+  return table.style?.backgroundColor?.trim() || undefined
 }
 
 /** TABLE row; caller must pass a table element (see `EditorCanvas`). */
@@ -147,8 +165,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     [variableValues]
   )
   const previewBodyRows = useMemo(() => tablePreviewBodyRowCount(el), [el.id, el.tablePreviewBodyRows, el.type])
+  /** Row weights include header (index 0) + body rows (indices 1…N). */
   const rowWeights = useMemo(
-    () => normalizeRowWeights(previewBodyRows, el.tableRowWeights),
+    () => normalizeRowWeights(previewBodyRows + 1, el.tableRowWeights),
     [previewBodyRows, rowWeightsKey]
   )
   const visibleBodyRows = useMemo(
@@ -165,9 +184,8 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const showRowNumbers = pinnedRows || peekRows
   /** Cell grid only — letters/row gutters are absolutely positioned outside so toggles do not resize cells. */
   const gridTemplateColumns = colTemplate
-  /** Header is content-sized (`auto`); extra height is split among body rows via `tableRowWeights` `fr`. */
-  const gridTemplateRows =
-    `minmax(20px, auto) ${rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')}`.trim()
+  /** All rows (header + body) share height via `fr` units from `rowWeights`. */
+  const gridTemplateRows = rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
 
   const gridRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -204,12 +222,6 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     tableSelection.row === tableCellEdit.row &&
     tableSelection.col === tableCellEdit.col
 
-  const editingIsHeader = isEditing && tableCellEdit?.row === HEADER_ROW
-
-  useEffect(() => {
-    if (!isEditing || !tableCellEdit || tableCellEdit.tableId !== el.id) return
-    // Both header and body use TipTap now — no draft needed
-  }, [isEditing, tableCellEdit?.tableId, tableCellEdit?.row, tableCellEdit?.col, el.id, cols, rawJson, variableValues])
 
   const clearTablePeek = useCallback(() => {
     peekRef.current = { l: false, r: false }
@@ -330,27 +342,43 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     previewBodyRows,
   ])
 
+  const parsedStructured: TableVariableData | null = useMemo(
+    () => parseTableVariableData(rawJson),
+    [rawJson]
+  )
+  const isStructured = parsedStructured != null
+
   const onHeaderTipTapChange = useCallback(
     (serialized: string) => {
       if (!tableCellEdit || tableCellEdit.tableId !== el.id || tableCellEdit.row !== HEADER_ROW) return
-      const c = cols[tableCellEdit.col]
-      if (!c) return
-      const nextCols = [...cols]
-      nextCols[tableCellEdit.col] = { ...c, header: serialized }
-      updateElement(el.id, { columns: nextCols })
+      if (isStructured && parsedStructured) {
+        const next = setStructuredHeaderValue(parsedStructured, tableCellEdit.col, serialized)
+        setVariableValue(dk, serializeTableVariableData(next))
+      } else {
+        const c = cols[tableCellEdit.col]
+        if (!c) return
+        const nextCols = [...cols]
+        nextCols[tableCellEdit.col] = { ...c, header: serialized }
+        updateElement(el.id, { columns: nextCols })
+      }
     },
-    [tableCellEdit, el.id, cols, updateElement]
+    [tableCellEdit, el.id, cols, updateElement, isStructured, parsedStructured, dk, setVariableValue]
   )
 
   const onBodyTipTapChange = useCallback(
     (serialized: string) => {
       if (!tableCellEdit || tableCellEdit.tableId !== el.id || tableCellEdit.row === HEADER_ROW) return
-      const c = cols[tableCellEdit.col]
-      if (!c) return
-      const nextJson = setDataCellValue(rawJson, tableCellEdit.row, c.key, serialized)
-      setVariableValue(dk, nextJson)
+      if (isStructured && parsedStructured) {
+        const next = setStructuredCellValue(parsedStructured, tableCellEdit.row, tableCellEdit.col, serialized)
+        setVariableValue(dk, serializeTableVariableData(next))
+      } else {
+        const c = cols[tableCellEdit.col]
+        if (!c) return
+        const nextJson = setDataCellValue(rawJson, tableCellEdit.row, c.key, serialized)
+        setVariableValue(dk, nextJson)
+      }
     },
-    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue]
+    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue, isStructured, parsedStructured]
   )
 
   const tableCellEditorKey = tableCellEdit?.tableId === el.id ? `table-${el.id}-cell` : null
@@ -373,10 +401,6 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     },
     [tableCellEditorKey, setInlineTipTapEditor]
   )
-
-  const commitCellEdit = useCallback(() => {
-    setTableCellEdit(null)
-  }, [setTableCellEdit])
 
   const cancelCellEdit = useCallback(() => {
     setTableCellEdit(null)
@@ -652,12 +676,26 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
       tableColumnBackgrounds: shiftColumnBackgroundsAfterInsert(el.tableColumnBackgrounds, insertAt),
       tableCellBackgrounds: shiftCellBackgroundsAfterColumnInsert(el.tableCellBackgrounds, insertAt),
     })
+    // Also update structured variable data if present
+    if (parsedStructured) {
+      const updated = insertStructuredColumnAt(parsedStructured, insertAt, `Column ${n}`)
+      setVariableValue(dk, serializeTableVariableData(updated))
+    }
   }
 
   const insertRowFromCanvas = (insertIndex: number) => {
-    const next = insertRowAt(rawJson, insertIndex)
-    setVariableValue(dk, next)
+    if (parsedStructured) {
+      const updated = insertStructuredRowAt(parsedStructured, insertIndex)
+      setVariableValue(dk, serializeTableVariableData(updated))
+    } else {
+      const next = insertRowAt(rawJson, insertIndex)
+      setVariableValue(dk, next)
+    }
+    const rw = normalizeRowWeights(previewBodyRows + 1, el.tableRowWeights)
+    rw.splice(insertIndex + 1, 0, 1)
     updateElement(el.id, {
+      tablePreviewBodyRows: previewBodyRows + 1,
+      tableRowWeights: rw,
       tableRowBackgrounds: shiftRowBackgroundsAfterInsert(el.tableRowBackgrounds, insertIndex),
       tableCellBackgrounds: shiftCellBackgroundsAfterRowInsert(el.tableCellBackgrounds, insertIndex),
     })
@@ -802,7 +840,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           {cols.map((c, ci) => {
             const sel = tableSelection
             const isSel = highlight(sel, HEADER_ROW, ci)
-            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci)
+            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci, parsedStructured)
             const colBlockBorder =
               selected &&
               sel?.tableId === el.id &&
@@ -845,20 +883,22 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   if (ci === 0) headerRowRef.current = node
                   if (!showRowNumbers && ci === 0) headerGutterRef.current = node
                 }}
-                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] font-semibold leading-tight ${
-                  fillBg ? '' : 'bg-zinc-200 dark:bg-zinc-300'
+                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                  fillBg ? '' : 'bg-white dark:bg-zinc-50'
                 } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
                 style={{ gridRow: 1, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => onGridCellClick(e, HEADER_ROW, ci, true)}
               >
-                {editingHere ? (
+                {(() => {
+                  const headerContent = isStructured ? getStructuredHeaderValue(parsedStructured!, ci) : c.header
+                  return editingHere ? (
                   <div
                     className="absolute inset-0 z-[5] box-border min-w-0 overflow-hidden ring-2 ring-violet-500"
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <TipTapRichEditor
-                      content={c.header}
+                      content={headerContent}
                       emitOnChange
                       onChange={onHeaderTipTapChange}
                       variableMentions={variableMentions}
@@ -868,10 +908,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       mode="canvas"
                       sessionKey={`${el.id}-h-${ci}`}
                       autoFocus
-                      editorClassName="bg-transparent font-semibold"
+                      editorClassName="bg-transparent"
                       editorStyle={{
                         fontSize: 9,
-                        fontWeight: 600,
                         textAlign: 'left',
                         color: el.style?.color?.trim() || undefined,
                         backgroundColor: 'transparent',
@@ -887,34 +926,34 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                 ) : (
                   <div className="min-w-0 flex-1 pr-1">
                     <RichTextBlockPreview
-                      content={c.header}
+                      content={headerContent}
                       variableValues={variableValues}
                       variableSurfaceLabelResolver={variableSurfaceLabelResolver}
                       fontSize={9}
                       textAlign="left"
-                      elementBold
                       color={el.style?.color}
                     />
                   </div>
-                )}
+                )
+                })()}
               
               </div>
             )
           })}
 
           {Array.from({ length: previewBodyRows }, (_, ri) => {
-            const zebra = ri % 2 === 1 ? 'bg-zinc-100/90 dark:bg-zinc-200/80' : 'bg-white dark:bg-zinc-50'
+            const zebra = 'bg-white dark:bg-zinc-50'
             const slot = visibleBodyRows[ri]
             const dataRowIndex = slot?.rowIndex ?? -1
             const rowObj = slot?.row ?? {}
             return (
               <div key={`g-${ri}`} className="contents">
                 {cols.map((c, ci) => {
-                  const text = formatPreviewCellValue(rowObj, c.key)
                   const fillBgRaw = tableCellEffectiveBackground(
                     el,
                     dataRowIndex >= 0 ? dataRowIndex : ri,
-                    ci
+                    ci,
+                    parsedStructured
                   )
                   const cellBeh = tableCellBehaviourStyle(
                     el.behaviour,
@@ -925,13 +964,6 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                     fillBgRaw
                   )
                   const tc = (cellBeh.textColor ?? el.style?.color)?.trim()
-                  const display =
-                    text || (
-                      <span
-                        className={`font-mono ${tc ? 'opacity-50' : 'text-zinc-400'}`}
-                        style={tc ? { color: tc } : undefined}
-                      >{`{${c.key}}`}</span>
-                    )
                   const sel = tableSelection
                   const isSel =
                     dataRowIndex >= 0 && highlight(sel, dataRowIndex, ci)
@@ -987,13 +1019,17 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => onGridCellClick(e, dataRowIndex, ci, dataRowIndex >= 0)}
                     >
-                      {editingHere ? (
+                      {(() => {
+                        const cellContent = isStructured
+                          ? getStructuredCellValue(parsedStructured!, dataRowIndex, ci)
+                          : getDataCellStringValue(rawJson, dataRowIndex, c.key)
+                        return editingHere ? (
                         <div
                           className="absolute inset-0 z-[5] box-border min-w-0 overflow-hidden ring-2 ring-violet-500"
                           onPointerDown={(e) => e.stopPropagation()}
                         >
                           <TipTapRichEditor
-                            content={getDataCellStringValue(rawJson, dataRowIndex, c.key)}
+                            content={cellContent}
                             emitOnChange
                             onChange={onBodyTipTapChange}
                             variableMentions={variableMentions}
@@ -1021,7 +1057,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       ) : (
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <RichTextBlockPreview
-                            content={getDataCellStringValue(rawJson, dataRowIndex, c.key) || (text as string) || ''}
+                            content={cellContent}
                             variableValues={variableValues}
                             variableSurfaceLabelResolver={variableSurfaceLabelResolver}
                             fontSize={9}
@@ -1029,7 +1065,8 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                             color={tc}
                           />
                         </div>
-                      )}
+                      )
+                      })()}
                     </div>
                   )
                 })}
@@ -1063,10 +1100,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
               />
             ))}
 
-          {/* Row resize: full-width strips between body rows */}
+          {/* Row resize: full-width strips between all rows (header + body) */}
           {!locked &&
-            previewBodyRows > 1 &&
-            Array.from({ length: previewBodyRows - 1 }, (_, b) => (
+            rowWeights.length > 1 &&
+            Array.from({ length: rowWeights.length - 1 }, (_, b) => (
               <div
                 key={`row-res-${b}`}
                 role="separator"
@@ -1076,8 +1113,8 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                 className="pointer-events-auto z-[4] cursor-ns-resize touch-none hover:bg-violet-500/25"
                 style={{
                   gridColumn: '1 / -1',
-                  gridRowStart: b + 2,
-                  gridRowEnd: b + 3,
+                  gridRowStart: b + 1,
+                  gridRowEnd: b + 2,
                   alignSelf: 'end',
                   height: 8,
                   marginBottom: -4,

@@ -7,6 +7,7 @@ import {
   useEditorStore,
 } from '../../stores/editorStore'
 import { ColorToolbarSwatch } from './ColorPalettePopover'
+import { IconBold, IconItalic, IconUnderline, IconStrikethrough, IconSuperscript, IconSubscript, IconClearFormat } from './ToolbarIcons'
 
 /** Prefer per-element map (survives stale unmount), then Zustand, then prop. */
 function resolveLiveInlineEditor(editorProp: Editor | null): Editor | null {
@@ -224,7 +225,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'toggleBold', (ed) => ed.chain().focus().toggleBold().run())
         }
       >
-        <span className="font-bold">B</span>
+        <IconBold size={14} />
       </ToolbarBtn>
       <ToolbarBtn
         label="Italic"
@@ -233,7 +234,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'toggleItalic', (ed) => ed.chain().focus().toggleItalic().run())
         }
       >
-        <span className="italic">I</span>
+        <IconItalic size={14} />
       </ToolbarBtn>
       <ToolbarBtn
         label="Underline"
@@ -242,7 +243,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'toggleUnderline', (ed) => ed.chain().focus().toggleUnderline().run())
         }
       >
-        <span className="underline">U</span>
+        <IconUnderline size={14} />
       </ToolbarBtn>
       <ToolbarBtn
         label="Strikethrough"
@@ -251,7 +252,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'toggleStrike', (ed) => ed.chain().focus().toggleStrike().run())
         }
       >
-        <span className="line-through">S</span>
+        <IconStrikethrough size={14} />
       </ToolbarBtn>
       <span className="hidden h-4 w-px shrink-0 bg-zinc-300 dark:bg-zinc-600 sm:block" aria-hidden />
       <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Text</span>
@@ -281,9 +282,7 @@ export function RichTextTipTapToolbar({
           )
         }
       >
-        <span>
-          x<sup className="text-[0.65em]">2</sup>
-        </span>
+        <IconSuperscript size={14} />
       </ToolbarBtn>
       <ToolbarBtn
         label="Subscript"
@@ -292,9 +291,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'toggleSubscript', (ed) => ed.chain().focus().toggleSubscript().run())
         }
       >
-        <span>
-          x<sub className="text-[0.65em]">2</sub>
-        </span>
+        <IconSubscript size={14} />
       </ToolbarBtn>
       <ToolbarBtn
         label="Clear formatting on selection"
@@ -302,7 +299,7 @@ export function RichTextTipTapToolbar({
           execToolbarCommand(editor, 'unsetAllMarks', (ed) => ed.chain().focus().unsetAllMarks().run())
         }
       >
-        <span className="text-[10px]">Clear</span>
+        <IconClearFormat size={14} />
       </ToolbarBtn>
     </div>
   )

@@ -91,11 +91,12 @@ export function computeDragSnap(
   el: LayoutElement,
   others: LayoutElement[],
   page: PageSpec,
-  opts: { snapToGrid: boolean; smartGuides: boolean; userGuides?: PageGuides },
+  opts: { snapToGrid: boolean; smartGuides: boolean; userGuides?: PageGuides; gridSize?: number },
   /** When set (e.g. header/footer band), snap uses this size; print margins do not apply inside the band. */
   viewportPt?: { width: number; height: number }
 ): { x: number; y: number; guides: DragGuideState; violatesMargins: boolean } {
   const { width: pw, height: ph } = viewportPt ?? pageDimensionsPt(page)
+  const gs = opts.gridSize
   let nx = x
   let ny = y
   const guides: DragGuideState = { vertical: [], horizontal: [] }
@@ -127,15 +128,15 @@ export function computeDragSnap(
   }
 
   if (opts.snapToGrid) {
-    if (!snappedX) nx = snap(nx)
-    if (!snappedY) ny = snap(ny)
+    if (!snappedX) nx = snap(nx, gs)
+    if (!snappedY) ny = snap(ny, gs)
   }
 
   const beforeMarginsX = nx
   const beforeMarginsY = ny
   const fin = viewportPt
-    ? finalizeDragPositionInBandViewport(el, nx, ny, viewportPt.width, viewportPt.height, opts.snapToGrid)
-    : finalizeDragPosition(el, nx, ny, page, opts.snapToGrid)
+    ? finalizeDragPositionInBandViewport(el, nx, ny, viewportPt.width, viewportPt.height, opts.snapToGrid, gs)
+    : finalizeDragPosition(el, nx, ny, page, opts.snapToGrid, gs)
   nx = fin.x
   ny = fin.y
 
@@ -152,10 +153,11 @@ export function computeResizeSnap(
   el: LayoutElement,
   others: LayoutElement[],
   page: PageSpec,
-  opts: { snapToGrid: boolean; smartGuides: boolean; userGuides?: PageGuides },
+  opts: { snapToGrid: boolean; smartGuides: boolean; userGuides?: PageGuides; gridSize?: number },
   viewportPt?: { width: number; height: number }
 ): { width: number; height: number; guides: DragGuideState; violatesMargins: boolean } {
   const { width: pw, height: ph } = viewportPt ?? pageDimensionsPt(page)
+  const gs = opts.gridSize
   let w = width
   let h = height
   const guides: DragGuideState = { vertical: [], horizontal: [] }
@@ -193,15 +195,15 @@ export function computeResizeSnap(
   }
 
   if (opts.snapToGrid) {
-    if (!guides.vertical.length) w = snap(w)
-    if (!guides.horizontal.length) h = snap(h)
+    if (!guides.vertical.length) w = snap(w, gs)
+    if (!guides.horizontal.length) h = snap(h, gs)
   }
 
   const beforeW = w
   const beforeH = h
   const fin = viewportPt
-    ? finalizeResizeSizeInBandViewport(el, w, h, viewportPt.width, viewportPt.height, opts.snapToGrid)
-    : finalizeResizeSize(el, w, h, page, opts.snapToGrid)
+    ? finalizeResizeSizeInBandViewport(el, w, h, viewportPt.width, viewportPt.height, opts.snapToGrid, gs)
+    : finalizeResizeSize(el, w, h, page, opts.snapToGrid, gs)
   w = fin.width
   h = fin.height
 
@@ -223,7 +225,8 @@ function finalizeDragPositionInBandViewport(
   ny: number,
   vw: number,
   vh: number,
-  snapToGrid: boolean
+  snapToGrid: boolean,
+  gridSize?: number
 ): { x: number; y: number } {
   const { minX, maxX, minY, maxY } = bandViewportInnerBounds(vw, vh)
   let x = nx
@@ -233,8 +236,8 @@ function finalizeDragPositionInBandViewport(
     const maxLeftY = maxY - el.height
     const cx = maxLeftX >= minX ? Math.max(minX, Math.min(maxLeftX, x)) : minX
     const cy = maxLeftY >= minY ? Math.max(minY, Math.min(maxLeftY, y)) : minY
-    x = snap(cx)
-    y = snap(cy)
+    x = snap(cx, gridSize)
+    y = snap(cy, gridSize)
     if (!snapToGrid) break
   }
   return { x, y }
@@ -246,7 +249,8 @@ function finalizeResizeSizeInBandViewport(
   height: number,
   vw: number,
   vh: number,
-  snapToGrid: boolean
+  snapToGrid: boolean,
+  gridSize?: number
 ): { width: number; height: number } {
   const { maxX, maxY } = bandViewportInnerBounds(vw, vh)
   const minW = 20
@@ -259,8 +263,8 @@ function finalizeResizeSizeInBandViewport(
     w = Math.max(minW, Math.min(maxW, w))
     h = Math.max(minH, Math.min(maxH, h))
     if (!snapToGrid) break
-    const sw = snap(w)
-    const sh = snap(h)
+    const sw = snap(w, gridSize)
+    const sh = snap(h, gridSize)
     if (sw === w && sh === h) break
     w = sw
     h = sh

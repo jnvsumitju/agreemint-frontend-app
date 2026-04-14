@@ -12,6 +12,7 @@ const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'HEADER', label: 'Header' },
   { type: 'FOOTER', label: 'Footer' },
   { type: 'TABLE', label: 'Table' },
+  { type: 'LIST', label: 'List' },
   { type: 'IMAGE', label: 'Image' },
 ]
 
@@ -132,6 +133,17 @@ function BlockIcon({ type }: { type: ElementType }) {
           <path d="M4 9h16M4 14h16M9 4v16M14 4v16" />
         </svg>
       )
+    case 'LIST':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <circle cx="5" cy="6" r="1.5" fill="currentColor" stroke="none" />
+          <path d="M10 6h10" strokeLinecap="round" />
+          <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+          <path d="M10 12h10" strokeLinecap="round" />
+          <circle cx="5" cy="18" r="1.5" fill="currentColor" stroke="none" />
+          <path d="M10 18h10" strokeLinecap="round" />
+        </svg>
+      )
     case 'IMAGE':
       return (
         <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -244,8 +256,10 @@ function PaletteRow({
   label: string
 }) {
   const bandNestedEditorMounted = useEditorStore((s) => s.bandNestedEditorMounted)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
   const disabledInBand =
     bandNestedEditorMounted && (elementType === 'HEADER' || elementType === 'FOOTER')
+  const disabled = viewOnly || disabledInBand
 
   const [{ isDragging }, drag] = useDrag<NewElementDragItem, void, { isDragging: boolean }>(
     () => ({
@@ -254,6 +268,7 @@ function PaletteRow({
       collect: (monitor) => ({ isDragging: monitor.isDragging() }),
       canDrag: () => {
         const st = useEditorStore.getState()
+        if (st.viewOnly) return false
         if (!st.bandNestedEditorMounted) return true
         return elementType !== 'HEADER' && elementType !== 'FOOTER'
       },
@@ -268,25 +283,29 @@ function PaletteRow({
   const selectedForPlace = placementElementType === elementType && !disabledInBand
 
   const baseTitle =
-    drawActive && !disabledInBand
+    drawActive && !disabled
       ? `${label} — click page to place (or drag)`
       : `${label} — drag to page · sets type for Place tool`
-  const title = disabledInBand ? `${label} — not available while editing header or footer` : baseTitle
+  const title = viewOnly
+    ? `${label} — view-only mode`
+    : disabledInBand
+      ? `${label} — not available while editing header or footer`
+      : baseTitle
 
   return (
     <div
       ref={(node) => {
-        drag(node)
+        if (!viewOnly) drag(node)
       }}
       role="listitem"
-      aria-disabled={disabledInBand}
+      aria-disabled={disabled}
       onClick={() => {
-        if (disabledInBand) return
+        if (disabled) return
         setPlacementElementType(elementType)
       }}
       title={title}
       className={`flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 rounded-md border px-0.5 py-1 text-center text-[9px] font-medium leading-tight transition-colors lg:min-h-[3.5rem] lg:px-1 lg:py-1.5 lg:text-[10px] ${
-        disabledInBand
+        disabled
           ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
           : `cursor-grab active:cursor-grabbing ${
               isDragging ? 'opacity-50' : ''
@@ -347,8 +366,32 @@ function ComponentPaletteRow({ component }: { component: SavedLayoutComponent })
 
 export function LeftPalette() {
   const [tab, setTab] = useState<'insert' | 'pages'>('insert')
+  const [collapsed, setCollapsed] = useState(false)
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const savedComponents = useEditorStore((s) => s.savedComponents)
+
+  if (collapsed) {
+    return (
+      <aside className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-zinc-50 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
+        <button
+          type="button"
+          title="Expand sidebar"
+          className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700"
+          onClick={() => setCollapsed(false)}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+        </button>
+        <div className="w-full border-t border-zinc-200 dark:border-zinc-700" />
+        <div className="flex flex-col gap-1 px-1">
+          {TOOLS.map(({ id, title, Icon }) => (
+            <ToolButton key={id} tool={id} title={title} Icon={Icon} />
+          ))}
+        </div>
+      </aside>
+    )
+  }
 
   return (
     <aside className="flex w-36 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 lg:w-[13.5rem] dark:border-zinc-700 dark:bg-zinc-900">
@@ -374,6 +417,16 @@ export function LeftPalette() {
           onClick={() => setTab('pages')}
         >
           Pages
+        </button>
+        <button
+          type="button"
+          title="Collapse sidebar"
+          className="flex h-full items-center px-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+          onClick={() => setCollapsed(true)}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <path d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
+          </svg>
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">

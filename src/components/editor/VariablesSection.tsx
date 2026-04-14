@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
 import {
   documentBandElementsFromFirstPage,
@@ -8,11 +8,16 @@ import {
   isSystemGlobalVariableKey,
   systemGlobalVariableDefinitions,
 } from '../../lib/systemTemplateVariables'
-import { extractVariableKeys, uniqueTableDataKeys } from '../../lib/variables'
+import {
+  parseTableVariableData,
+  detectTableDataFormatFromJson,
+} from '../../lib/tableDataFormat'
+import { extractVariableKeys, uniqueListDataKeys, uniqueTableDataKeys } from '../../lib/variables'
 import type { VariableDefinition } from '../../types/layout'
 import { normalizeCatalogVariableKey } from '../../types/layout'
 import { pageLocalShadowStorageKey } from '../../lib/layoutBehaviourResolve'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
+import type { LayoutElement } from '../../types/layout'
 
 function catalogKeySet(globalDefs: VariableDefinition[], localDefs: VariableDefinition[]): Set<string> {
   const s = new Set<string>()
@@ -81,8 +86,300 @@ function duplicateRowCount(defs: VariableDefinition[], rowIndex: number): number
   return defs.filter((d) => normalizeCatalogVariableKey(d.key) === nk).length
 }
 
+// ── Visual tree editor for list JSON data ──
+
+interface TreeNode {
+  text: string
+  indent: number
+  raw: unknown
+}
+
+/** Parse a JSON array (possibly tree-structured) into flat nodes for display. */
+function flattenJsonToNodes(json: string, childrenKey: string): TreeNode[] {
+  try {
+    const parsed = JSON.parse(json)
+    if (!Array.isArray(parsed)) return []
+    const nodes: TreeNode[] = []
+    function walk(arr: unknown[], depth: number) {
+      for (const item of arr) {
+        if (typeof item === 'string') {
+          nodes.push({ text: item, indent: depth, raw: item })
+        } else if (item && typeof item === 'object' && !Array.isArray(item)) {
+          const obj = item as Record<string, unknown>
+          // Display: use 'text' field, or first string field, or JSON summary
+          const displayText =
+            typeof obj.text === 'string' ? obj.text
+            : typeof obj.name === 'string' ? obj.name
+            : typeof obj.title === 'string' ? obj.title
+            : typeof obj.label === 'string' ? obj.label
+            : Object.entries(obj)
+                .filter(([k]) => k !== childrenKey)
+                .map(([k, v]) => `${k}: ${String(v ?? '')}`)
+                .join(', ')
+          nodes.push({ text: displayText, indent: depth, raw: item })
+          const children = obj[childrenKey]
+          if (Array.isArray(children) && children.length > 0) {
+            walk(children, depth + 1)
+          }
+        } else {
+          nodes.push({ text: String(item ?? ''), indent: depth, raw: item })
+        }
+      }
+    }
+    walk(parsed, 0)
+    return nodes
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Rebuild JSON tree from flat nodes with (possibly changed) indents.
+ * Promotes strings to {text: "…"} when nesting requires it.
+ */
+function rebuildFromNodes(
+  nodes: TreeNode[],
+  childrenKey: string,
+): unknown[] {
+  // Detect whether any string will need children
+  let needsPromotion = false
+  for (let i = 0; i < nodes.length; i++) {
+    if (typeof nodes[i].raw === 'string') {
+      const nextIndent = i + 1 < nodes.length ? nodes[i + 1].indent : 0
+      if (nextIndent > nodes[i].indent) {
+        needsPromotion = true
+        break
+      }
+    }
+  }
+
+  const root: unknown[] = []
+  const stack: [unknown[], number][] = [[root, -1]]
+
+  for (const { raw, indent, text } of nodes) {
+    let node: unknown = raw
+
+    // Promote strings to objects when nesting exists
+    if (needsPromotion && typeof node === 'string') {
+      node = { text: text }
+    }
+
+    if (node && typeof node === 'object' && !Array.isArray(node)) {
+      node = { ...(node as Record<string, unknown>) }
+      delete (node as Record<string, unknown>)[childrenKey]
+    }
+    while (stack.length > 1 && stack[stack.length - 1][1] >= indent) stack.pop()
+    stack[stack.length - 1][0].push(node)
+    if (node && typeof node === 'object' && !Array.isArray(node)) {
+      const children: unknown[] = [];
+      (node as Record<string, unknown>)[childrenKey] = children
+      stack.push([children, indent])
+    }
+  }
+
+  function clean(arr: unknown[]) {
+    for (const item of arr) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const obj = item as Record<string, unknown>
+        const ch = obj[childrenKey]
+        if (Array.isArray(ch) && ch.length === 0) delete obj[childrenKey]
+        else if (Array.isArray(ch)) clean(ch)
+      }
+    }
+  }
+  clean(root)
+  return root
+}
+
+function ListTreeEditor({
+  value,
+  childrenKey,
+  onChange,
+}: {
+  value: string
+  childrenKey: string
+  onChange: (json: string) => void
+}) {
+  const [showRaw, setShowRaw] = useState(false)
+  const nodes = useMemo(() => flattenJsonToNodes(value, childrenKey), [value, childrenKey])
+  const isStringArray = nodes.length > 0 && nodes.every((n) => typeof n.raw === 'string')
+
+  const updateNodeText = useCallback(
+    (index: number, text: string) => {
+      const updated = nodes.map((n, i) => {
+        if (i !== index) return n
+        if (typeof n.raw === 'string') return { ...n, text, raw: text }
+        if (n.raw && typeof n.raw === 'object') {
+          const obj = { ...(n.raw as Record<string, unknown>) }
+          // Update the display field
+          if ('text' in obj) obj.text = text
+          else if ('name' in obj) obj.name = text
+          else if ('title' in obj) obj.title = text
+          else if ('label' in obj) obj.label = text
+          return { ...n, text, raw: obj }
+        }
+        return { ...n, text, raw: text }
+      })
+      onChange(JSON.stringify(rebuildFromNodes(updated, childrenKey)))
+    },
+    [nodes, childrenKey, onChange],
+  )
+
+  const updateNodeIndent = useCallback(
+    (index: number, delta: number) => {
+      const curIndent = nodes[index]?.indent ?? 0
+      const newIndent = Math.max(0, Math.min(8, curIndent + delta))
+      if (newIndent === curIndent) return
+      // Can't indent deeper than prev item + 1
+      if (delta > 0 && index > 0) {
+        const prevIndent = nodes[index - 1]?.indent ?? 0
+        if (newIndent > prevIndent + 1) return
+      }
+      const updated = nodes.map((n, i) =>
+        i === index ? { ...n, indent: newIndent } : n,
+      )
+      onChange(JSON.stringify(rebuildFromNodes(updated, childrenKey)))
+    },
+    [nodes, childrenKey, onChange],
+  )
+
+  const addNode = useCallback(() => {
+    const newRaw = isStringArray ? '' : { text: '' }
+    const newNode: TreeNode = { text: '', indent: 0, raw: newRaw }
+    const updated = [...nodes, newNode]
+    onChange(JSON.stringify(rebuildFromNodes(updated, childrenKey)))
+  }, [nodes, isStringArray, childrenKey, onChange])
+
+  const removeNode = useCallback(
+    (index: number) => {
+      const updated = nodes.filter((_, i) => i !== index)
+      onChange(JSON.stringify(rebuildFromNodes(updated, childrenKey)))
+    },
+    [nodes, childrenKey, onChange],
+  )
+
+  if (nodes.length === 0 && !value.trim()) {
+    return (
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={() => onChange('[""]')}
+          className="text-[10px] font-medium text-violet-600 hover:underline dark:text-violet-400"
+        >
+          + Add first item
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      {/* Visual tree */}
+      <div className="max-h-[260px] space-y-0.5 overflow-y-auto rounded border border-zinc-200 bg-white p-1.5 dark:border-zinc-700 dark:bg-zinc-900">
+        {nodes.map((node, i) => {
+          const isObj = node.raw != null && typeof node.raw === 'object'
+          return (
+            <div
+              key={i}
+              className="group flex items-center gap-0.5"
+              style={{ paddingLeft: node.indent * 14 }}
+            >
+              {/* Indent/outdent buttons */}
+              <button
+                type="button"
+                title="Outdent"
+                onClick={() => updateNodeIndent(i, -1)}
+                disabled={node.indent === 0}
+                className="h-4 w-3 shrink-0 text-[8px] text-zinc-400 hover:text-zinc-700 disabled:invisible dark:text-zinc-500 dark:hover:text-zinc-300"
+              >
+                &#x25C0;
+              </button>
+              <button
+                type="button"
+                title="Indent"
+                onClick={() => updateNodeIndent(i, 1)}
+                className="h-4 w-3 shrink-0 text-[8px] text-zinc-400 hover:text-zinc-700 disabled:invisible dark:text-zinc-500 dark:hover:text-zinc-300"
+              >
+                &#x25B6;
+              </button>
+              {/* Tree connector */}
+              <span className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
+                {node.indent > 0 ? '└' : '●'}
+              </span>
+              {/* Text input */}
+              <input
+                className={`min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-[10px] leading-tight focus:border-violet-300 focus:bg-violet-50/50 dark:focus:border-violet-700 dark:focus:bg-violet-950/30 ${
+                  isObj && !('text' in (node.raw as Record<string, unknown>)) && !('name' in (node.raw as Record<string, unknown>)) && !('title' in (node.raw as Record<string, unknown>)) && !('label' in (node.raw as Record<string, unknown>))
+                    ? 'text-zinc-400 italic dark:text-zinc-500'
+                    : 'text-zinc-900 dark:text-zinc-100'
+                }`}
+                value={node.text}
+                onChange={(e) => updateNodeText(i, e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder={`Item ${i + 1}`}
+              />
+              {/* Object badge */}
+              {isObj && (
+                <span className="shrink-0 rounded bg-amber-100 px-1 py-px text-[8px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                  obj
+                </span>
+              )}
+              {/* Remove button */}
+              <button
+                type="button"
+                title="Remove"
+                onClick={() => removeNode(i)}
+                className="shrink-0 px-0.5 text-[10px] text-red-400 opacity-0 hover:text-red-600 group-hover:opacity-100 dark:text-red-500 dark:hover:text-red-400"
+              >
+                &#10005;
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Actions row */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={addNode}
+          className="text-[10px] font-medium text-violet-600 hover:underline dark:text-violet-400"
+        >
+          + Add item
+        </button>
+        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-200">
+          {nodes.length} item{nodes.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Collapsible raw JSON */}
+      <details open={showRaw} onToggle={(e) => setShowRaw((e.target as HTMLDetailsElement).open)}>
+        <summary className="cursor-pointer text-[9px] text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300">
+          Raw JSON
+        </summary>
+        <textarea
+          className="mt-1 min-h-[48px] w-full resize-y rounded border border-zinc-300 bg-white px-2 py-1.5 font-mono text-[9px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+          spellCheck={false}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder='["First item", "Second item"]'
+        />
+      </details>
+    </div>
+  )
+}
+
 export function VariablesSection() {
   const [mergeFlash, setMergeFlash] = useState<{ scope: 'global' | 'local'; index: number } | null>(null)
+  /** Tracks the key value when a field-key input receives focus, so blur can detect renames. */
+  const focusedKeyRef = useRef('')
+  /** Local editing state for the key input — store is only committed on blur. */
+  const [editingKeyField, setEditingKeyField] = useState<{
+    scope: 'global' | 'local'
+    index: number
+    value: string
+  } | null>(null)
 
   const elements = useEditorStore(useShallow(selectAllTemplateElements))
   const pages = useEditorStore((s) => s.pages)
@@ -106,12 +403,69 @@ export function VariablesSection() {
   const setPageLocalVariableDefinitions = useEditorStore((s) => s.setPageLocalVariableDefinitions)
   const variableValues = useEditorStore((s) => s.variableValues)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
+  const updateElement = useEditorStore((s) => s.updateElement)
+  const removeElements = useEditorStore((s) => s.removeElements)
 
   const activePage = pages[activePageIndex]
   const localDefs = activePage?.localVariables ?? []
 
   const tableKeys = useMemo(() => new Set(uniqueTableDataKeys(elementsForVarKeys)), [elementsForVarKeys])
+  const listKeys = useMemo(() => new Set(uniqueListDataKeys(elementsForVarKeys)), [elementsForVarKeys])
+  /** All data-bound element keys (TABLE + LIST). */
+  const dataBoundKeys = useMemo(() => new Set([...tableKeys, ...listKeys]), [tableKeys, listKeys])
   const templateKeys = useMemo(() => extractVariableKeys(elementsForVarKeys), [elementsForVarKeys])
+
+  /** When a data-bound variable key is renamed, update the element's dataKey to match. */
+  const syncDataKeyRename = (oldKey: string, newKey: string) => {
+    if (!oldKey || !newKey || oldKey === newKey) return
+    if (!dataBoundKeys.has(oldKey)) return
+    const allEls = pages.flatMap((p) => p.elements)
+    for (const el of allEls) {
+      if ((el.type === 'TABLE' || el.type === 'LIST') && el.dataKey === oldKey) {
+        updateElement(el.id, { dataKey: newKey })
+      }
+    }
+    const oldVal = variableValues[oldKey]
+    if (oldVal != null) {
+      setVariableValue(newKey, oldVal)
+    }
+  }
+
+  /** Delete element(s) with the given dataKey. removeElements handles variable cleanup. */
+  const deleteElementByDataKey = (key: string) => {
+    if (!key) return
+    const ids: string[] = []
+    for (const page of pages) {
+      for (const el of page.elements) {
+        if ((el.type === 'TABLE' || el.type === 'LIST') && el.dataKey === key) ids.push(el.id)
+        if (el.bandElements?.length) {
+          for (const bel of el.bandElements) {
+            if ((bel.type === 'TABLE' || bel.type === 'LIST') && bel.dataKey === key) ids.push(bel.id)
+          }
+        }
+      }
+    }
+    if (ids.length > 0) removeElements(ids)
+  }
+
+  /** Find the TABLE element whose dataKey matches the given key (walks into band elements). */
+  const findTableElement = (key: string): LayoutElement | undefined => {
+    for (const page of pages) {
+      const walk = (els: LayoutElement[]): LayoutElement | undefined => {
+        for (const el of els) {
+          if (el.type === 'TABLE' && el.dataKey === key) return el
+          if (el.bandElements?.length) {
+            const found = walk(el.bandElements)
+            if (found) return found
+          }
+        }
+        return undefined
+      }
+      const found = walk(page.elements)
+      if (found) return found
+    }
+    return undefined
+  }
 
   const declaredHere = useMemo(() => {
     const s = bandEditorMode
@@ -176,21 +530,41 @@ export function VariablesSection() {
   }
 
   const onGlobalKeyBlur = (index: number) => {
-    const merged = mergeDuplicateCatalogRowsAtBlur(globalVariableDefinitions, index)
+    const latestDefs = useEditorStore.getState().globalVariableDefinitions
+    const oldKey = normalizeCatalogVariableKey(focusedKeyRef.current)
+    const newKey = normalizeCatalogVariableKey(latestDefs[index]?.key ?? '')
+    if (oldKey && newKey && oldKey !== newKey) {
+      syncDataKeyRename(oldKey, newKey)
+    }
+    const merged = mergeDuplicateCatalogRowsAtBlur(latestDefs, index)
     if (!merged) return
     setGlobalVariableDefinitions(merged.next)
     flashMerged('global', merged.keptIndex)
   }
 
   const onLocalKeyBlur = (index: number) => {
-    if (!activePage) return
-    const merged = mergeDuplicateCatalogRowsAtBlur(localDefs, index)
+    const s = useEditorStore.getState()
+    const page = s.pages[s.activePageIndex]
+    if (!page) return
+    const latestDefs = page.localVariables ?? []
+    const oldKey = normalizeCatalogVariableKey(focusedKeyRef.current)
+    const newKey = normalizeCatalogVariableKey(latestDefs[index]?.key ?? '')
+    if (oldKey && newKey && oldKey !== newKey) {
+      syncDataKeyRename(oldKey, newKey)
+    }
+    const merged = mergeDuplicateCatalogRowsAtBlur(latestDefs, index)
     if (!merged) return
-    setPageLocalVariableDefinitions(activePage.id, merged.next)
+    setPageLocalVariableDefinitions(page.id, merged.next)
     flashMerged('local', merged.keptIndex)
   }
 
-  const renderValueEditor = (normKey: string, isTable: boolean, fieldIdBase: string) => {
+  const renderValueEditor = (
+    normKey: string,
+    isDataBound: boolean,
+    fieldIdBase: string,
+    /** The element dataKey used to look up the TABLE element (may differ from normKey for local shadow keys). */
+    elementDataKey?: string
+  ) => {
     if (!normKey) {
       const pid = `${fieldIdBase}-preview-placeholder`
       return (
@@ -206,23 +580,176 @@ export function VariablesSection() {
         />
       )
     }
-    if (isTable) {
+    if (isDataBound && (tableKeys.has(normKey) || tableKeys.has(elementDataKey ?? ''))) {
+      const raw = variableValues[normKey] ?? ''
+      const lookupKey = elementDataKey ?? normKey
+      const parsed = parseTableVariableData(raw)
+      const format = detectTableDataFormatFromJson(raw)
+      const tableEl = findTableElement(lookupKey)
+      const styleEnabled = tableEl?.tableStyleFromVariable === true
       const tid = `${fieldIdBase}-table-json`
+
+      if (parsed) {
+        // ── Structured format summary card ──
+        const headers = parsed.data[0] ?? []
+        const bodyRows = Math.max(0, parsed.data.length - 1)
+        const colCount = headers.length
+        const hasCellStyle = Array.isArray(parsed.cellStyle) && parsed.cellStyle.length > 0
+        const hasBorderStyle = !!parsed.borderStyle
+
+        return (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+                {colCount} col{colCount !== 1 ? 's' : ''} &times; {bodyRows} row{bodyRows !== 1 ? 's' : ''}
+              </span>
+              <span
+                className={[
+                  'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                  styleEnabled
+                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
+                ].join(' ')}
+              >
+                style {styleEnabled ? 'on' : 'off'}
+              </span>
+            </div>
+
+            {headers.length > 0 && (
+              <p className="mt-1.5 text-[11px] leading-snug text-emerald-700 dark:text-emerald-300">
+                <span className="font-medium">Headers:</span>{' '}
+                <span className="font-mono text-[10px]">{headers.join(', ')}</span>
+              </p>
+            )}
+
+            {(hasCellStyle || hasBorderStyle) && (
+              <p className="mt-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
+                {[
+                  hasCellStyle && 'cell styles',
+                  hasBorderStyle &&
+                    `border: ${parsed.borderStyle?.style ?? 'solid'}, ${parsed.borderStyle?.color ?? 'default'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' + ')}
+              </p>
+            )}
+
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none text-[10px] font-medium text-emerald-700 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-200">
+                Raw JSON
+              </summary>
+              <textarea
+                id={tid}
+                name={tid}
+                className="mt-1 min-h-[72px] w-full resize-y rounded border border-zinc-300 bg-white px-2 py-1.5 font-mono text-[10px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                spellCheck={false}
+                value={raw}
+                onChange={(e) => setVariableValue(normKey, e.target.value)}
+              />
+            </details>
+
+            <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+              Edit table data directly on the canvas.
+            </p>
+          </div>
+        )
+      }
+
+      if (format === 'legacy' && raw.trim()) {
+        // ── Legacy format (array of objects) ──
+        let legacyRows = 0
+        let legacyCols: string[] = []
+        try {
+          const arr = JSON.parse(raw) as unknown
+          if (Array.isArray(arr)) {
+            legacyRows = arr.length
+            const first = arr[0]
+            if (first && typeof first === 'object' && !Array.isArray(first)) {
+              legacyCols = Object.keys(first as Record<string, unknown>)
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+
+        return (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+                Legacy format
+              </span>
+              {legacyRows > 0 && (
+                <span className="text-[11px] text-amber-700 dark:text-amber-300">
+                  {legacyRows} row{legacyRows !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {legacyCols.length > 0 && (
+              <p className="mt-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-300">
+                <span className="font-medium">Keys:</span>{' '}
+                <span className="font-mono text-[10px]">{legacyCols.join(', ')}</span>
+              </p>
+            )}
+
+            <details className="mt-2">
+              <summary className="cursor-pointer select-none text-[10px] font-medium text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200">
+                Raw JSON
+              </summary>
+              <textarea
+                id={tid}
+                name={tid}
+                className="mt-1 min-h-[72px] w-full resize-y rounded border border-zinc-300 bg-white px-2 py-1.5 font-mono text-[10px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+                spellCheck={false}
+                value={raw}
+                onChange={(e) => setVariableValue(normKey, e.target.value)}
+              />
+            </details>
+
+            <p className="mt-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              Array of objects. Keys should match each column&apos;s field key.
+            </p>
+          </div>
+        )
+      }
+
+      // ── Empty / unparseable — show basic textarea ──
       return (
         <>
           <textarea
             id={tid}
             name={tid}
-            className="min-h-[88px] w-full resize-y rounded border border-zinc-300 px-2 py-1.5 font-mono text-[11px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+            className="min-h-[72px] w-full resize-y rounded border border-zinc-300 px-2 py-1.5 font-mono text-[11px] leading-snug text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
             spellCheck={false}
-            value={variableValues[normKey] ?? ''}
+            value={raw}
             onChange={(e) => setVariableValue(normKey, e.target.value)}
-            placeholder={`[{"name":"A","price":1},{"name":"B","price":2}]`}
+            placeholder='{"data":[["Name","Age"],["Alice","30"]]}'
           />
           <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            One JSON array of objects. Keys should match each column&apos;s field key.
+            Structured table JSON. Edit on the canvas for best results.
           </span>
         </>
+      )
+    }
+    if (isDataBound && (listKeys.has(normKey) || listKeys.has(elementDataKey ?? ''))) {
+      // ── LIST data key — visual tree editor ──
+      const listRaw = variableValues[normKey] ?? ''
+      // Find the list element's childrenKey
+      const listEl = elementsForVarKeys.find(
+        (e: LayoutElement) => e.type === 'LIST' && e.dataKey === normKey,
+      )
+      const childrenKey = listEl?.listChildrenKey?.trim() || 'children'
+      return (
+        <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-2.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+          <ListTreeEditor
+            value={listRaw}
+            childrenKey={childrenKey}
+            onChange={(json) => setVariableValue(normKey, json)}
+          />
+          <span className="mt-1.5 block text-[9px] text-zinc-500 dark:text-zinc-400">
+            Use ◀ ▶ to indent/outdent. Nested items become children in the JSON tree.
+          </span>
+        </div>
       )
     }
     const sid = `${fieldIdBase}-scalar`
@@ -251,7 +778,7 @@ export function VariablesSection() {
       <ul className="flex flex-col gap-3">
         {defs.map((d, i) => {
           const nk = normalizeCatalogVariableKey(d.key)
-          const isTable = tableKeys.has(nk)
+          const isDataBound = dataBoundKeys.has(nk)
           const dupN = duplicateRowCount(defs, i)
           const isDup = dupN > 1
           const isFlash = mergeFlash?.scope === scope && mergeFlash.index === i
@@ -287,9 +814,32 @@ export function VariablesSection() {
                     name={`ag-var-${scope}-${i}-key`}
                     type="text"
                     className={`${fieldClass} font-mono text-xs`}
-                    value={d.key}
-                    onChange={(e) => onUpdateRow(i, { key: e.target.value })}
-                    onBlur={() => onKeyBlur(i)}
+                    value={
+                      editingKeyField?.scope === scope && editingKeyField.index === i
+                        ? editingKeyField.value
+                        : d.key
+                    }
+                    onFocus={() => {
+                      focusedKeyRef.current = d.key
+                      setEditingKeyField({ scope, index: i, value: d.key })
+                    }}
+                    onChange={(e) => {
+                      setEditingKeyField((prev) =>
+                        prev ? { ...prev, value: e.target.value } : null
+                      )
+                    }}
+                    onBlur={() => {
+                      const finalVal = editingKeyField?.value ?? d.key
+                      const oldKey = normalizeCatalogVariableKey(focusedKeyRef.current)
+                      setEditingKeyField(null)
+                      // Clearing a table-owned key → delete the table element (+ variable cleanup)
+                      if (!finalVal.trim() && oldKey && dataBoundKeys.has(oldKey)) {
+                        deleteElementByDataKey(oldKey)
+                        return
+                      }
+                      onUpdateRow(i, { key: finalVal })
+                      onKeyBlur(i)
+                    }}
                     placeholder="e.g. customer_name"
                   />
                 </label>
@@ -308,12 +858,7 @@ export function VariablesSection() {
               </div>
               <div className="mt-2 flex flex-col gap-1">
                 <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Preview value
-                  {isTable && nk ? (
-                    <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
-                      table rows
-                    </span>
-                  ) : null}
+                  {isDataBound && nk ? (tableKeys.has(nk) ? 'Table data' : 'List data') : 'Preview value'}
                 </span>
                 {scope === 'local' && nk && previewStorageKey !== nk ? (
                   <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
@@ -326,15 +871,17 @@ export function VariablesSection() {
                     list when inserting into text.
                   </p>
                 ) : null}
-                {renderValueEditor(previewStorageKey, isTable, `ag-var-${scope}-${i}`)}
+                {renderValueEditor(previewStorageKey, isDataBound, `ag-var-${scope}-${i}`, nk)}
               </div>
-              <button
-                type="button"
-                className="mt-2 text-[11px] text-red-600 hover:underline dark:text-red-400"
-                onClick={() => onRemoveRow(i)}
-              >
-                Remove row
-              </button>
+              {!isDataBound && (
+                <button
+                  type="button"
+                  className="mt-2 text-[11px] text-red-600 hover:underline dark:text-red-400"
+                  onClick={() => onRemoveRow(i)}
+                >
+                  Remove row
+                </button>
+              )}
             </li>
           )
         })}
@@ -473,21 +1020,16 @@ export function VariablesSection() {
           </p>
           <ul className="flex flex-col gap-4">
             {extraKeys.map((k) => {
-              const isTable = tableKeys.has(k)
+              const isDataBound = dataBoundKeys.has(k)
               return (
                 <li key={k}>
                   <label className="flex flex-col gap-1.5 text-xs">
                     <span className="font-medium text-zinc-700 dark:text-zinc-300">
                       {k}
-                      {isTable ? (
-                        <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
-                          table rows
-                        </span>
-                      ) : null}
                     </span>
                     {renderValueEditor(
                       k,
-                      isTable,
+                      isDataBound,
                       `ag-var-extra-${k.replace(/[^a-zA-Z0-9_-]/g, '_')}`
                     )}
                   </label>

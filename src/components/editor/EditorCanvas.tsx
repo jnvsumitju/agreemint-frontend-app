@@ -45,6 +45,7 @@ import { TipTapRichEditor } from './TipTapRichEditor'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
 import { TableElementCanvas, type LayoutTableElement } from './TableElementCanvas'
+import { ListElementCanvas } from './ListElementCanvas'
 import { AddImageModal } from './AddImageModal'
 import {
   canSubtractPunchHoleSelection,
@@ -56,6 +57,9 @@ import {
   variableValuesToDataTree,
 } from '../../lib/layoutBehaviourResolve'
 import type { Editor as TipTapEditor } from '@tiptap/core'
+import { copyElementsToClipboard, pasteElementsFromClipboard } from '../../lib/clipboard'
+import { gradientToCss, isValidGradient, svgGradientId, svgLinearGradientProps } from '../../lib/gradientUtils'
+import type { GradientDef } from '../../types/layout'
 
 /** Must hold pointer down this long before a move can start a drag (avoids drag stealing double-click). */
 const DRAG_HOLD_MS = 200
@@ -113,10 +117,12 @@ function CanvasElement({
   el,
   exemptFromInlineCommitRef,
   onElementContextMenu,
+  onCommentClick,
 }: {
   el: LayoutElement
   exemptFromInlineCommitRef: RefObject<HTMLElement | null>
   onElementContextMenu?: (e: ReactMouseEvent, elId: string) => void
+  onCommentClick?: (elId: string) => void
 }) {
   const outerRef = useRef<HTMLDivElement>(null)
   const inlineEditorRef = useRef<HTMLDivElement>(null)
@@ -133,9 +139,13 @@ function CanvasElement({
   const bandCanvasEditElementId = useEditorStore((s) => s.bandCanvasEditElementId)
   const enterBandCanvasEdit = useEditorStore((s) => s.enterBandCanvasEdit)
   const setCanvasInlineEdit = useEditorStore((s) => s.setCanvasInlineEdit)
+  const reflowLinkedText = useEditorStore((s) => s.reflowLinkedText)
   const setInlineTipTapEditor = useEditorStore((s) => s.setInlineTipTapEditor)
   const spaceMoveTool = useEditorStore((s) => s.spaceMoveTool)
   const canvasTool = useEditorStore((s) => s.canvasTool)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
+  const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
+  const isCommentHighlighted = commentHighlightId === el.id
 
   const variableMentions = useMemo(
     () =>
@@ -192,7 +202,8 @@ function CanvasElement({
     canvasInlineEditId === el.id &&
     bandCanvasEditElementId !== el.id &&
     (!bandNested || bandCanvasEditElementId === bandNested.container.id)
-  const canInlineEdit = isRichTextElement(el)
+  const canInlineEdit = isRichTextElement(el) || el.type === 'LIST'
+  const isLinkedFrame = el.type === 'TEXT' && !!(el.linkedNextId || el.linkedPrevId)
 
   const dragRef = useRef<{
     pointerId: number
@@ -225,6 +236,7 @@ function CanvasElement({
     const st0 = useEditorStore.getState()
     const cur = findElementByIdInDocumentDeep(st0.pages, el.id)
     const nested = findBandNestedChild(st0.pages, el.id)
+    const bottomMargin = st0.pageSpec.margins?.bottom ?? 40
     const ed =
       inlineTipTapLocalRef.current ?? useEditorStore.getState().inlineTipTapEditor
     if (!ed) {
@@ -234,7 +246,7 @@ function CanvasElement({
       let height: number | undefined
       if (outer && cur) {
         const phPage = pageDimensionsPt(st0.pageSpec).height
-        const phCap = nested ? bandViewportDims(st0, nested.container).h : phPage
+        const phCap = nested ? bandViewportDims(st0, nested.container).h : phPage - bottomMargin
         const nh = Math.max(16, Math.min(phCap - cur.y, Math.ceil(outer.getBoundingClientRect().height)))
         if (Math.abs(nh - cur.height) > 0.5) height = nh
       }
@@ -243,6 +255,10 @@ function CanvasElement({
       setCanvasInlineEdit(null)
       queueMicrotask(() => {
         commitGuardRef.current = false
+        // Trigger linked text reflow for TEXT elements after commit
+        if (el.type === 'TEXT' && !nested) {
+          reflowLinkedText(el.id)
+        }
       })
       return
     }
@@ -253,7 +269,7 @@ function CanvasElement({
     let height: number | undefined
     if (outer && cur) {
       const phPage = pageDimensionsPt(st0.pageSpec).height
-      const phCap = nested ? bandViewportDims(st0, nested.container).h : phPage
+      const phCap = nested ? bandViewportDims(st0, nested.container).h : phPage - bottomMargin
       const nh = Math.max(16, Math.min(phCap - cur.y, Math.ceil(outer.getBoundingClientRect().height)))
       if (Math.abs(nh - cur.height) > 0.5) height = nh
     }
@@ -261,8 +277,12 @@ function CanvasElement({
     setCanvasInlineEdit(null)
     queueMicrotask(() => {
       commitGuardRef.current = false
+      // Trigger linked text reflow for TEXT elements after commit
+      if (el.type === 'TEXT' && !nested) {
+        reflowLinkedText(el.id)
+      }
     })
-  }, [el.id, updateElement, setCanvasInlineEdit])
+  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText])
 
   const escapeInlineEdit = useCallback(() => {
     const u = inlineUndoRef.current
@@ -275,8 +295,12 @@ function CanvasElement({
     setCanvasInlineEdit(null)
     queueMicrotask(() => {
       commitGuardRef.current = false
+      // Reflow chain after Escape restore too (content changed back)
+      if (el.type === 'TEXT') {
+        reflowLinkedText(el.id)
+      }
     })
-  }, [el.id, updateElement, setCanvasInlineEdit])
+  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText])
 
   useLayoutEffect(() => {
     if (!isInlineEditing) {
@@ -293,6 +317,8 @@ function CanvasElement({
   /** Grow frame with text (PDF-style); keep stored height in sync for save / layout. */
   useLayoutEffect(() => {
     if (!isInlineEditing || !canInlineEdit) return
+    // Linked frames keep their reflow-assigned height — skip auto-grow
+    if (isLinkedFrame) return
     const root = outerRef.current
     if (!root) return
     let raf = 0
@@ -305,7 +331,8 @@ function CanvasElement({
         if (!cur) return
         const n = findBandNestedChild(st.pages, el.id)
         const phPage = pageDimensionsPt(st.pageSpec).height
-        const maxH = (n ? bandViewportDims(st, n.container).h : phPage) - cur.y
+        const bottomMargin = st.pageSpec.margins?.bottom ?? 40
+        const maxH = (n ? bandViewportDims(st, n.container).h : phPage - bottomMargin) - cur.y
         const next = Math.max(16, Math.min(maxH, h))
         if (Math.abs(next - cur.height) > 0.5) {
           st.updateElement(el.id, { height: next }, { skipHistory: true })
@@ -319,7 +346,7 @@ function CanvasElement({
       cancelAnimationFrame(raf)
       ro.disconnect()
     }
-  }, [isInlineEditing, canInlineEdit, el.id])
+  }, [isInlineEditing, canInlineEdit, isLinkedFrame, el.id])
 
   useEffect(() => {
     if (!isInlineEditing) return
@@ -383,6 +410,7 @@ function CanvasElement({
     const additive = e.metaKey || e.ctrlKey || e.shiftKey
     select(el.id, additive ? { additive: true } : undefined)
     if (locked) return
+    if (viewOnly) return
 
     const stForBandDiag = useEditorStore.getState()
     const nestedBandDiag = findBandNestedChild(stForBandDiag.pages, el.id)
@@ -467,9 +495,10 @@ function CanvasElement({
         others,
         st.pageSpec,
         {
-          snapToGrid: st.snapToGrid,
+          snapToGrid: ev.shiftKey,
           smartGuides: st.smartGuidesEnabled,
           userGuides,
+          gridSize: st.gridSize,
         },
         viewportPt
       )
@@ -508,13 +537,15 @@ function CanvasElement({
   }
 
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (viewOnly) return
     if (!canInlineEdit || locked) return
     const t = e.target as HTMLElement
     if (
       isInlineEditing &&
       (t.closest('.ProseMirror') ||
         t.closest('[contenteditable="true"]') ||
-        t.closest('[data-agreemint-tiptap-root]'))
+        t.closest('[data-agreemint-tiptap-root]') ||
+        t.closest('input'))
     ) {
       return
     }
@@ -590,9 +621,10 @@ function CanvasElement({
         others,
         st.pageSpec,
         {
-          snapToGrid: st.snapToGrid,
+          snapToGrid: ev.shiftKey,
           smartGuides: st.smartGuidesEnabled,
           userGuides,
+          gridSize: st.gridSize,
         },
         viewportPt
       )
@@ -611,19 +643,35 @@ function CanvasElement({
     window.addEventListener('mouseup', onUp)
   }
 
-  const growWithText = isInlineEditing && canInlineEdit
+  // Linked frames stay at their reflow-assigned height during editing; standalone text grows freely
+  const growWithText = isInlineEditing && canInlineEdit && !isLinkedFrame
   const boxX = coerceLayoutScalar(el.x, 0)
   const boxY = coerceLayoutScalar(el.y, 0)
   const boxW = Math.max(1, coerceLayoutScalar(el.width, 20))
   const boxHRaw = coerceLayoutScalar(el.height, el.type === 'LINE' ? 4 : 16)
   const boxH = el.type === 'LINE' ? Math.max(boxHRaw, 4) : boxHRaw
+
+  // Element-level visual style: opacity, rotation, shadow
+  const elOpacity = el.style?.opacity ?? 1
+  const effectiveOpacity = isDragging
+    ? Math.min(0.9, elOpacity)
+    : locked
+      ? Math.min(0.92, elOpacity)
+      : elOpacity < 1
+        ? elOpacity
+        : undefined
+  const elRotation = el.style?.rotation
+  const elShadow = el.style?.shadow
+
   const style: React.CSSProperties = {
     left: boxX,
     top: boxY,
     width: boxW,
     ...(growWithText
       ? { height: 'auto', minHeight: 16, overflow: 'visible' }
-      : { height: boxH }),
+      : isInlineEditing && isLinkedFrame
+        ? { height: boxH, overflow: 'auto' }
+        : { height: boxH }),
     touchAction: isInlineEditing ? 'auto' : 'none',
     cursor: isInlineEditing
       ? 'text'
@@ -634,22 +682,31 @@ function CanvasElement({
           : spaceMoveTool || canvasTool === 'move'
             ? 'grab'
             : 'default',
+    ...(effectiveOpacity != null ? { opacity: effectiveOpacity } : {}),
+    ...(elRotation ? { transform: `rotate(${elRotation}deg)`, transformOrigin: 'center' } : {}),
+    ...(elShadow
+      ? {
+          filter: `drop-shadow(${elShadow.offsetX}pt ${elShadow.offsetY}pt ${elShadow.blur}pt ${elShadow.color})`,
+        }
+      : {}),
   }
 
   return (
     <div
       ref={outerRef}
-      className={`absolute box-border select-none transition-shadow ${
-        marginClampHighlight && !isHeaderOrFooterType(el.type)
-          ? 'ring-2 ring-red-500/85 ring-offset-1 shadow-[0_0_0_3px_rgba(248,113,113,0.22)]'
-          : selected
-            ? locked
-              ? 'ring-2 ring-amber-500 ring-offset-1'
-              : hideTableOuterSelectionRing
-                ? 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
-                : 'ring-2 ring-violet-500 ring-offset-1'
-            : 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
-      } ${locked ? 'opacity-[0.92]' : ''} ${isDragging ? 'z-10 opacity-90' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
+      className={`group absolute box-border select-none transition-shadow ${
+        isCommentHighlighted
+          ? 'ring-2 ring-amber-400 ring-offset-1 shadow-[0_0_8px_2px_rgba(251,191,36,0.35)]'
+          : marginClampHighlight && !isHeaderOrFooterType(el.type)
+            ? 'ring-2 ring-red-500/85 ring-offset-1 shadow-[0_0_0_3px_rgba(248,113,113,0.22)]'
+            : selected
+              ? locked
+                ? 'ring-2 ring-amber-500 ring-offset-1'
+                : hideTableOuterSelectionRing
+                  ? 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
+                  : 'ring-2 ring-violet-500 ring-offset-1'
+              : 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
+      } ${isDragging ? 'z-10' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
       style={style}
       onPointerDownCapture={onPointerDownCapture}
       onPointerDown={onPointerDownBubble}
@@ -673,75 +730,97 @@ function CanvasElement({
       }}
     >
       {isInlineEditing && canInlineEdit ? (
-        <div
-          ref={inlineEditorRef}
-          className={`w-full px-1 py-0.5 ${
-            el.style?.color?.trim()
-              ? ''
-              : 'text-zinc-900 dark:text-zinc-100'
-          } ${
-            el.style?.backgroundColor?.trim()
-              ? ''
-              : 'bg-white/95 dark:bg-zinc-900/95'
-          }`}
-          style={{
-            fontSize: el.style?.fontSize ?? 12,
-            // Do not inherit element bold/italic onto the editor — it hides TipTap marks (B/I/sub/sup).
-            fontWeight: 400,
-            fontStyle: 'normal',
-            textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
-            color: el.style?.color?.trim() || undefined,
-            backgroundColor: el.style?.backgroundColor?.trim() || undefined,
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <TipTapRichEditor
-            content={storeRichTextContent ?? el.content}
-            emitOnChange={true}
-            onChange={persistCanvasTextContent}
-            variableMentions={variableMentions}
-            variableValues={variableValues}
-            variableChipDetailResolver={resolveVariableChipDetail}
-            variableSurfaceLabelResolver={resolveVariableSurfaceLabel}
-            mode="canvas"
-            sessionKey={el.id}
-            autoFocus
-            editorClassName="bg-transparent font-normal not-italic"
-            editorStyle={{
+        el.type === 'LIST' ? (
+          /* ── LIST inline editing: delegate entirely to ListElementCanvas ── */
+          <div
+            ref={inlineEditorRef}
+            className="h-full w-full"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <ListElementCanvas
+              el={el}
+              isEditing
+              onCommit={commitInlineEdit}
+              onEscape={escapeInlineEdit}
+            />
+          </div>
+        ) : (
+          /* ── TEXT / HEADER / FOOTER inline editing: TipTap ── */
+          <div
+            ref={inlineEditorRef}
+            className={`w-full px-1 py-0.5 ${
+              el.style?.color?.trim()
+                ? ''
+                : 'text-zinc-900 dark:text-zinc-100'
+            } ${
+              el.style?.backgroundColor?.trim() || isValidGradient(el.style?.bgGradient)
+                ? ''
+                : 'bg-white/95 dark:bg-zinc-900/95'
+            }`}
+            style={{
               fontSize: el.style?.fontSize ?? 12,
+              // Do not inherit element bold/italic onto the editor — it hides TipTap marks (B/I/sub/sup).
               fontWeight: 400,
               fontStyle: 'normal',
+              fontFamily: el.style?.fontFamily || undefined,
               textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
               color: el.style?.color?.trim() || undefined,
-              backgroundColor: 'transparent',
+              background: resolveBgStyle(el) || undefined,
+              lineHeight: el.style?.lineHeight ?? 1.4,
             }}
-            onReady={(ed) => {
-              inlineTipTapLocalRef.current = ed
-              registerActiveCanvasTipTapEditor(el.id, ed)
-              setInlineTipTapEditor(ed)
-            }}
-            onUnmount={(ed) => {
-              if (inlineTipTapLocalRef.current === ed) {
-                inlineTipTapLocalRef.current = null
-              }
-              unregisterActiveCanvasTipTapEditor(el.id, ed)
-              const cur = useEditorStore.getState().inlineTipTapEditor
-              if (cur === ed) {
-                setInlineTipTapEditor(null)
-              }
-            }}
-            canvasKeyboard={{
-              onEscape: escapeInlineEdit,
-              onCommitShortcut: commitInlineEdit,
-            }}
-          />
-        </div>
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <TipTapRichEditor
+              content={storeRichTextContent ?? el.content}
+              emitOnChange={true}
+              onChange={persistCanvasTextContent}
+              variableMentions={variableMentions}
+              variableValues={variableValues}
+              variableChipDetailResolver={resolveVariableChipDetail}
+              variableSurfaceLabelResolver={resolveVariableSurfaceLabel}
+              mode="canvas"
+              sessionKey={el.id}
+              autoFocus
+              editorClassName="bg-transparent font-normal not-italic"
+              editorStyle={{
+                fontSize: el.style?.fontSize ?? 12,
+                fontWeight: 400,
+                fontStyle: 'normal',
+                textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
+                color: el.style?.color?.trim() || undefined,
+                backgroundColor: 'transparent',
+                lineHeight: el.style?.lineHeight ?? 1.4,
+              }}
+              onReady={(ed) => {
+                inlineTipTapLocalRef.current = ed
+                registerActiveCanvasTipTapEditor(el.id, ed)
+                setInlineTipTapEditor(ed)
+              }}
+              onUnmount={(ed) => {
+                if (inlineTipTapLocalRef.current === ed) {
+                  inlineTipTapLocalRef.current = null
+                }
+                unregisterActiveCanvasTipTapEditor(el.id, ed)
+                const cur = useEditorStore.getState().inlineTipTapEditor
+                if (cur === ed) {
+                  setInlineTipTapEditor(null)
+                }
+              }}
+              canvasKeyboard={{
+                onEscape: escapeInlineEdit,
+                onCommitShortcut: commitInlineEdit,
+              }}
+            />
+          </div>
+        )
       ) : (
         <ElementPreview el={el} />
       )}
       {soleSelected &&
         !locked &&
+        !viewOnly &&
         el.type !== 'MERGED_SHAPE' &&
         (!isInlineEditing ||
           (bandNested != null && bandCanvasEditElementId === bandNested.container.id)) && (
@@ -769,8 +848,32 @@ function CanvasElement({
           Locked
         </span>
       )}
-      {canInlineEdit && !isInlineEditing && soleSelected && !locked && (
-        <span className="pointer-events-none absolute -top-5 left-0 max-w-[min(100%,280px)] text-[9px] leading-tight text-zinc-500 dark:text-zinc-400">
+      {(el.comments?.length ?? 0) > 0 && (
+        <span
+          className="pointer-events-none absolute bottom-1 right-1 z-30 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white shadow-sm"
+          title={`${el.comments!.length} comment${el.comments!.length > 1 ? 's' : ''}`}
+        >
+          {el.comments!.length}
+        </span>
+      )}
+      {el.linkedPrevId && (
+        <span
+          className="pointer-events-none absolute -top-4 left-1/2 z-30 -translate-x-1/2 rounded bg-sky-100 px-1.5 py-px text-[8px] font-semibold text-sky-700 dark:bg-sky-900/60 dark:text-sky-200"
+          title="Continued from previous page"
+        >
+          &#x2191; Continued
+        </span>
+      )}
+      {el.linkedNextId && (
+        <span
+          className="pointer-events-none absolute -bottom-4 left-1/2 z-30 -translate-x-1/2 rounded bg-sky-100 px-1.5 py-px text-[8px] font-semibold text-sky-700 dark:bg-sky-900/60 dark:text-sky-200"
+          title="Continues on next page"
+        >
+          Continues &#x2193;
+        </span>
+      )}
+      {canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
+        <span className={`pointer-events-none absolute left-0 max-w-[min(100%,280px)] text-[9px] leading-tight text-zinc-500 dark:text-zinc-400 ${el.linkedPrevId ? '-top-9' : '-top-5'}`}>
           {el.type === 'TEXT' && bandNested && bandCanvasEditElementId !== bandNested.container.id
             ? 'Double-click opens band editor — text edits only there · toolbar Page / Header / Footer · Esc when done'
             : el.type === 'TEXT'
@@ -780,8 +883,67 @@ function CanvasElement({
                 : 'Double-click to edit · click a purple field for details · ⌘/Ctrl+Enter to finish'}
         </span>
       )}
+      {/* View-only mode: comment icon on hover */}
+      {viewOnly && (
+        <button
+          type="button"
+          className="absolute -right-1 -top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-violet-700"
+          title="Add comment"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCommentClick?.(el.id)
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+          </svg>
+        </button>
+      )}
     </div>
   )
+}
+
+/** Render SVG <defs> for a gradient. Returns the fill/stroke value as `url(#id)`. */
+function SvgGradientDef({ g, id }: { g: GradientDef; id: string }) {
+  if (g.type === 'radial') {
+    return (
+      <radialGradient id={id} cx="50%" cy="50%" r="50%">
+        {g.stops.map((s, i) => (
+          <stop key={i} offset={`${Math.round(s.position * 100)}%`} stopColor={s.color} />
+        ))}
+      </radialGradient>
+    )
+  }
+  const { x1, y1, x2, y2 } = svgLinearGradientProps(g)
+  return (
+    <linearGradient id={id} x1={x1} y1={y1} x2={x2} y2={y2}>
+      {g.stops.map((s, i) => (
+        <stop key={i} offset={`${Math.round(s.position * 100)}%`} stopColor={s.color} />
+      ))}
+    </linearGradient>
+  )
+}
+
+/** Resolve the CSS background value for an element (gradient or solid). */
+function resolveBgStyle(el: LayoutElement): string | undefined {
+  if (isValidGradient(el.style?.bgGradient)) return gradientToCss(el.style!.bgGradient!)
+  return el.style?.backgroundColor?.trim() || undefined
+}
+
+/** Resolve CSS text color styles. Returns inline styles for either solid or gradient text. */
+function resolveTextColorStyle(el: LayoutElement): React.CSSProperties {
+  if (isValidGradient(el.style?.colorGradient)) {
+    return {
+      background: gradientToCss(el.style!.colorGradient!),
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+    }
+  }
+  const c = el.style?.color?.trim()
+  return c ? { color: c } : {}
 }
 
 function ElementPreview({ el }: { el: LayoutElement }) {
@@ -796,13 +958,12 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   const fs = el.style?.fontSize ?? 12
   const align = (el.style?.align ?? 'left') as React.CSSProperties['textAlign']
   if (el.type === 'HEADER' || el.type === 'FOOTER') {
+    const bandBg = resolveBgStyle(el)
     if (el.bandElements?.length) {
       return (
         <div
           className="pointer-events-none relative h-full w-full overflow-hidden text-zinc-900 dark:text-zinc-100"
-          style={{
-            backgroundColor: el.style?.backgroundColor?.trim() || undefined,
-          }}
+          style={{ background: bandBg || undefined }}
         >
           {el.bandElements.map((ch) => (
             <div
@@ -819,9 +980,7 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     return (
       <div
         className="pointer-events-none flex h-full w-full flex-col overflow-hidden px-1 py-0.5 text-zinc-900 dark:text-zinc-100"
-        style={{
-          backgroundColor: el.style?.backgroundColor?.trim() || undefined,
-        }}
+        style={{ background: bandBg || undefined }}
       >
         <RichTextBlockPreview
           content={el.content}
@@ -832,6 +991,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
           elementBold={el.style?.bold}
           elementItalic={el.style?.italic}
           color={el.style?.color}
+          fontFamily={el.style?.fontFamily}
+          lineHeight={el.style?.lineHeight}
         />
       </div>
     )
@@ -839,20 +1000,25 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   if (el.type === 'TABLE') {
     return <TableElementCanvas el={el as LayoutTableElement} locked={!!el.locked} />
   }
+  if (el.type === 'LIST') {
+    return <ListElementCanvas el={el} />
+  }
   if (el.type === 'IMAGE') {
     const c = el.style?.color?.trim()
-    const bg = el.style?.backgroundColor?.trim()
+    const imgBg = resolveBgStyle(el)
     const hasSrc = Boolean(el.src?.trim())
+    const imgBw = el.style?.borderWidth ?? 2
+    const imgBs = el.style?.lineStyle ?? 'solid'
+    const imgBr = el.style?.borderRadius
     return (
       <div
-        className={`pointer-events-none flex h-full items-center justify-center overflow-hidden text-xs text-zinc-500 ${
-          bg ? '' : 'bg-zinc-200 dark:bg-zinc-700'
-        }`}
+        className={`pointer-events-none flex h-full items-center justify-center overflow-hidden text-xs text-zinc-500`}
         style={{
-          backgroundColor: bg || undefined,
-          borderWidth: c ? 2 : undefined,
-          borderStyle: c ? 'solid' : undefined,
+          background: imgBg || undefined,
+          borderWidth: c ? imgBw : undefined,
+          borderStyle: c ? imgBs : undefined,
           borderColor: c || undefined,
+          borderRadius: imgBr ? imgBr : undefined,
         }}
       >
         {hasSrc ? (
@@ -867,12 +1033,29 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   }
   if (el.type === 'LINE') {
     const c = el.style?.color?.trim()
+    const ls = el.style?.lineStyle
+    const sw = el.strokeWidth ?? 1
+    if (ls === 'dashed' || ls === 'dotted') {
+      return (
+        <div className="pointer-events-none flex h-full items-center">
+          <div
+            className={`w-full ${c ? '' : 'border-zinc-800 dark:border-zinc-200'}`}
+            style={{
+              height: 0,
+              borderTopWidth: sw,
+              borderTopStyle: ls,
+              borderTopColor: c || undefined,
+            }}
+          />
+        </div>
+      )
+    }
     return (
       <div className="pointer-events-none flex h-full items-center">
         <div
           className={c ? 'w-full' : 'w-full bg-zinc-800 dark:bg-zinc-200'}
           style={{
-            height: el.strokeWidth ?? 1,
+            height: sw,
             backgroundColor: c || undefined,
           }}
         />
@@ -881,25 +1064,42 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   }
   if (el.type === 'BOX') {
     const c = el.style?.color?.trim()
-    const bg = el.style?.backgroundColor?.trim()
+    const boxBg = resolveBgStyle(el)
+    const bw = el.style?.borderWidth ?? 2
+    const bs = el.style?.lineStyle ?? 'dashed'
+    const br = el.style?.borderRadius
     return (
       <div
-        className={`pointer-events-none h-full w-full border-2 border-dashed ${c ? '' : 'border-zinc-400'}`}
+        className={`pointer-events-none h-full w-full ${c ? '' : 'border-zinc-400'}`}
         style={{
+          borderWidth: bw,
+          borderStyle: bs,
           borderColor: c || undefined,
-          backgroundColor: bg || undefined,
+          background: boxBg || undefined,
+          borderRadius: br ? br : undefined,
         }}
       />
     )
   }
-  const shapeStroke = el.style?.color?.trim() || 'currentColor'
-  const shapeFill = el.style?.backgroundColor?.trim()
+  const hasFillGrad = isValidGradient(el.style?.bgGradient)
+  const hasStrokeGrad = isValidGradient(el.style?.colorGradient)
+  const fillGradId = svgGradientId(el.id, 'fill')
+  const strokeGradId = svgGradientId(el.id, 'stroke')
+  const shapeStroke = hasStrokeGrad ? `url(#${strokeGradId})` : (el.style?.color?.trim() || 'currentColor')
+  const shapeFill = hasFillGrad ? `url(#${fillGradId})` : el.style?.backgroundColor?.trim()
   const sw = el.strokeWidth ?? 2
+  const shapeDash =
+    el.style?.lineStyle === 'dashed' ? '8 4' : el.style?.lineStyle === 'dotted' ? '2 2' : undefined
+  // Collect gradient defs needed for this SVG element
+  const svgDefs: React.ReactNode[] = []
+  if (hasFillGrad) svgDefs.push(<SvgGradientDef key="fill" g={el.style!.bgGradient!} id={fillGradId} />)
+  if (hasStrokeGrad) svgDefs.push(<SvgGradientDef key="stroke" g={el.style!.colorGradient!} id={strokeGradId} />)
   if (el.type === 'ELLIPSE') {
     const w = el.width
     const h = el.height
     return (
       <svg className="pointer-events-none h-full w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} aria-hidden>
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
         <ellipse
           cx={w / 2}
           cy={h / 2}
@@ -908,6 +1108,7 @@ function ElementPreview({ el }: { el: LayoutElement }) {
           fill={shapeFill || 'none'}
           stroke={shapeStroke}
           strokeWidth={sw}
+          strokeDasharray={shapeDash}
           vectorEffect="non-scaling-stroke"
         />
       </svg>
@@ -937,12 +1138,14 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const d = `${loop(cx, cy, orx, ory)} ${loop(cx, cy, irx, iry)}`
     return (
       <svg className="pointer-events-none h-full w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} aria-hidden>
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
         <path
           d={d}
           fill={shapeFill || 'none'}
           fillRule="evenodd"
           stroke={shapeStroke}
           strokeWidth={sw}
+          strokeDasharray={shapeDash}
           vectorEffect="non-scaling-stroke"
         />
       </svg>
@@ -954,7 +1157,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const pts = `${w / 2},0 ${w},${h} 0,${h}`
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${w} ${h}`} aria-hidden>
-        <polygon points={pts} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} vectorEffect="non-scaling-stroke" />
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
+        <polygon points={pts} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} strokeDasharray={shapeDash} vectorEffect="non-scaling-stroke" />
       </svg>
     )
   }
@@ -964,7 +1168,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const pts = `${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${w} ${h}`} aria-hidden>
-        <polygon points={pts} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} vectorEffect="non-scaling-stroke" />
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
+        <polygon points={pts} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} strokeDasharray={shapeDash} vectorEffect="non-scaling-stroke" />
       </svg>
     )
   }
@@ -983,7 +1188,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     }
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${w} ${h}`} aria-hidden>
-        <polygon points={p.join(' ')} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} vectorEffect="non-scaling-stroke" />
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
+        <polygon points={p.join(' ')} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} strokeDasharray={shapeDash} vectorEffect="non-scaling-stroke" />
       </svg>
     )
   }
@@ -998,13 +1204,15 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const d = `M ${x0} ${mid - t / 2} L ${xShaft} ${mid - t / 2} L ${xShaft} 0 L ${xTip} ${mid} L ${xShaft} ${h} L ${xShaft} ${mid + t / 2} L ${x0} ${mid + t / 2} Z`
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${w} ${h}`} aria-hidden>
-        <path d={d} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} vectorEffect="non-scaling-stroke" />
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
+        <path d={d} fill={shapeFill || 'none'} stroke={shapeStroke} strokeWidth={sw} strokeDasharray={shapeDash} vectorEffect="non-scaling-stroke" />
       </svg>
     )
   }
   if (el.type === 'MERGED_SHAPE' && el.shapePolys?.length) {
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${el.width} ${el.height}`} aria-hidden>
+        {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
         {el.shapePolys.map((poly, pi) => (
           <path
             key={pi}
@@ -1013,15 +1221,23 @@ function ElementPreview({ el }: { el: LayoutElement }) {
             fillRule="evenodd"
             stroke={shapeStroke}
             strokeWidth={sw}
+            strokeDasharray={shapeDash}
             vectorEffect="non-scaling-stroke"
           />
         ))}
       </svg>
     )
   }
+  // Gradient background
+  const bgCss = resolveBgStyle(el)
+  // Gradient text colour (or solid)
+  const hasColorGrad = isValidGradient(el.style?.colorGradient)
+  const textColorStyle = resolveTextColorStyle(el)
+
   return (
     <div
-      className={`pointer-events-none h-full w-full overflow-hidden ${el.style?.color?.trim() ? '' : 'text-zinc-900 dark:text-zinc-100'}`}
+      className={`pointer-events-none h-full w-full overflow-hidden ${el.style?.color?.trim() || hasColorGrad ? '' : 'text-zinc-900 dark:text-zinc-100'}`}
+      style={{ fontFamily: el.style?.fontFamily || undefined, background: bgCss, ...textColorStyle }}
     >
       <RichTextBlockPreview
         content={el.content}
@@ -1031,8 +1247,10 @@ function ElementPreview({ el }: { el: LayoutElement }) {
         textAlign={align}
         elementBold={el.style?.bold}
         elementItalic={el.style?.italic}
-        color={el.style?.color}
-        backgroundColor={el.style?.backgroundColor}
+        color={hasColorGrad ? undefined : el.style?.color}
+        backgroundColor={isValidGradient(el.style?.bgGradient) ? undefined : el.style?.backgroundColor}
+        fontFamily={el.style?.fontFamily}
+        lineHeight={el.style?.lineHeight}
       />
     </div>
   )
@@ -1228,6 +1446,8 @@ export function EditorCanvas({
   const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
   const select = useEditorStore((s) => s.select)
   const pageSpec = useEditorStore((s) => s.pageSpec)
+  const showGrid = useEditorStore((s) => s.showGrid)
+  const gridSize = useEditorStore((s) => s.gridSize)
   const bandEditBox = useMemo(() => {
     if (!bandContainerEl) return null
     const { width: pw, height: ph } = pageDimensionsPt(pageSpec)
@@ -1285,13 +1505,44 @@ export function EditorCanvas({
   }, [])
 
   const confirmImageInsert = useCallback(
-    (src: string) => {
+    (src: string, naturalWidth: number, naturalHeight: number) => {
       const pos = pendingImagePosRef.current
       pendingImagePosRef.current = null
       setImageModalOpen(false)
-      if (pos) addElement({ ...createDefaultElement('IMAGE', pos), src: src.trim() })
+      if (pos) {
+        const MAX_DIM = 300 // max pt dimension on canvas
+        let w = naturalWidth
+        let h = naturalHeight
+        if (w === 0 || h === 0) {
+          w = 120
+          h = 120
+        } else {
+          const scale = Math.min(1, MAX_DIM / Math.max(w, h))
+          w = Math.round(w * scale)
+          h = Math.round(h * scale)
+        }
+        addElement({ ...createDefaultElement('IMAGE', pos), src: src.trim(), width: w, height: h })
+      }
     },
     [addElement]
+  )
+
+  const viewOnly = useEditorStore((s) => s.viewOnly)
+  const addComment = useEditorStore((s) => s.addComment)
+  const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
+
+  /** View-only mode: click comment icon → select element, open Comments tab, prompt for text. */
+  const onCommentClick = useCallback(
+    (elId: string) => {
+      select(elId)
+      setEditorSidebarTab('comments')
+      // Small delay so the panel renders, then prompt
+      setTimeout(() => {
+        const text = window.prompt('Add a comment')
+        if (text?.trim()) addComment(elId, text.trim())
+      }, 100)
+    },
+    [select, setEditorSidebarTab, addComment],
   )
 
   const onElementContextMenu = useCallback((e: ReactMouseEvent, elId: string) => {
@@ -1383,6 +1634,7 @@ export function EditorCanvas({
       if (key !== 'z' && key !== 'y') return
       if (isEditableTarget(document.activeElement)) return
       const st = useEditorStore.getState()
+      if (st.viewOnly) return
       if (st.canvasInlineEditId) return
       if (st.tableCellEdit) return
       const redo =
@@ -1411,8 +1663,131 @@ export function EditorCanvas({
     return () => window.removeEventListener('keydown', onKey, true)
   }, [bandCanvasEditElementId])
 
+  // ── Phase 3: arrow-key nudge, Tab cycle, Delete/Backspace ──
+  useEffect(() => {
+    const canAct = () => {
+      if (isEditableTarget(document.activeElement)) return false
+      const st = useEditorStore.getState()
+      if (st.viewOnly) return false
+      return !st.canvasInlineEditId && !st.tableCellEdit
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (!canAct()) return
+      const st = useEditorStore.getState()
+      const key = e.key
+
+      // Arrow keys: nudge selected elements (Shift = snap to grid step)
+      if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+        if (st.selectedIds.length === 0) return
+        e.preventDefault()
+        const step = e.shiftKey ? st.gridSize : 1
+        const dx = key === 'ArrowLeft' ? -step : key === 'ArrowRight' ? step : 0
+        const dy = key === 'ArrowUp' ? -step : key === 'ArrowDown' ? step : 0
+        for (const id of st.selectedIds) {
+          const els = st.pages[st.activePageIndex]?.elements ?? []
+          const el = els.find((e) => e.id === id)
+          if (el && !el.locked) {
+            st.updateElement(id, { x: el.x + dx, y: el.y + dy }, { skipHistory: true })
+          }
+        }
+        return
+      }
+
+      // Tab / Shift+Tab: cycle selection through elements
+      if (key === 'Tab') {
+        const els = st.pages[st.activePageIndex]?.elements ?? []
+        if (els.length === 0) return
+        e.preventDefault()
+        const currentId = st.selectedIds[0]
+        const currentIdx = currentId ? els.findIndex((e) => e.id === currentId) : -1
+        const next = e.shiftKey
+          ? (currentIdx <= 0 ? els.length - 1 : currentIdx - 1)
+          : (currentIdx >= els.length - 1 ? 0 : currentIdx + 1)
+        st.select(els[next].id)
+        return
+      }
+
+      // Delete / Backspace: remove selected elements
+      if (key === 'Delete' || key === 'Backspace') {
+        if (st.selectedIds.length === 0) return
+        e.preventDefault()
+        st.removeElements(st.selectedIds)
+        return
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+
+  // ── Phase 3: copy / paste / cut / duplicate ──
+  useEffect(() => {
+    const canAct = () => {
+      if (isEditableTarget(document.activeElement)) return false
+      const st = useEditorStore.getState()
+      if (st.viewOnly) return false
+      return !st.canvasInlineEditId && !st.tableCellEdit
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.metaKey && !e.ctrlKey) return
+      if (!canAct()) return
+      const key = e.key.toLowerCase()
+      const st = useEditorStore.getState()
+
+      // ⌘C / Ctrl+C: copy
+      if (key === 'c' && !e.shiftKey) {
+        if (st.selectedIds.length === 0) return
+        e.preventDefault()
+        const els = (st.pages[st.activePageIndex]?.elements ?? []).filter(
+          (el) => st.selectedIds.includes(el.id)
+        )
+        void copyElementsToClipboard(els)
+        return
+      }
+
+      // ⌘V / Ctrl+V: paste
+      if (key === 'v' && !e.shiftKey) {
+        e.preventDefault()
+        void pasteElementsFromClipboard().then((clones) => {
+          if (!clones?.length) return
+          const s = useEditorStore.getState()
+          for (const el of clones) {
+            s.addElement(el)
+          }
+          s.select(null)
+          for (const el of clones) {
+            s.select(el.id, { additive: true })
+          }
+        })
+        return
+      }
+
+      // ⌘X / Ctrl+X: cut
+      if (key === 'x' && !e.shiftKey) {
+        if (st.selectedIds.length === 0) return
+        e.preventDefault()
+        const els = (st.pages[st.activePageIndex]?.elements ?? []).filter(
+          (el) => st.selectedIds.includes(el.id)
+        )
+        void copyElementsToClipboard(els)
+        st.removeElements(st.selectedIds)
+        return
+      }
+
+      // ��D / Ctrl+D: duplicate in place
+      if (key === 'd' && !e.shiftKey) {
+        if (st.selectedIds.length === 0) return
+        e.preventDefault()
+        st.duplicateElements(st.selectedIds)
+        return
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+
   const onDropNew = useCallback(
     (clientX: number, clientY: number) => {
+      if (useEditorStore.getState().viewOnly) return undefined
       const node = canvasRef.current
       if (!node) return undefined
       const rect = node.getBoundingClientRect()
@@ -1834,7 +2209,7 @@ export function EditorCanvas({
       setElementContextMenu(null)
       if (e.button !== 0) return
       const st = useEditorStore.getState()
-      if (st.canvasTool === 'draw' && !st.spaceMoveTool) {
+      if (st.canvasTool === 'draw' && !st.spaceMoveTool && !st.viewOnly) {
         const node = canvasRef.current
         if (!node) return
         if (
@@ -1915,15 +2290,20 @@ export function EditorCanvas({
             />
             <div
               ref={connectDropRef}
+              data-agreemint-page-canvas
               className={`relative bg-white shadow-lg dark:bg-zinc-100 ${
                 moveGrabActive ? 'cursor-grab' : drawMode ? 'cursor-crosshair' : ''
               }`}
               style={{
                 width: PAGE_W,
                 height: PAGE_H,
-                backgroundImage:
-                  'linear-gradient(to right, rgb(228 228 231 / 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgb(228 228 231 / 0.5) 1px, transparent 1px)',
-                backgroundSize: '10px 10px',
+                ...(showGrid
+                  ? {
+                      backgroundImage:
+                        'linear-gradient(to right, rgb(228 228 231 / 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgb(228 228 231 / 0.5) 1px, transparent 1px)',
+                      backgroundSize: `${gridSize}px ${gridSize}px`,
+                    }
+                  : {}),
               }}
               onMouseDown={onPageMouseDown}
               onMouseMove={onPageMouseMove}
@@ -2035,6 +2415,7 @@ export function EditorCanvas({
                                 el={ch}
                                 exemptFromInlineCommitRef={exemptFromInlineCommitRef}
                                 onElementContextMenu={onElementContextMenu}
+                                onCommentClick={onCommentClick}
                               />
                             ))}
                           </div>,
@@ -2046,6 +2427,7 @@ export function EditorCanvas({
                           el={el}
                           exemptFromInlineCommitRef={exemptFromInlineCommitRef}
                           onElementContextMenu={onElementContextMenu}
+                          onCommentClick={onCommentClick}
                         />,
                       ]
                     })}
@@ -2085,6 +2467,7 @@ export function EditorCanvas({
                               el={ch}
                               exemptFromInlineCommitRef={exemptFromInlineCommitRef}
                               onElementContextMenu={onElementContextMenu}
+                              onCommentClick={onCommentClick}
                             />
                           ))}
                         </div>,
@@ -2096,6 +2479,7 @@ export function EditorCanvas({
                         el={el}
                         exemptFromInlineCommitRef={exemptFromInlineCommitRef}
                         onElementContextMenu={onElementContextMenu}
+                        onCommentClick={onCommentClick}
                       />,
                     ]
                   })}
@@ -2136,36 +2520,60 @@ export function EditorCanvas({
           }}
           role="menu"
         >
+          {!viewOnly && (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                onClick={() => {
+                  const name = window.prompt('Component name', 'My component')
+                  if (name?.trim()) {
+                    saveSelectionAsLayoutComponent(name.trim())
+                  }
+                  setElementContextMenu(null)
+                }}
+              >
+                Save as component…
+              </button>
+              {canPunchHole ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                  onClick={() => {
+                    subtractSelectionToMergedShape()
+                    setElementContextMenu(null)
+                  }}
+                >
+                  Punch hole (subtract shapes)…
+                </button>
+              ) : null}
+              <div className="border-t border-zinc-100 dark:border-zinc-700" />
+            </>
+          )}
           <button
             type="button"
             role="menuitem"
-            className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
             onClick={() => {
-              const name = window.prompt('Component name', 'My component')
-              if (name?.trim()) {
-                saveSelectionAsLayoutComponent(name.trim())
-              }
+              const st = useEditorStore.getState()
+              const elId = st.selectedIds[0]
               setElementContextMenu(null)
+              if (elId) {
+                setEditorSidebarTab('comments')
+                setTimeout(() => {
+                  const text = window.prompt('Add a comment')
+                  if (text?.trim()) addComment(elId, text.trim())
+                }, 100)
+              }
             }}
           >
-            Save as component…
+            <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+            </svg>
+            Add comment
           </button>
-          {canPunchHole ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
-              onClick={() => {
-                subtractSelectionToMergedShape()
-                setElementContextMenu(null)
-              }}
-            >
-              Punch hole (subtract shapes)…
-            </button>
-          ) : null}
-          <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            Saves the current selection. If any item is grouped, the whole group on this page is included.
-          </p>
         </div>
       </>
     ) : null}

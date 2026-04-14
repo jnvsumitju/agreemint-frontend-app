@@ -192,6 +192,75 @@ export function swapCellBackgroundColumns(
   return Object.keys(next).length ? next : undefined
 }
 
+export function swapRowBackgroundKeys(
+  map: Record<string, string> | undefined,
+  i: number,
+  j: number
+): Record<string, string> | undefined {
+  if (!map || !Object.keys(map).length) return map
+  const a = map[String(i)]?.trim()
+  const b = map[String(j)]?.trim()
+  const next = { ...map }
+  if (b) next[String(i)] = b
+  else delete next[String(i)]
+  if (a) next[String(j)] = a
+  else delete next[String(j)]
+  return Object.keys(next).length ? next : undefined
+}
+
+export function swapCellBackgroundRows(
+  map: Record<string, string> | undefined,
+  i: number,
+  j: number
+): Record<string, string> | undefined {
+  if (!map || !Object.keys(map).length) return map
+  const next: Record<string, string> = {}
+  for (const [k, v] of Object.entries(map)) {
+    const c = parseCellKey(k)
+    if (!c) continue
+    if (c.row === i) next[`${j},${c.col}`] = v
+    else if (c.row === j) next[`${i},${c.col}`] = v
+    else next[k] = v
+  }
+  return Object.keys(next).length ? next : undefined
+}
+
+export function duplicateRowBackgroundMap(
+  map: Record<string, string> | undefined,
+  srcIndex: number
+): Record<string, string> | undefined {
+  if (!map || !Object.keys(map).length) return map
+  const next: Record<string, string> = {}
+  for (const [k, v] of Object.entries(map)) {
+    const i = Number(k)
+    if (!Number.isFinite(i)) { next[k] = v; continue }
+    if (i <= srcIndex) next[String(i)] = v
+    else next[String(i + 1)] = v
+  }
+  const copy = map[String(srcIndex)]?.trim()
+  if (copy) next[String(srcIndex + 1)] = copy
+  return Object.keys(next).length ? next : undefined
+}
+
+export function duplicateCellBackgroundRow(
+  map: Record<string, string> | undefined,
+  srcRow: number
+): Record<string, string> | undefined {
+  if (!map || !Object.keys(map).length) return map
+  const next: Record<string, string> = {}
+  for (const [k, v] of Object.entries(map)) {
+    const c = parseCellKey(k)
+    if (!c) continue
+    if (c.row <= srcRow) next[k] = v
+    else next[`${c.row + 1},${c.col}`] = v
+  }
+  for (const [k, v] of Object.entries(map)) {
+    const c = parseCellKey(k)
+    if (c && c.row === srcRow) next[`${srcRow + 1},${c.col}`] = v
+  }
+  return Object.keys(next).length ? next : undefined
+}
+
 export function duplicateCellBackgroundColumn(
   map: Record<string, string> | undefined,
   srcCol: number

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { richTextDebugLog } from '../lib/richTextDebugLog'
 import type { Editor as TipTapEditor } from '@tiptap/core'
 import type {
+  ElementComment,
   ElementType,
   LayoutDocumentPage,
   LayoutElement,
@@ -40,8 +41,10 @@ import {
 } from '../lib/systemTemplateVariables'
 import {
   defaultPreviewValueForVariable,
+  defaultSampleListItemsJson,
   defaultSampleTableRowsJson,
   extractVariableKeys,
+  uniqueListDataKeys,
   uniqueTableDataKeys,
 } from '../lib/variables'
 import {
@@ -49,6 +52,12 @@ import {
   persistLayoutComponents,
   type SavedLayoutComponent,
 } from '../lib/savedLayoutComponents'
+import {
+  distributeContent,
+  joinParagraphContents,
+  measureContentHeight,
+  splitContentIntoParagraphs,
+} from '../lib/textReflow'
 import {
   isMergeableShapeType,
   mergeLayoutShapeElements,
@@ -147,12 +156,17 @@ function mergeVariableValues(
     ...shadowStorageKeysForCatalogCollisions(globalDefs, pages),
   ])
   const tableKeys = new Set(uniqueTableDataKeys(elements))
+  const listKeys = new Set(uniqueListDataKeys(elements))
   const next: Record<string, string> = {}
   for (const k of keys) {
     if (k in prev) {
       next[k] = prev[k]
+    } else if (tableKeys.has(k)) {
+      next[k] = defaultSampleTableRowsJson()
+    } else if (listKeys.has(k)) {
+      next[k] = defaultSampleListItemsJson()
     } else {
-      next[k] = tableKeys.has(k) ? defaultSampleTableRowsJson() : defaultPreviewValueForVariable(k)
+      next[k] = defaultPreviewValueForVariable(k)
     }
   }
   const totalPages = Math.max(1, pages.length)
@@ -374,12 +388,20 @@ export interface EditorState {
   tableSelection: TableSelection
   /** TABLE: inline cell edit (double-click). */
   tableCellEdit: { tableId: string; row: number; col: number } | null
+  /** View-only mode — disables editing, shows comment icon on hover. */
+  viewOnly: boolean
+  /** Element ID currently highlighted from the comments panel. */
+  commentHighlightId: string | null
   /** Right sidebar tab (toolbar can open Variables for table JSON). */
-  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables'
+  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments'
   /** Document page (size, margins). */
   pageSpec: PageSpec
-  /** Snap element moves/resizes to 10pt grid when not aligned to a smart guide. */
+  /** Snap element moves/resizes to grid when not aligned to a smart guide. */
   snapToGrid: boolean
+  /** Show the grid lines on the canvas. */
+  showGrid: boolean
+  /** Grid spacing in pt (default 10). */
+  gridSize: number
   /** Show alignment guides to margins, page center, and sibling elements while dragging. */
   smartGuidesEnabled: boolean
   /** Transient alignment lines (pt) while dragging or resizing. */
@@ -415,7 +437,10 @@ export interface EditorState {
   removePage: (pageId: string) => void
   renamePage: (pageId: string, name: string) => void
   setPageMargins: (patch: Partial<PageMargins>) => void
+  setPageSize: (size: string, orientation?: 'portrait' | 'landscape') => void
   setSnapToGrid: (v: boolean) => void
+  setShowGrid: (v: boolean) => void
+  setGridSize: (v: number) => void
   setSmartGuidesEnabled: (v: boolean) => void
   setDragGuides: (guides: DragGuideState) => void
   /** Add a user layout guide on the active page (pt, snapped to 10pt grid). */
@@ -443,6 +468,18 @@ export interface EditorState {
   updateElement: (id: string, patch: Partial<LayoutElement>, options?: { skipHistory?: boolean }) => void
   removeElement: (id: string) => void
   removeElements: (ids: string[]) => void
+  /** Duplicate selected elements in-place with new IDs and a small offset. */
+  duplicateElements: (ids: string[]) => void
+  /** Add a comment to an element. */
+  addComment: (elementId: string, text: string, author?: string) => void
+  /** Add a reply to an existing comment. */
+  addReply: (elementId: string, commentId: string, text: string, author?: string) => void
+  /** Toggle resolved state of a comment on an element. */
+  resolveComment: (elementId: string, commentId: string) => void
+  /** Delete a comment (or nested reply) from an element. */
+  deleteComment: (elementId: string, commentId: string) => void
+  /** Set the element highlighted from the comments panel. */
+  setCommentHighlightId: (id: string | null) => void
   select: (id: string | null, options?: { additive?: boolean }) => void
   groupSelection: () => void
   ungroupSelection: () => void
@@ -456,7 +493,8 @@ export interface EditorState {
   setTableSelection: (sel: TableSelection) => void
   openTableCellEdit: (payload: { tableId: string; row: number; col: number }) => void
   setTableCellEdit: (edit: { tableId: string; row: number; col: number } | null) => void
-  setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables') => void
+  setViewOnly: (v: boolean) => void
+  setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments') => void
   /** Stack order: later items paint on top. Pass `pageIndex` to reorder a non-active page (e.g. page 0 bands). */
   moveLayer: (id: string, direction: 'forward' | 'backward', pageIndex?: number) => void
   bringLayerToFront: (id: string, pageIndex?: number) => void
@@ -481,6 +519,11 @@ export interface EditorState {
   saveSelectionAsLayoutComponent: (name: string) => void
   removeLayoutComponent: (id: string) => void
   insertLayoutComponentAt: (componentId: string, pos: { x: number; y: number }) => void
+  /**
+   * Linked text frame reflow: redistribute content across a linked chain of TEXT elements.
+   * Automatically creates continuation elements/pages for overflow and removes empty ones.
+   */
+  reflowLinkedText: (elementId: string) => void
   /** Coalesce move/resize: first call pushes one undo point; paired with `endHistoryBatch`. */
   beginHistoryBatch: () => void
   endHistoryBatch: () => void
@@ -510,6 +553,8 @@ const clearEditorUi = {
   focusedTextRunIndex: null,
   tableSelection: null,
   tableCellEdit: null,
+  viewOnly: false,
+  commentHighlightId: null as string | null,
   editorSidebarTab: 'properties' as const,
   dragGuides: { vertical: [] as number[], horizontal: [] as number[] },
   canvasPointerPt: null,
@@ -557,6 +602,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   editorSidebarTab: 'properties',
   pageSpec: defaultPageSpec(),
   snapToGrid: true,
+  showGrid: true,
+  gridSize: 10,
   smartGuidesEnabled: true,
   dragGuides: { vertical: [], horizontal: [] },
   canvasPointerPt: null,
@@ -593,9 +640,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         focusedTextRunIndex: null,
         tableSelection: null,
         tableCellEdit: null,
+        viewOnly: false,
+        commentHighlightId: null,
         editorSidebarTab: 'properties',
         pageSpec: defaultPageSpec(),
         snapToGrid: true,
+        showGrid: true,
+        gridSize: 10,
         smartGuidesEnabled: true,
         dragGuides: { vertical: [], horizontal: [] },
         canvasPointerPt: null,
@@ -833,7 +884,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           selectedIds: [placed.id],
         }
       }
-      const placed = clampElementLayoutToPrintMargins(el, s.pageSpec)
+      const placed = clampElementLayoutToPrintMargins(el, s.pageSpec, s.gridSize)
       const elements = [...activeElements(s), placed]
       return {
         ...takeUndoBarrier(s),
@@ -897,7 +948,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const saved = s.savedComponents.find((c) => c.id === componentId)
       if (!saved || saved.elements.length === 0) return {}
       const newEls = instantiateSavedComponent(saved, pos.x, pos.y).map((e) =>
-        clampElementLayoutToPrintMargins(e, s.pageSpec)
+        clampElementLayoutToPrintMargins(e, s.pageSpec, s.gridSize)
       )
       if (s.bandNestedEditorMounted && s.bandCanvasEditElementId) {
         const loc = findElementLocation(s, s.bandCanvasEditElementId)
@@ -951,7 +1002,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         patch.width !== undefined ||
         patch.height !== undefined
       ) {
-        merged = clampElementLayoutToPrintMargins(merged, s.pageSpec)
+        merged = clampElementLayoutToPrintMargins(merged, s.pageSpec, s.gridSize)
         merged = reclampBandChildrenToContainer(s, merged)
       }
       const elements = loc.elements.map((e) => (e.id === id ? merged : e))
@@ -1003,10 +1054,38 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => {
       const remove = new Set(ids)
       if (remove.size === 0) return {}
-      const pages = s.pages.map((p) => ({
-        ...p,
-        elements: p.elements.filter((e) => !remove.has(e.id)),
-      }))
+
+      // Collect dataKeys from TABLE elements being removed (for variable cleanup)
+      const removedTableDataKeys = new Set<string>()
+      for (const p of s.pages) {
+        for (const e of p.elements) {
+          if (remove.has(e.id) && e.type === 'TABLE' && e.dataKey) {
+            removedTableDataKeys.add(e.dataKey)
+          }
+        }
+      }
+
+      const pages = s.pages.map((p) => {
+        const filtered = p.elements.filter((e) => !remove.has(e.id))
+        // Clean up page-local variable definitions for removed table data keys
+        const locals = p.localVariables
+        const cleanedLocals =
+          removedTableDataKeys.size > 0 && locals?.length
+            ? locals.filter((d) => !removedTableDataKeys.has(d.key))
+            : locals
+        return {
+          ...p,
+          elements: filtered,
+          ...(cleanedLocals !== locals ? { localVariables: cleanedLocals?.length ? cleanedLocals : undefined } : {}),
+        }
+      })
+
+      // Clean up global variable definitions for removed table data keys
+      const globalDefs =
+        removedTableDataKeys.size > 0
+          ? s.globalVariableDefinitions.filter((d) => !removedTableDataKeys.has(d.key))
+          : s.globalVariableDefinitions
+
       const hitEdit = s.canvasInlineEditId != null && remove.has(s.canvasInlineEditId)
       const hitBand = s.bandCanvasEditElementId != null && remove.has(s.bandCanvasEditElementId)
       const hitTable =
@@ -1015,10 +1094,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return {
         ...takeUndoBarrier(s),
         pages,
+        globalVariableDefinitions: globalDefs,
         variableValues: mergeVariableValues(
           s.variableValues,
           allPageElements(pages),
-          s.globalVariableDefinitions,
+          globalDefs,
           pages,
           s.activePageIndex
         ),
@@ -1031,6 +1111,109 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         tableCellEdit: hitTable ? null : s.tableCellEdit,
       }
     }),
+
+  duplicateElements: (ids) =>
+    set((s) => {
+      if (ids.length === 0) return {}
+      const idSet = new Set(ids)
+      const src = activeElements(s).filter((e) => idSet.has(e.id))
+      if (src.length === 0) return {}
+      const OFFSET = 10
+      const clones = src.map((e) => ({
+        ...structuredClone(e),
+        id: newElementId(),
+        x: e.x + OFFSET,
+        y: e.y + OFFSET,
+        groupId: undefined as string | undefined,
+      }))
+      const elements = [...activeElements(s), ...clones]
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, elements),
+        selectedIds: clones.map((c) => c.id),
+      }
+    }),
+
+  addComment: (elementId, text, author) =>
+    set((s) => {
+      const elements = activeElements(s)
+      const idx = elements.findIndex((e) => e.id === elementId)
+      if (idx === -1) return {}
+      const el = elements[idx]
+      const comment: ElementComment = {
+        id: newElementId(),
+        text,
+        author: author ?? 'User',
+        createdAt: new Date().toISOString(),
+      }
+      const updated = [...elements]
+      updated[idx] = { ...el, comments: [...(el.comments ?? []), comment] }
+      return { ...takeUndoBarrier(s), ...replaceActiveElements(s, updated) }
+    }),
+
+  addReply: (elementId, commentId, text, author) =>
+    set((s) => {
+      const elements = activeElements(s)
+      const idx = elements.findIndex((e) => e.id === elementId)
+      if (idx === -1) return {}
+      const el = elements[idx]
+      const reply: ElementComment = {
+        id: newElementId(),
+        text,
+        author: author ?? 'User',
+        createdAt: new Date().toISOString(),
+      }
+      const addReplyDeep = (comments: ElementComment[]): ElementComment[] =>
+        comments.map((c) =>
+          c.id === commentId
+            ? { ...c, replies: [...(c.replies ?? []), reply] }
+            : c.replies?.length
+              ? { ...c, replies: addReplyDeep(c.replies) }
+              : c,
+        )
+      const updated = [...elements]
+      updated[idx] = { ...el, comments: addReplyDeep(el.comments ?? []) }
+      return { ...takeUndoBarrier(s), ...replaceActiveElements(s, updated) }
+    }),
+
+  resolveComment: (elementId, commentId) =>
+    set((s) => {
+      const elements = activeElements(s)
+      const idx = elements.findIndex((e) => e.id === elementId)
+      if (idx === -1) return {}
+      const el = elements[idx]
+      const resolveDeep = (comments: ElementComment[]): ElementComment[] =>
+        comments.map((c) =>
+          c.id === commentId
+            ? { ...c, resolved: true }
+            : c.replies?.length
+              ? { ...c, replies: resolveDeep(c.replies) }
+              : c,
+        )
+      const updated = [...elements]
+      updated[idx] = { ...el, comments: resolveDeep(el.comments ?? []) }
+      return { ...takeUndoBarrier(s), ...replaceActiveElements(s, updated) }
+    }),
+
+  deleteComment: (elementId, commentId) =>
+    set((s) => {
+      const elements = activeElements(s)
+      const idx = elements.findIndex((e) => e.id === elementId)
+      if (idx === -1) return {}
+      const el = elements[idx]
+      // Recursively filter: remove from top-level or from any reply tree
+      const removeDeep = (comments: ElementComment[]): ElementComment[] =>
+        comments
+          .filter((c) => c.id !== commentId)
+          .map((c) =>
+            c.replies?.length ? { ...c, replies: removeDeep(c.replies) } : c,
+          )
+      const updated = [...elements]
+      updated[idx] = { ...el, comments: removeDeep(el.comments ?? []) }
+      return { ...takeUndoBarrier(s), ...replaceActiveElements(s, updated) }
+    }),
+
+  setCommentHighlightId: (id) => set({ commentHighlightId: id }),
 
   groupSelection: () =>
     set((s) => {
@@ -1344,6 +1527,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setTableCellEdit: (edit) => set({ tableCellEdit: edit, ...(edit === null ? { inlineTipTapEditor: null } : {}) }),
 
+  setViewOnly: (v) => set({ viewOnly: v }),
+
   setEditorSidebarTab: (tab) => set({ editorSidebarTab: tab }),
 
   moveLayer: (id, direction, pageIndex) =>
@@ -1407,8 +1592,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       },
     })),
 
-  setSnapToGrid: (v) => set({ snapToGrid: v }),
+  setPageSize: (size, orientation) =>
+    set((s) => ({
+      ...takeUndoBarrier(s),
+      pageSpec: {
+        ...s.pageSpec,
+        size,
+        ...(orientation != null ? { orientation } : {}),
+      },
+    })),
 
+  setSnapToGrid: (v) => set({ snapToGrid: v }),
+  setShowGrid: (v) => set({ showGrid: v }),
+  setGridSize: (v) => set({ gridSize: Math.max(2, Math.round(v)) }),
   setSmartGuidesEnabled: (v) => set({ smartGuidesEnabled: v }),
 
   setDragGuides: (guides) => set({ dragGuides: guides }),
@@ -1704,7 +1900,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const next = elements.map((e) => {
         if (!moveIds.has(e.id)) return e
         const cand = { ...e, x: e.x + cdx, y: e.y + cdy }
-        return clampElementLayoutToPrintMargins(cand, s.pageSpec)
+        return clampElementLayoutToPrintMargins(cand, s.pageSpec, s.gridSize)
       })
       return { ...takeUndoBarrier(s), ...replacePageElements(s, loc.pageIndex, next) }
     }),
@@ -1731,7 +1927,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const el = loc.el
       if (el.locked) return {}
       if (el.type === 'MERGED_SHAPE') return {}
-      let merged = clampElementLayoutToPrintMargins({ ...el, width, height }, s.pageSpec)
+      let merged = clampElementLayoutToPrintMargins({ ...el, width, height }, s.pageSpec, s.gridSize)
       merged = reclampBandChildrenToContainer(s, merged)
       return {
         ...takeUndoBarrier(s),
@@ -1835,6 +2031,203 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         inlineTipTapEditor: null,
         tableSelection: null,
         tableCellEdit: null,
+      }
+    }),
+
+  reflowLinkedText: (elementId: string) =>
+    set((s) => {
+      // Only TEXT elements support linked flow
+      const loc = findElementLocation(s, elementId)
+      if (!loc || loc.el.type !== 'TEXT') return {}
+
+      // ── Find chain head ──
+      let headId = loc.el.id
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let found: LayoutElement | undefined
+        for (const page of s.pages) {
+          found = page.elements.find((e) => e.id === headId)
+          if (found) break
+        }
+        if (!found?.linkedPrevId) break
+        headId = found.linkedPrevId
+      }
+
+      // ── Collect chain in order ──
+      interface ChainEntry {
+        pageIndex: number
+        elementIndex: number
+        element: LayoutElement
+      }
+      const chain: ChainEntry[] = []
+      let curId: string | undefined = headId
+      const visited = new Set<string>()
+      while (curId && !visited.has(curId)) {
+        visited.add(curId)
+        let found = false
+        for (let pi = 0; pi < s.pages.length; pi++) {
+          const ei = s.pages[pi].elements.findIndex((e) => e.id === curId)
+          if (ei >= 0) {
+            chain.push({ pageIndex: pi, elementIndex: ei, element: s.pages[pi].elements[ei] })
+            curId = s.pages[pi].elements[ei].linkedNextId
+            found = true
+            break
+          }
+        }
+        if (!found) break
+      }
+      if (chain.length === 0) return {}
+
+      const headEl = chain[0].element
+
+      // ── Collect all content from the chain ──
+      const allContent = chain.length === 1
+        ? (headEl.content ?? '')
+        : joinParagraphContents(chain.map((c) => c.element.content ?? ''))
+
+      const paragraphs = splitContentIntoParagraphs(allContent)
+
+      // ── Available heights ──
+      const pageDim = pageDimensionsPt(s.pageSpec)
+      const margins = s.pageSpec.margins ?? { top: 40, right: 40, bottom: 40, left: 40 }
+      const headMaxH = pageDim.height - margins.bottom - headEl.y
+      const contMaxH = pageDim.height - margins.bottom - margins.top
+      const containerWidth = headEl.width
+
+      // Quick check: does head content even overflow?
+      const headMeasured = measureContentHeight(allContent, containerWidth, headEl.style ?? {})
+      if (headMeasured <= headMaxH && chain.length === 1) {
+        // Everything fits in one frame, nothing to do
+        return {}
+      }
+
+      // ── Distribute across frames ──
+      const frames = distributeContent(
+        paragraphs,
+        headMaxH,
+        contMaxH,
+        containerWidth,
+        headEl.style ?? {}
+      )
+
+      // ── Build new pages array ──
+      let newPages = s.pages.map((p) => ({ ...p, elements: [...p.elements] }))
+
+      // Track IDs for linking
+      const frameIds: string[] = []
+
+      // Frame 0: update head element
+      const headPage = chain[0].pageIndex
+      const headIdx = chain[0].elementIndex
+      const headNewId = headEl.id
+      frameIds.push(headNewId)
+      newPages[headPage].elements[headIdx] = {
+        ...headEl,
+        content: frames[0].content,
+        height: Math.min(frames[0].measuredHeight, headMaxH),
+        linkedPrevId: undefined,
+        linkedNextId: undefined, // set after all frames are created
+      }
+
+      // Frames 1..N: update existing or create new
+      for (let fi = 1; fi < frames.length; fi++) {
+        if (fi < chain.length) {
+          // Update existing continuation element
+          const existing = chain[fi]
+          const id = existing.element.id
+          frameIds.push(id)
+          newPages[existing.pageIndex].elements[existing.elementIndex] = {
+            ...existing.element,
+            content: frames[fi].content,
+            height: Math.min(frames[fi].measuredHeight, contMaxH),
+            linkedPrevId: undefined,
+            linkedNextId: undefined,
+          }
+        } else {
+          // Need a new element — determine which page
+          const targetPageIndex = headPage + fi
+          // Create pages as needed
+          while (newPages.length <= targetPageIndex) {
+            const n = newPages.length + 1
+            newPages.push({
+              id: newPageId(),
+              name: `Page ${n}`,
+              elements: [],
+            })
+          }
+          // Create continuation element inheriting head's style
+          const newId = newElementId()
+          frameIds.push(newId)
+          const contEl: LayoutElement = {
+            id: newId,
+            type: 'TEXT',
+            x: headEl.x,
+            y: margins.top,
+            width: headEl.width,
+            height: Math.min(frames[fi].measuredHeight, contMaxH),
+            content: frames[fi].content,
+            style: headEl.style ? { ...headEl.style } : undefined,
+            linkedPrevId: undefined,
+            linkedNextId: undefined,
+          }
+          newPages[targetPageIndex].elements.push(contEl)
+        }
+      }
+
+      // Remove excess chain elements (chain shrank)
+      for (let fi = frames.length; fi < chain.length; fi++) {
+        const excess = chain[fi]
+        newPages[excess.pageIndex].elements = newPages[excess.pageIndex].elements.filter(
+          (e) => e.id !== excess.element.id
+        )
+      }
+
+      // Remove empty auto-created pages at the end (but keep at least the original page count)
+      const originalPageCount = s.pages.length
+      while (
+        newPages.length > originalPageCount &&
+        newPages[newPages.length - 1].elements.length === 0
+      ) {
+        newPages.pop()
+      }
+
+      // ── Wire linked IDs ──
+      for (let fi = 0; fi < frameIds.length; fi++) {
+        const fid = frameIds[fi]
+        const nextId = fi < frameIds.length - 1 ? frameIds[fi + 1] : undefined
+        const prevId = fi > 0 ? frameIds[fi - 1] : undefined
+        for (const page of newPages) {
+          const el = page.elements.find((e) => e.id === fid)
+          if (el) {
+            el.linkedNextId = nextId
+            el.linkedPrevId = prevId
+            break
+          }
+        }
+      }
+
+      // ── If all content now fits in the head frame, clear link fields ──
+      if (frameIds.length === 1) {
+        for (const page of newPages) {
+          const el = page.elements.find((e) => e.id === frameIds[0])
+          if (el) {
+            el.linkedNextId = undefined
+            el.linkedPrevId = undefined
+            break
+          }
+        }
+      }
+
+      return {
+        ...takeUndoBarrier(s),
+        pages: newPages,
+        variableValues: mergeVariableValues(
+          s.variableValues,
+          allPageElements(newPages),
+          s.globalVariableDefinitions,
+          newPages,
+          s.activePageIndex
+        ),
       }
     }),
 
@@ -1957,7 +2350,6 @@ export function createDefaultElement(
           { header: serializeRunsToContent([]), key: 'c0' },
           { header: serializeRunsToContent([]), key: 'c1' },
         ],
-        dataKey: `table_${id}`,
         columnWidths: [1, 1],
         tablePreviewBodyRows: 2,
       }
@@ -2039,6 +2431,23 @@ export function createDefaultElement(
         ringInnerRatio: 0.55,
         strokeWidth: 2,
         style: { color: '#0f766e', backgroundColor: '#99f6e4' },
+      }
+    case 'LIST':
+      return {
+        ...base,
+        type: 'LIST',
+        width: 300,
+        height: 120,
+        listStyle: 'disc',
+        listItems: [
+          { text: 'First item' },
+          { text: 'Second item' },
+          { text: 'Third item' },
+        ],
+        listItemSpacing: 4,
+        listIndent: 16,
+        listStartNumber: 1,
+        style: { fontSize: 12, align: 'left' },
       }
     default:
       return {

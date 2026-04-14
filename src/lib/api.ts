@@ -146,3 +146,33 @@ export function pdfFileUrl(fileUrl: string): string {
   if (fileUrl.startsWith('http')) return fileUrl
   return `${API_BASE}${fileUrl}`
 }
+
+/**
+ * Duplicate a template by creating a new one and copying the latest version's layout.
+ * This is a frontend-only composition — no dedicated backend endpoint needed.
+ */
+export async function duplicateTemplate(
+  sourceTemplateId: string,
+  sourceName: string
+): Promise<TemplateDto> {
+  // Create the new template
+  const newTemplate = await createTemplate(`Copy of ${sourceName}`)
+
+  // Try to copy the latest committed version
+  try {
+    const versions = await fetchVersions(sourceTemplateId)
+    if (versions.length > 0) {
+      // Sort by versionNumber descending to get the latest
+      const latest = versions.sort((a, b) => b.versionNumber - a.versionNumber)[0]
+      const layout = latest.layout as Record<string, unknown>
+      const variables = latest.variables as Record<string, unknown> | null
+      // Save as draft on the new template and commit it
+      await putDraft(newTemplate.id, layout, (variables as Record<string, string>) ?? {})
+      await commitDraft(newTemplate.id)
+    }
+  } catch {
+    // If version copy fails, the new template still exists (empty)
+  }
+
+  return newTemplate
+}

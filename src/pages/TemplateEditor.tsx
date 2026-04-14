@@ -9,12 +9,16 @@ import { LeftPalette } from '../components/editor/LeftPalette'
 import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { PropertiesPanel } from '../components/editor/PropertiesPanel'
 import { Toolbar } from '../components/editor/Toolbar'
+import { FormatBar } from '../components/editor/FormatBar'
 import { EditorStatusBar } from '../components/editor/EditorStatusBar'
+import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/ShortcutCheatsheet'
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
   const contextToolbarExemptRef = useRef<HTMLDivElement | null>(null)
+  const shortcuts = useShortcutCheatsheet()
   const reset = useEditorStore((s) => s.reset)
+  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
   const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)
   const loadLayout = useEditorStore((s) => s.loadLayout)
   const loadElements = useEditorStore((s) => s.loadElements)
@@ -46,6 +50,12 @@ export function TemplateEditor() {
           setVersionInfo(null, null)
         }
       }
+      // Set initial zoom based on viewport width (after layout load resets zoom)
+      if (!cancelled) {
+        const w = window.innerWidth
+        if (w < 1024) setCanvasZoom(0.5)
+        else if (w < 1440) setCanvasZoom(0.66)
+      }
     })()
 
     return () => {
@@ -54,6 +64,7 @@ export function TemplateEditor() {
   }, [
     templateId,
     reset,
+    setCanvasZoom,
     setTemplateMeta,
     loadLayout,
     loadElements,
@@ -68,13 +79,15 @@ export function TemplateEditor() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex h-screen min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
-        <Toolbar contextToolbarExemptRef={contextToolbarExemptRef} />
+        <Toolbar />
+        <FormatBar contextToolbarExemptRef={contextToolbarExemptRef} />
         <div className="flex min-h-0 min-w-0 flex-1">
           <LeftPalette />
           <EditorCanvas exemptFromInlineCommitRef={contextToolbarExemptRef} />
           <PropertiesPanel />
         </div>
         <EditorStatusBar />
+        <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
       </div>
     </DndProvider>
   )

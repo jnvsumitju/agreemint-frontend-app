@@ -1,8 +1,22 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { Fragment } from 'react'
 import {
   normalizeVariableIdentifier,
   parseContentToRuns,
 } from '../../lib/richContent'
+import { stripPipesFromKey } from '../../lib/variablePipes'
+
+/** Render text with \n as <br/> so multi-line content shows in the preview. */
+function renderTextWithBreaks(text: string): ReactNode {
+  if (!text.includes('\n')) return text
+  const parts = text.split('\n')
+  return parts.map((seg, i) => (
+    <Fragment key={i}>
+      {seg}
+      {i < parts.length - 1 && <br />}
+    </Fragment>
+  ))
+}
 
 const varChipClass =
   'inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
@@ -18,6 +32,8 @@ export function RichTextBlockPreview({
   elementItalic,
   color,
   backgroundColor,
+  fontFamily,
+  lineHeight,
 }: {
   content: string | undefined
   variableValues: Record<string, string>
@@ -29,6 +45,9 @@ export function RichTextBlockPreview({
   elementItalic?: boolean
   color?: string
   backgroundColor?: string
+  fontFamily?: string
+  /** Line-height multiplier (e.g. 1.4). */
+  lineHeight?: number
 }) {
   const runs = parseContentToRuns(content)
   return (
@@ -36,19 +55,22 @@ export function RichTextBlockPreview({
       style={{
         fontSize,
         textAlign,
+        fontFamily: fontFamily || undefined,
         color: color?.trim() || undefined,
         backgroundColor: backgroundColor?.trim() || undefined,
+        lineHeight: lineHeight ?? 1.4,
       }}
       className="min-w-0 overflow-hidden"
     >
       {runs.map((r, i) => {
         if (r.type === 'var') {
-          const k = normalizeVariableIdentifier(r.name)
+          const baseKey = stripPipesFromKey(r.name)
+          const k = normalizeVariableIdentifier(baseKey)
           const preview = variableValues[k] ?? ''
           const surface = variableSurfaceLabelResolver?.(k)?.trim()
           const label = surface || `{{${k}}}`
           const titleParts: string[] = []
-          titleParts.push(`Token: {{${k}}}`)
+          titleParts.push(`Token: {{${r.name.trim()}}}`)
           if (preview.trim()) titleParts.push(`Variables tab preview: ${preview}`)
           return (
             <span
@@ -80,7 +102,7 @@ export function RichTextBlockPreview({
               backgroundColor: r.highlightColor?.trim() || undefined,
             }}
           >
-            {r.text}
+            {renderTextWithBreaks(r.text)}
           </span>
         )
       })}

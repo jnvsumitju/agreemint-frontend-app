@@ -2,8 +2,6 @@ import type { LayoutElement } from '../../types/layout'
 import type {
   BehaviourColorRule,
   BehaviourConditionOp,
-  BehaviourTableCellRule,
-  BehaviourTableRowRule,
   ElementBehaviour,
 } from '../../types/layoutBehaviour'
 
@@ -57,7 +55,7 @@ function VarKeyInsertSelect({
 }
 
 function emptyCondition() {
-  return { left: '{{status}}', op: 'eq' as BehaviourConditionOp, right: 'active' }
+  return { left: '', op: 'eq' as BehaviourConditionOp, right: '' }
 }
 
 export function ElementBehaviourEditor({
@@ -129,31 +127,22 @@ export function ElementBehaviourEditor({
             className="flex flex-col gap-1 rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60"
           >
             <label className="text-[10px] font-medium text-zinc-600">When</label>
-            <div className="flex gap-1">
-              <input
-                id={fid('vis', i, 'left')}
-                name={fid('vis', i, 'left')}
-                className="min-w-0 flex-1 rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
-                value={String(rule.when.left)}
-                onChange={(e) => {
-                  const next = [...visibilityRules]
-                  next[i] = { ...rule, when: { ...rule.when, left: e.target.value } }
-                  patchB({ visibilityRules: next })
-                }}
-              />
-              <VarKeyInsertSelect
-                id={fid('vis', i, 'ins-left')}
-                keys={variableKeyOptions}
-                onInsert={(token) => {
-                  const next = [...visibilityRules]
-                  next[i] = {
-                    ...rule,
-                    when: { ...rule.when, left: appendVarToken(String(rule.when.left), token) },
-                  }
-                  patchB({ visibilityRules: next })
-                }}
-              />
-            </div>
+            <select
+              id={fid('vis', i, 'left')}
+              name={fid('vis', i, 'left')}
+              className="rounded border border-zinc-300 px-1 py-0.5 text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+              value={String(rule.when.left).replace(/^\{\{|\}\}$/g, '')}
+              onChange={(e) => {
+                const next = [...visibilityRules]
+                next[i] = { ...rule, when: { ...rule.when, left: `{{${e.target.value}}}` } }
+                patchB({ visibilityRules: next })
+              }}
+            >
+              <option value="">Select variable…</option>
+              {variableKeyOptions.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
             <select
               id={fid('vis', i, 'op')}
               name={fid('vis', i, 'op')}
@@ -175,38 +164,18 @@ export function ElementBehaviourEditor({
               ))}
             </select>
             {rule.when.op !== 'defined' && (
-              <div className="flex gap-1">
-                <input
-                  id={fid('vis', i, 'right')}
-                  name={fid('vis', i, 'right')}
-                  className="min-w-0 flex-1 rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
-                  placeholder="Right / compare to"
-                  value={rule.when.right != null ? String(rule.when.right) : ''}
-                  onChange={(e) => {
-                    const next = [...visibilityRules]
-                    next[i] = { ...rule, when: { ...rule.when, right: e.target.value } }
-                    patchB({ visibilityRules: next })
-                  }}
-                />
-                <VarKeyInsertSelect
-                  id={fid('vis', i, 'ins-right')}
-                  keys={variableKeyOptions}
-                  onInsert={(token) => {
-                    const next = [...visibilityRules]
-                    next[i] = {
-                      ...rule,
-                      when: {
-                        ...rule.when,
-                        right: appendVarToken(
-                          rule.when.right != null ? String(rule.when.right) : '',
-                          token
-                        ),
-                      },
-                    }
-                    patchB({ visibilityRules: next })
-                  }}
-                />
-              </div>
+              <input
+                id={fid('vis', i, 'right')}
+                name={fid('vis', i, 'right')}
+                className="rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+                placeholder="Right / compare to"
+                value={rule.when.right != null ? String(rule.when.right) : ''}
+                onChange={(e) => {
+                  const next = [...visibilityRules]
+                  next[i] = { ...rule, when: { ...rule.when, right: e.target.value } }
+                  patchB({ visibilityRules: next })
+                }}
+              />
             )}
             <label className="mt-1 flex items-center gap-2 text-[11px]">
               <input
@@ -233,7 +202,7 @@ export function ElementBehaviourEditor({
         ))}
       </div>
 
-      <div className="flex flex-col gap-2">
+      {el.type !== 'TABLE' && el.type !== 'LIST' && <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">Color rules</span>
           <button
@@ -370,9 +339,9 @@ export function ElementBehaviourEditor({
             </button>
           </div>
         ))}
-      </div>
+      </div>}
 
-      <div className="rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60">
+      {el.type !== 'TABLE' && <div className="rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60">
         <p className="mb-1 text-[11px] font-medium text-zinc-700 dark:text-zinc-200">Dynamic size</p>
         <label className="flex flex-col gap-0.5 text-[10px]">
           Width expression
@@ -454,7 +423,7 @@ export function ElementBehaviourEditor({
             </label>
           ))}
         </div>
-      </div>
+      </div>}
 
       {(el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER') && (
         <label className="flex flex-col gap-1 text-[11px]">
@@ -526,282 +495,7 @@ export function ElementBehaviourEditor({
         </label>
       )}
 
-      {el.type === 'TABLE' && (
-        <div className="flex flex-col gap-2">
-          <p className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">Table row / cell rules</p>
-          <button
-            type="button"
-            className="self-start text-[11px] text-violet-700 underline dark:text-violet-300"
-            onClick={() => {
-              const rowRules = [...(b.table?.rowRules ?? [])]
-              rowRules.push({ when: emptyCondition(), hide: true })
-              patchB({ table: { ...b.table, rowRules } })
-            }}
-          >
-            Add row hide rule
-          </button>
-          {(b.table?.rowRules ?? []).map((rule: BehaviourTableRowRule, i) => (
-            <div
-              key={`rr-${i}`}
-              className="flex flex-col gap-1 rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60"
-            >
-              <span className="text-[10px]">When (hide row)</span>
-              <div className="flex gap-1">
-                <input
-                  id={fid('trow', i, 'left')}
-                  name={fid('trow', i, 'left')}
-                  className="min-w-0 flex-1 font-mono text-[11px]"
-                  value={String(rule.when.left)}
-                  onChange={(e) => {
-                    const rowRules = [...(b.table?.rowRules ?? [])]
-                    rowRules[i] = { ...rule, when: { ...rule.when, left: e.target.value } }
-                    patchB({ table: { ...b.table, rowRules } })
-                  }}
-                />
-                <VarKeyInsertSelect
-                  id={fid('trow', i, 'ins-left')}
-                  keys={variableKeyOptions}
-                  onInsert={(token) => {
-                    const rowRules = [...(b.table?.rowRules ?? [])]
-                    rowRules[i] = {
-                      ...rule,
-                      when: { ...rule.when, left: appendVarToken(String(rule.when.left), token) },
-                    }
-                    patchB({ table: { ...b.table, rowRules } })
-                  }}
-                />
-              </div>
-              <select
-                id={fid('trow', i, 'op')}
-                name={fid('trow', i, 'op')}
-                className="text-[11px]"
-                value={rule.when.op}
-                onChange={(e) => {
-                  const rowRules = [...(b.table?.rowRules ?? [])]
-                  rowRules[i] = {
-                    ...rule,
-                    when: { ...rule.when, op: e.target.value as BehaviourConditionOp },
-                  }
-                  patchB({ table: { ...b.table, rowRules } })
-                }}
-              >
-                {OPS.map((op) => (
-                  <option key={op} value={op}>
-                    {op}
-                  </option>
-                ))}
-              </select>
-              {rule.when.op !== 'defined' && (
-                <div className="flex gap-1">
-                  <input
-                    id={fid('trow', i, 'right')}
-                    name={fid('trow', i, 'right')}
-                    className="min-w-0 flex-1 font-mono text-[11px]"
-                    value={rule.when.right != null ? String(rule.when.right) : ''}
-                    onChange={(e) => {
-                      const rowRules = [...(b.table?.rowRules ?? [])]
-                      rowRules[i] = { ...rule, when: { ...rule.when, right: e.target.value } }
-                      patchB({ table: { ...b.table, rowRules } })
-                    }}
-                  />
-                  <VarKeyInsertSelect
-                    id={fid('trow', i, 'ins-right')}
-                    keys={variableKeyOptions}
-                    onInsert={(token) => {
-                      const rowRules = [...(b.table?.rowRules ?? [])]
-                      rowRules[i] = {
-                        ...rule,
-                        when: {
-                          ...rule.when,
-                          right: appendVarToken(
-                            rule.when.right != null ? String(rule.when.right) : '',
-                            token
-                          ),
-                        },
-                      }
-                      patchB({ table: { ...b.table, rowRules } })
-                    }}
-                  />
-                </div>
-              )}
-              <label className="flex items-center gap-2 text-[11px]">
-                <input
-                  id={fid('trow', i, 'hide')}
-                  name={fid('trow', i, 'hide')}
-                  type="checkbox"
-                  checked={!!rule.hide}
-                  onChange={(e) => {
-                    const rowRules = [...(b.table?.rowRules ?? [])]
-                    rowRules[i] = { ...rule, hide: e.target.checked }
-                    patchB({ table: { ...b.table, rowRules } })
-                  }}
-                />
-                Hide row
-              </label>
-              <button
-                type="button"
-                className="text-[10px] text-red-600"
-                onClick={() => {
-                  const rowRules = (b.table?.rowRules ?? []).filter((_, j) => j !== i)
-                  patchB({ table: { ...b.table, rowRules } })
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            className="self-start text-[11px] text-violet-700 underline dark:text-violet-300"
-            onClick={() => {
-              const cellRules = [...(b.table?.cellRules ?? [])]
-              cellRules.push({
-                when: emptyCondition(),
-                colIndex: 0,
-                textColor: '#b91c1c',
-              })
-              patchB({ table: { ...b.table, cellRules } })
-            }}
-          >
-            Add cell style rule
-          </button>
-          {(b.table?.cellRules ?? []).map((rule: BehaviourTableCellRule, i) => (
-            <div
-              key={`cr-${i}`}
-              className="flex flex-col gap-1 rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60"
-            >
-              <label className="text-[10px]">
-                Column index
-                <input
-                  id={fid('tcell', i, 'col')}
-                  name={fid('tcell', i, 'col')}
-                  type="number"
-                  min={0}
-                  className="ml-1 w-14 rounded border border-zinc-300 px-1 text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
-                  value={rule.colIndex}
-                  onChange={(e) => {
-                    const cellRules = [...(b.table?.cellRules ?? [])]
-                    cellRules[i] = { ...rule, colIndex: Math.max(0, Number(e.target.value) || 0) }
-                    patchB({ table: { ...b.table, cellRules } })
-                  }}
-                />
-              </label>
-              <div className="flex gap-1">
-                <input
-                  id={fid('tcell', i, 'left')}
-                  name={fid('tcell', i, 'left')}
-                  className="min-w-0 flex-1 font-mono text-[11px]"
-                  value={String(rule.when.left)}
-                  onChange={(e) => {
-                    const cellRules = [...(b.table?.cellRules ?? [])]
-                    cellRules[i] = { ...rule, when: { ...rule.when, left: e.target.value } }
-                    patchB({ table: { ...b.table, cellRules } })
-                  }}
-                />
-                <VarKeyInsertSelect
-                  id={fid('tcell', i, 'ins-left')}
-                  keys={variableKeyOptions}
-                  onInsert={(token) => {
-                    const cellRules = [...(b.table?.cellRules ?? [])]
-                    cellRules[i] = {
-                      ...rule,
-                      when: { ...rule.when, left: appendVarToken(String(rule.when.left), token) },
-                    }
-                    patchB({ table: { ...b.table, cellRules } })
-                  }}
-                />
-              </div>
-              <select
-                id={fid('tcell', i, 'op')}
-                name={fid('tcell', i, 'op')}
-                className="text-[11px]"
-                value={rule.when.op}
-                onChange={(e) => {
-                  const cellRules = [...(b.table?.cellRules ?? [])]
-                  cellRules[i] = {
-                    ...rule,
-                    when: { ...rule.when, op: e.target.value as BehaviourConditionOp },
-                  }
-                  patchB({ table: { ...b.table, cellRules } })
-                }}
-              >
-                {OPS.map((op) => (
-                  <option key={op} value={op}>
-                    {op}
-                  </option>
-                ))}
-              </select>
-              {rule.when.op !== 'defined' && (
-                <div className="flex gap-1">
-                  <input
-                    id={fid('tcell', i, 'right')}
-                    name={fid('tcell', i, 'right')}
-                    className="min-w-0 flex-1 font-mono text-[11px]"
-                    value={rule.when.right != null ? String(rule.when.right) : ''}
-                    onChange={(e) => {
-                      const cellRules = [...(b.table?.cellRules ?? [])]
-                      cellRules[i] = { ...rule, when: { ...rule.when, right: e.target.value } }
-                      patchB({ table: { ...b.table, cellRules } })
-                    }}
-                  />
-                  <VarKeyInsertSelect
-                    id={fid('tcell', i, 'ins-right')}
-                    keys={variableKeyOptions}
-                    onInsert={(token) => {
-                      const cellRules = [...(b.table?.cellRules ?? [])]
-                      cellRules[i] = {
-                        ...rule,
-                        when: {
-                          ...rule.when,
-                          right: appendVarToken(
-                            rule.when.right != null ? String(rule.when.right) : '',
-                            token
-                          ),
-                        },
-                      }
-                      patchB({ table: { ...b.table, cellRules } })
-                    }}
-                  />
-                </div>
-              )}
-              <input
-                id={fid('tcell', i, 'textColor')}
-                name={fid('tcell', i, 'textColor')}
-                placeholder="text color"
-                className="text-[11px]"
-                value={rule.textColor ?? ''}
-                onChange={(e) => {
-                  const cellRules = [...(b.table?.cellRules ?? [])]
-                  cellRules[i] = { ...rule, textColor: e.target.value || undefined }
-                  patchB({ table: { ...b.table, cellRules } })
-                }}
-              />
-              <input
-                id={fid('tcell', i, 'bg')}
-                name={fid('tcell', i, 'bg')}
-                placeholder="cell background"
-                className="text-[11px]"
-                value={rule.backgroundColor ?? ''}
-                onChange={(e) => {
-                  const cellRules = [...(b.table?.cellRules ?? [])]
-                  cellRules[i] = { ...rule, backgroundColor: e.target.value || undefined }
-                  patchB({ table: { ...b.table, cellRules } })
-                }}
-              />
-              <button
-                type="button"
-                className="text-[10px] text-red-600"
-                onClick={() => {
-                  const cellRules = (b.table?.cellRules ?? []).filter((_, j) => j !== i)
-                  patchB({ table: { ...b.table, cellRules } })
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Table row/cell rules removed — table styles now live in the structured variable data */}
 
       {(b.visibilityRules?.length ||
         b.colorRules?.length ||

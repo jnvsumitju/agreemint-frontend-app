@@ -1,4 +1,6 @@
 import type { TextRunFormatKey } from '../../lib/richContent'
+import { IconBold, IconItalic, IconUnderline, IconStrikethrough, IconSuperscript, IconSubscript } from './ToolbarIcons'
+import { TOOLBAR_ICON_BTN, TOOLBAR_ICON_BTN_ACTIVE } from './uiClasses'
 
 export interface RichTextFormatToolbarProps {
   bold: boolean
@@ -31,11 +33,7 @@ function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       disabled={disabled}
-      className={`min-w-[2rem] rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        active
-          ? 'border-violet-600 bg-violet-100 text-violet-900 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100'
-          : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700'
-      }`}
+      className={active ? TOOLBAR_ICON_BTN_ACTIVE : TOOLBAR_ICON_BTN}
       onMouseDown={onMouseDown}
       onClick={(e) => e.preventDefault()}
     >
@@ -68,10 +66,10 @@ export function RichTextFormatToolbar({
       aria-label="Text formatting"
     >
       <ToolbarButton label="Bold" active={bold} disabled={disabled} onMouseDown={fire('bold')}>
-        <span className="font-bold">B</span>
+        <IconBold size={14} />
       </ToolbarButton>
       <ToolbarButton label="Italic" active={italic} disabled={disabled} onMouseDown={fire('italic')}>
-        <span className="italic">I</span>
+        <IconItalic size={14} />
       </ToolbarButton>
       <ToolbarButton
         label="Underline"
@@ -79,7 +77,7 @@ export function RichTextFormatToolbar({
         disabled={disabled}
         onMouseDown={fire('underline')}
       >
-        <span className="underline">U</span>
+        <IconUnderline size={14} />
       </ToolbarButton>
       <ToolbarButton
         label="Strikethrough"
@@ -87,7 +85,7 @@ export function RichTextFormatToolbar({
         disabled={disabled}
         onMouseDown={fire('strikethrough')}
       >
-        <span className="line-through">S</span>
+        <IconStrikethrough size={14} />
       </ToolbarButton>
       <ToolbarButton
         label="Superscript"
@@ -95,9 +93,7 @@ export function RichTextFormatToolbar({
         disabled={disabled}
         onMouseDown={fire('superscript')}
       >
-        <span>
-          x<sup className="text-[0.65em]">2</sup>
-        </span>
+        <IconSuperscript size={14} />
       </ToolbarButton>
       <ToolbarButton
         label="Subscript"
@@ -105,9 +101,7 @@ export function RichTextFormatToolbar({
         disabled={disabled}
         onMouseDown={fire('subscript')}
       >
-        <span>
-          x<sub className="text-[0.65em]">2</sub>
-        </span>
+        <IconSubscript size={14} />
       </ToolbarButton>
     </div>
   )

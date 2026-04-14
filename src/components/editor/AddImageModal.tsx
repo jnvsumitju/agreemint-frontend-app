@@ -4,6 +4,16 @@ const MAX_FILE_BYTES = 4 * 1024 * 1024
 
 type TabId = 'upload' | 'url'
 
+/** Load an image src and resolve its natural dimensions. */
+function loadImageDimensions(src: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = () => resolve({ width: 0, height: 0 }) // fallback handled by caller
+    img.src = src
+  })
+}
+
 export function AddImageModal({
   open,
   onClose,
@@ -11,7 +21,8 @@ export function AddImageModal({
 }: {
   open: boolean
   onClose: () => void
-  onAdd: (src: string) => void
+  /** Called with src + natural pixel dimensions (0×0 if unreadable). */
+  onAdd: (src: string, naturalWidth: number, naturalHeight: number) => void
 }) {
   const baseId = useId()
   const tabUploadId = `${baseId}-tab-upload`
@@ -24,6 +35,9 @@ export function AddImageModal({
   const [fileName, setFileName] = useState<string | null>(null)
   const [url, setUrl] = useState('')
   const [fileError, setFileError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  // Natural dimensions of the currently selected image
+  const [imgDims, setImgDims] = useState<{ width: number; height: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -32,6 +46,8 @@ export function AddImageModal({
     setFileName(null)
     setUrl('')
     setFileError(null)
+    setSubmitting(false)
+    setImgDims(null)
   }, [open])
 
   const handleClose = () => {
@@ -42,6 +58,7 @@ export function AddImageModal({
     setFileError(null)
     setDataUrl(null)
     setFileName(null)
+    setImgDims(null)
     const f = e.target.files?.[0]
     e.target.value = ''
     if (!f) return
@@ -60,6 +77,8 @@ export function AddImageModal({
         setDataUrl(result)
         setFileName(f.name)
         setTab('upload')
+        // Read natural dimensions
+        loadImageDimensions(result).then(setImgDims)
       }
     }
     reader.onerror = () => setFileError('Could not read the file.')
@@ -71,11 +90,19 @@ export function AddImageModal({
       ? Boolean(dataUrl?.trim())
       : Boolean(url.trim())
 
-  const submit = () => {
-    if (!canAdd) return
+  const submit = async () => {
+    if (!canAdd || submitting) return
     const src = tab === 'upload' ? (dataUrl ?? '').trim() : url.trim()
     if (!src) return
-    onAdd(src)
+
+    setSubmitting(true)
+    // For URL tab (or if upload dims weren't read yet), load dimensions now
+    let dims = imgDims
+    if (!dims || dims.width === 0) {
+      dims = await loadImageDimensions(src)
+    }
+    onAdd(src, dims.width, dims.height)
+    setSubmitting(false)
   }
 
   if (!open) return null
@@ -156,7 +183,9 @@ export function AddImageModal({
                   <div className="min-w-0 text-xs text-zinc-600 dark:text-zinc-300">
                     <p className="font-medium text-zinc-800 dark:text-zinc-100">Ready to add</p>
                     <p className="truncate">{fileName ?? 'Image'}</p>
-                    <p className="text-zinc-500 dark:text-zinc-400">Embedded as base64 in the template.</p>
+                    {imgDims && imgDims.width > 0 && (
+                      <p className="text-zinc-500 dark:text-zinc-400">{imgDims.width} × {imgDims.height} px</p>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -192,10 +221,10 @@ export function AddImageModal({
           <button
             type="button"
             className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!canAdd}
+            disabled={!canAdd || submitting}
             onClick={submit}
           >
-            Add
+            {submitting ? 'Loading…' : 'Add'}
           </button>
         </div>
       </div>

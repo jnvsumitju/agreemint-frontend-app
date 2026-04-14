@@ -60,12 +60,23 @@ function textFragmentToJSON(text: string, run: TextRun): JSONContent {
   return node
 }
 
-/** Serialize Agreemint rich runs to TipTap JSON (single paragraph + hardBreak for newlines). */
+/** Serialize Agreemint rich runs to TipTap JSON (multiple paragraphs for newlines). */
 export function runsToTipTapJSON(runs: RichRun[]): JSONContent {
-  const content: JSONContent[] = []
+  const paragraphs: JSONContent[] = []
+  let current: JSONContent[] = []
+
+  const flushParagraph = () => {
+    paragraphs.push(
+      current.length > 0
+        ? { type: 'paragraph', content: current }
+        : { type: 'paragraph' }
+    )
+    current = []
+  }
+
   for (const run of runs) {
     if (run.type === 'var') {
-      content.push({
+      current.push({
         type: 'layoutVariable',
         attrs: { name: normalizeVariableIdentifier(run.name) },
       })
@@ -74,15 +85,20 @@ export function runsToTipTapJSON(runs: RichRun[]): JSONContent {
     const parts = (run.text ?? '').split('\n')
     parts.forEach((seg, i) => {
       if (seg.length > 0) {
-        content.push(textFragmentToJSON(seg, run))
+        current.push(textFragmentToJSON(seg, run))
       }
       if (i < parts.length - 1) {
-        content.push({ type: 'hardBreak' })
+        // Newline → start a new paragraph
+        flushParagraph()
       }
     })
   }
+
+  // Flush the last paragraph
+  flushParagraph()
+
   // ProseMirror forbids zero-length text nodes; an empty paragraph is the valid empty doc.
-  if (content.length === 0) {
+  if (paragraphs.length === 0) {
     return {
       type: 'doc',
       content: [{ type: 'paragraph' }],
@@ -90,42 +106,50 @@ export function runsToTipTapJSON(runs: RichRun[]): JSONContent {
   }
   return {
     type: 'doc',
-    content: [{ type: 'paragraph', content }],
+    content: paragraphs,
   }
 }
 
-/** Read first paragraph of a ProseMirror doc into Agreemint rich runs. */
+/** Read ALL paragraphs of a ProseMirror doc into Agreemint rich runs. */
 export function pmDocToRuns(doc: PMNode): RichRun[] {
-  const first = doc.firstChild
-  if (!first || first.type.name !== 'paragraph') {
+  if (doc.childCount === 0) {
     return [{ type: 'text', text: '' }]
   }
   const raw: RichRun[] = []
   let lastTextMarks: Partial<Omit<TextRun, 'type' | 'text'>> = {}
 
-  first.forEach((node) => {
-    if (node.type.name === 'layoutVariable') {
-      const name = String(node.attrs.name ?? '').trim()
-      if (name) raw.push({ type: 'var', name })
-      return
+  doc.forEach((block, _offset, index) => {
+    if (block.type.name !== 'paragraph') return
+
+    // Insert newline between paragraphs
+    if (index > 0) {
+      raw.push({ type: 'text', text: '\n', ...lastTextMarks })
     }
-    if (node.type.name === 'hardBreak') {
-      raw.push({
-        type: 'text',
-        text: '\n',
-        ...lastTextMarks,
-      })
-      return
-    }
-    if (node.isText) {
-      const partial = marksToTextPartial(node.marks)
-      lastTextMarks = partial
-      raw.push({
-        type: 'text',
-        text: node.text ?? '',
-        ...partial,
-      })
-    }
+
+    block.forEach((node) => {
+      if (node.type.name === 'layoutVariable') {
+        const name = String(node.attrs.name ?? '').trim()
+        if (name) raw.push({ type: 'var', name })
+        return
+      }
+      if (node.type.name === 'hardBreak') {
+        raw.push({
+          type: 'text',
+          text: '\n',
+          ...lastTextMarks,
+        })
+        return
+      }
+      if (node.isText) {
+        const partial = marksToTextPartial(node.marks)
+        lastTextMarks = partial
+        raw.push({
+          type: 'text',
+          text: node.text ?? '',
+          ...partial,
+        })
+      }
+    })
   })
 
   return mergeAdjacentTextRuns(raw.length ? raw : [{ type: 'text', text: '' }])
