@@ -365,7 +365,7 @@ export function Toolbar() {
 
   return (
     <>
-      <header className="flex min-h-[2.25rem] shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-2 py-1 lg:min-h-[2.75rem] lg:gap-4 lg:px-4 lg:py-2 dark:border-zinc-700 dark:bg-zinc-900">
+      <header className="flex min-h-[2.25rem] shrink-0 items-center gap-2 border-b border-zinc-200 bg-white/90 px-2 py-1 backdrop-blur-sm lg:min-h-[2.75rem] lg:gap-4 lg:px-4 lg:py-2 dark:border-zinc-700/50 dark:bg-zinc-900/95">
         <div className="flex min-w-0 shrink-0 items-center gap-1.5 lg:gap-3">
           <button
             type="button"

@@ -187,6 +187,158 @@ export async function generatePdf(
   return parseJson<GenerateResultDto>(res)
 }
 
+// ── Document Lifecycle ──
+
+export type LifecycleStatus =
+  | 'DRAFT'
+  | 'PENDING_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SENT'
+  | 'SIGNED'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'ARCHIVED'
+
+export interface DocumentLifecycleDto {
+  id: string
+  templateId: string
+  versionId: string
+  title: string | null
+  description: string | null
+  fileUrl: string | null
+  generationStatus: 'PENDING' | 'COMPLETED' | 'FAILED'
+  lifecycleStatus: LifecycleStatus
+  createdBy: string | null
+  orgId: string | null
+  expiresAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TimelineEventDto {
+  id: string
+  fromStatus: LifecycleStatus | null
+  toStatus: LifecycleStatus
+  eventType: string
+  actorName: string | null
+  comment: string | null
+  createdAt: string
+}
+
+export interface ApprovalStepDto {
+  id: string
+  stepOrder: number
+  assigneeId: string
+  assigneeName: string | null
+  roleLabel: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SKIPPED'
+  comment: string | null
+  decidedAt: string | null
+}
+
+export interface ApprovalWorkflowDto {
+  id: string
+  documentId: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SKIPPED'
+  steps: ApprovalStepDto[]
+  createdAt: string
+  completedAt: string | null
+}
+
+export interface DocumentDetailDto {
+  document: DocumentLifecycleDto
+  timeline: TimelineEventDto[]
+  workflow: ApprovalWorkflowDto | null
+}
+
+export interface LifecycleStatsDto {
+  counts: Record<LifecycleStatus, number>
+  total: number
+}
+
+export interface PendingApprovalDto {
+  stepId: string
+  documentId: string
+  documentTitle: string
+  roleLabel: string | null
+  requestedAt: string
+}
+
+export async function fetchDocuments(
+  status?: LifecycleStatus,
+  page = 0,
+  size = 20,
+): Promise<DocumentLifecycleDto[]> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  if (status) params.set('status', status)
+  const res = await authFetch(`${API_BASE}/api/documents?${params}`)
+  return parseJson<DocumentLifecycleDto[]>(res)
+}
+
+export async function fetchDocumentLifecycle(id: string): Promise<DocumentDetailDto> {
+  const res = await authFetch(`${API_BASE}/api/documents/${id}/lifecycle`)
+  return parseJson<DocumentDetailDto>(res)
+}
+
+export async function transitionDocumentStatus(
+  id: string,
+  targetStatus: LifecycleStatus,
+  comment?: string,
+): Promise<DocumentLifecycleDto> {
+  const res = await authFetch(`${API_BASE}/api/documents/${id}/transition`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetStatus, comment: comment ?? null }),
+  })
+  return parseJson<DocumentLifecycleDto>(res)
+}
+
+export async function fetchLifecycleStats(): Promise<LifecycleStatsDto> {
+  const res = await authFetch(`${API_BASE}/api/documents/stats`)
+  return parseJson<LifecycleStatsDto>(res)
+}
+
+export async function fetchPendingApprovals(): Promise<PendingApprovalDto[]> {
+  const res = await authFetch(`${API_BASE}/api/documents/pending-approvals`)
+  return parseJson<PendingApprovalDto[]>(res)
+}
+
+export async function createApprovalWorkflow(
+  documentId: string,
+  steps: { assigneeId: string; roleLabel: string }[],
+): Promise<ApprovalWorkflowDto> {
+  const res = await authFetch(`${API_BASE}/api/approvals/workflows`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documentId, steps }),
+  })
+  return parseJson<ApprovalWorkflowDto>(res)
+}
+
+export async function fetchApprovalWorkflow(documentId: string): Promise<ApprovalWorkflowDto> {
+  const res = await authFetch(`${API_BASE}/api/approvals/workflows/${documentId}`)
+  return parseJson<ApprovalWorkflowDto>(res)
+}
+
+export async function approveStep(stepId: string, comment?: string): Promise<ApprovalWorkflowDto> {
+  const res = await authFetch(`${API_BASE}/api/approvals/steps/${stepId}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ comment: comment ?? null }),
+  })
+  return parseJson<ApprovalWorkflowDto>(res)
+}
+
+export async function rejectStep(stepId: string, comment?: string): Promise<ApprovalWorkflowDto> {
+  const res = await authFetch(`${API_BASE}/api/approvals/steps/${stepId}/reject`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ comment: comment ?? null }),
+  })
+  return parseJson<ApprovalWorkflowDto>(res)
+}
+
 export function pdfFileUrl(fileUrl: string): string {
   if (fileUrl.startsWith('http')) return fileUrl
   return `${API_BASE}${fileUrl}`

@@ -8,6 +8,7 @@ import { CommandPalette } from './CommandPalette'
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/', label: 'Templates' },
+  { to: '/documents', label: 'Documents' },
   { to: '/marketplace', label: 'Marketplace' },
 ]
 

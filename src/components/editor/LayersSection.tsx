@@ -3,6 +3,7 @@ import { documentBandElementsFromFirstPage, findElementByIdInDocument } from '..
 import { editorDiagLogOnce } from '../../lib/editorDiagnostics'
 import { selectActivePageElements, useEditorStore } from '../../stores/editorStore'
 import type { LayoutElement } from '../../types/layout'
+import { EmptyState } from '../ui/EmptyState'
 
 const LAYER_DRAG_TYPE = 'text/plain'
 
@@ -69,6 +70,7 @@ const typeStyle: Record<LayoutElement['type'], string> = {
   ARROW: 'bg-purple-200 text-purple-950 dark:bg-purple-900/50 dark:text-purple-100',
   DIAMOND: 'bg-rose-200 text-rose-950 dark:bg-rose-900/50 dark:text-rose-100',
   STAR: 'bg-yellow-200 text-yellow-950 dark:bg-yellow-900/50 dark:text-yellow-100',
+  LIST: 'bg-lime-200 text-lime-950 dark:bg-lime-900/50 dark:text-lime-100',
   MERGED_SHAPE: 'bg-teal-200 text-teal-950 dark:bg-teal-900/50 dark:text-teal-100',
   RING: 'bg-cyan-200 text-cyan-950 dark:bg-cyan-900/50 dark:text-cyan-100',
 }
@@ -133,15 +135,19 @@ export function LayersSection() {
   }, [frontToBack, layerSearch])
 
   if (elements.length === 0) {
+    const msg = !bandEditorMode
+      ? 'Drag blocks, shapes, or components from the left palette onto the page'
+      : bandNestedMode
+        ? 'Use the band canvas and left palette to add elements'
+        : 'Add a Header or Footer from the left palette'
     return (
-      <div className="p-3 text-sm text-zinc-500 dark:text-zinc-400">
-        {!bandEditorMode
-          ? 'No elements yet. Drag blocks, shapes, or components from the left palette onto the page.'
-          : bandNestedMode
-            ? 'Nothing inside this band yet. Use the band canvas and the left palette to add text, tables, shapes, and images.'
-            : bandsOnPage1.length === 0
-              ? 'No header or footer block on page 1 yet. Add a Header or Footer from the left palette on the main page canvas.'
-              : 'The band you’re editing is omitted from this list. When another header or footer exists on page 1, it will appear here for order, lock, and delete.'}
+      <div className="p-3">
+        <EmptyState
+          title="No layers yet"
+          description={msg}
+          icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" /></svg>}
+          className="py-8"
+        />
       </div>
     )
   }
@@ -187,23 +193,28 @@ export function LayersSection() {
   return (
     <div className="flex flex-col gap-2 p-3">
       {elements.length > 4 && (
-        <input
-          type="text"
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] placeholder-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:placeholder-zinc-500"
-          placeholder="Search layers (type, id, content)…"
-          value={layerSearch}
-          onChange={(e) => setLayerSearch(e.target.value)}
-        />
+        <div className="relative">
+          <svg className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-7 pr-2 text-[11px] outline-none transition-colors placeholder:text-zinc-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-800 dark:placeholder:text-zinc-500 dark:text-zinc-100"
+            placeholder="Search layers…"
+            value={layerSearch}
+            onChange={(e) => setLayerSearch(e.target.value)}
+          />
+        </div>
       )}
       {bandNestedMode ? (
         <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-          Layers inside the band you’re editing (band coordinates). Top draws{' '}
+          Layers inside the band you're editing (band coordinates). Top draws{' '}
           <span className="font-medium text-zinc-700 dark:text-zinc-300">in front</span>.
         </p>
       ) : bandEditorMode ? (
         <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">Other</span> header / footer layers on
-          page 1 (document-wide). The band you’re editing is not listed here. Order applies to the saved template and
+          page 1 (document-wide). The band you're editing is not listed here. Order applies to the saved template and
           every page preview.
         </p>
       ) : (

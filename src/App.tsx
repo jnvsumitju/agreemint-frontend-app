@@ -24,6 +24,8 @@ const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default:
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })))
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
 const Marketplace = lazy(() => import('./pages/Marketplace').then((m) => ({ default: m.Marketplace })))
+const Documents = lazy(() => import('./pages/Documents').then((m) => ({ default: m.Documents })))
+const DocumentDetail = lazy(() => import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail })))
 
 export default function App() {
   useEffect(() => {
@@ -53,6 +55,8 @@ export default function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/marketplace" element={<Marketplace />} />
+                <Route path="/documents" element={<Documents />} />
+                <Route path="/documents/:documentId" element={<DocumentDetail />} />
               </Route>
 
               {/* Full-screen (no nav bar) */}

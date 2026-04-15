@@ -2,39 +2,45 @@ import { useCallback, useEffect, useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { useAuthStore } from '../../stores/authStore'
 import type { ElementComment, LayoutElement } from '../../types/layout'
+import { Avatar } from '../ui/Avatar'
+import { Badge } from '../ui/Badge'
+import { Button } from '../ui/Button'
+import { EmptyState } from '../ui/EmptyState'
 
 type FilterMode = 'all' | 'open' | 'resolved'
 
-/** Count comments + all nested replies recursively. */
 function countDeep(comments: ElementComment[]): number {
   return comments.reduce((n, c) => n + 1 + countDeep(c.replies ?? []), 0)
 }
 
-/** Count unresolved comments + replies recursively. */
 function countOpenDeep(comments: ElementComment[]): number {
-  return comments.reduce(
-    (n, c) => n + (c.resolved ? 0 : 1) + countOpenDeep(c.replies ?? []),
-    0,
-  )
+  return comments.reduce((n, c) => n + (c.resolved ? 0 : 1) + countOpenDeep(c.replies ?? []), 0)
 }
 
-/** Filter comments tree by resolved state. Keeps parent if any descendant matches. */
 function filterTree(comments: ElementComment[], mode: FilterMode): ElementComment[] {
   if (mode === 'all') return comments
-  return comments
-    .map((c) => {
-      const filteredReplies = filterTree(c.replies ?? [], mode)
-      const selfMatch =
-        mode === 'open' ? !c.resolved : c.resolved
-      if (selfMatch || filteredReplies.length > 0) {
-        return { ...c, replies: filteredReplies.length > 0 ? filteredReplies : c.replies }
-      }
-      return null
-    })
-    .filter((c): c is ElementComment => c !== null)
+  const result: ElementComment[] = []
+  for (const c of comments) {
+    const filteredReplies = filterTree(c.replies ?? [], mode)
+    const selfMatch = mode === 'open' ? !c.resolved : c.resolved
+    if (selfMatch || filteredReplies.length > 0) {
+      result.push({ ...c, replies: filteredReplies.length > 0 ? filteredReplies : c.replies })
+    }
+  }
+  return result
 }
 
-/** Sidebar panel listing all comments across every element on the active page. */
+function timeAgo(iso: string | number): string {
+  const ts = typeof iso === 'string' ? new Date(iso).getTime() : iso
+  const diff = Date.now() - ts
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 export function CommentsPanel() {
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
@@ -52,19 +58,14 @@ export function CommentsPanel() {
   const [filter, setFilter] = useState<FilterMode>('all')
   const [addingTo, setAddingTo] = useState<string | null>(null)
   const [newText, setNewText] = useState('')
-  // For inline replies: key = commentId being replied to
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
 
   const elements: LayoutElement[] = pages[activePageIndex]?.elements ?? []
 
-  // Collect elements that have comments
   const commented = elements
     .filter((el) => el.comments && el.comments.length > 0)
-    .map((el) => {
-      const comments = filterTree(el.comments ?? [], filter)
-      return { el, comments }
-    })
+    .map((el) => ({ el, comments: filterTree(el.comments ?? [], filter) }))
     .filter((e) => e.comments.length > 0)
 
   const totalCount = elements.reduce((n, el) => n + countDeep(el.comments ?? []), 0)
@@ -86,56 +87,40 @@ export function CommentsPanel() {
     setReplyingTo(null)
   }
 
-  const handleHighlight = useCallback(
-    (elId: string) => {
-      select(elId)
-      setCommentHighlightId(elId)
-    },
-    [select, setCommentHighlightId],
-  )
+  const handleHighlight = useCallback((elId: string) => {
+    select(elId)
+    setCommentHighlightId(elId)
+  }, [select, setCommentHighlightId])
 
-  // Clear highlight after 2 seconds
   useEffect(() => {
     if (!commentHighlightId) return
     const timer = setTimeout(() => setCommentHighlightId(null), 2000)
     return () => clearTimeout(timer)
   }, [commentHighlightId, setCommentHighlightId])
 
-  const elementLabel = (el: LayoutElement) => {
-    const name = el.name?.trim()
-    if (name) return name
-    return `${el.type} element`
-  }
+  const elementLabel = (el: LayoutElement) => (el as LayoutElement & { name?: string }).name?.trim() || `${el.type} element`
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      {/* Header */}
+      {/* Header with count */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-          Comments
-          {totalCount > 0 && (
-            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-violet-100 px-1 text-[9px] font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-              {totalCount}
-            </span>
-          )}
-        </h3>
-        {openCount > 0 && (
-          <span className="text-[10px] text-amber-600 dark:text-amber-400">
-            {openCount} open
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Comments</span>
+          {totalCount > 0 && <Badge variant="primary" size="sm">{totalCount}</Badge>}
+        </div>
+        {openCount > 0 && <Badge variant="warning" size="sm" dot>{openCount} open</Badge>}
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-1 rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
+      {/* Filter pills */}
+      <div className="flex gap-1 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
         {(['all', 'open', 'resolved'] as const).map((f) => (
           <button
             key={f}
             type="button"
             className={`flex-1 rounded-md px-2 py-1 text-[10px] font-medium capitalize transition-colors ${
               filter === f
-                ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200'
             }`}
             onClick={() => setFilter(f)}
           >
@@ -144,60 +129,42 @@ export function CommentsPanel() {
         ))}
       </div>
 
-      {/* Comment threads grouped by element */}
+      {/* Threads */}
       {commented.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <svg
-            className="h-8 w-8 text-zinc-300 dark:text-zinc-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
-            />
-          </svg>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            {filter === 'all'
-              ? 'No comments yet.'
-              : filter === 'open'
-                ? 'No open comments.'
-                : 'No resolved comments.'}
-          </p>
-          <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
-            Right-click an element to add a comment.
-          </p>
-        </div>
+        <EmptyState
+          title={filter === 'all' ? 'No comments yet' : filter === 'open' ? 'No open comments' : 'No resolved comments'}
+          description="Right-click an element to add a comment"
+          icon={
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+            </svg>
+          }
+          className="py-8"
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {commented.map(({ el, comments }) => (
             <div
               key={el.id}
-              className={`rounded-lg border transition-colors ${
+              className={`overflow-hidden rounded-lg border transition-colors ${
                 commentHighlightId === el.id
                   ? 'border-amber-400 bg-amber-50/50 dark:border-amber-500/60 dark:bg-amber-900/10'
-                  : 'border-zinc-200 dark:border-zinc-700'
+                  : 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900'
               }`}
             >
-              {/* Element header — click to highlight */}
+              {/* Element header */}
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="flex w-full items-center gap-2 border-b border-zinc-100 px-3 py-2 text-left text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
                 onClick={() => handleHighlight(el.id)}
-                title="Click to highlight element on canvas"
               >
                 <ElementTypeIcon type={el.type} />
                 <span className="min-w-0 flex-1 truncate">{elementLabel(el)}</span>
-                <span className="shrink-0 text-[9px] text-zinc-400">
-                  {countDeep(comments)}
-                </span>
+                <Badge variant="default" size="sm">{countDeep(comments)}</Badge>
               </button>
 
-              {/* Comments list (recursive threads) */}
-              <div className="px-2 pb-2">
+              {/* Comment threads */}
+              <div className="px-2 py-2">
                 <CommentThread
                   comments={comments}
                   depth={0}
@@ -214,13 +181,13 @@ export function CommentsPanel() {
                 />
               </div>
 
-              {/* Inline add top-level comment */}
+              {/* Add comment */}
               {commentingEnabled && (
                 addingTo === el.id ? (
-                  <div className="flex gap-1 border-t border-zinc-100 px-2 py-2 dark:border-zinc-700">
+                  <div className="flex gap-1.5 border-t border-zinc-100 px-2 py-2 dark:border-zinc-800">
                     <input
                       type="text"
-                      className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-[11px] dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] outline-none transition-colors focus:border-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       placeholder="Add a comment..."
                       value={newText}
                       autoFocus
@@ -230,19 +197,14 @@ export function CommentsPanel() {
                         if (e.key === 'Escape') { setAddingTo(null); setNewText('') }
                       }}
                     />
-                    <button
-                      type="button"
-                      className="shrink-0 rounded bg-violet-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-700 disabled:opacity-40"
-                      disabled={!newText.trim()}
-                      onClick={() => submitComment(el.id)}
-                    >
+                    <Button variant="primary" size="xs" disabled={!newText.trim()} onClick={() => submitComment(el.id)}>
                       Add
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <button
                     type="button"
-                    className="w-full border-t border-zinc-100 px-3 py-1.5 text-left text-[10px] text-zinc-400 hover:text-violet-600 dark:border-zinc-700 dark:hover:text-violet-400"
+                    className="w-full border-t border-zinc-100 px-3 py-1.5 text-left text-[10px] text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-violet-600 dark:border-zinc-800 dark:hover:bg-zinc-800/50 dark:hover:text-violet-400"
                     onClick={() => { setAddingTo(el.id); setNewText('') }}
                   >
                     + Add comment
@@ -257,101 +219,88 @@ export function CommentsPanel() {
   )
 }
 
-/* ---- Recursive thread renderer ---- */
+/* ── Recursive thread renderer ── */
 
 function CommentThread({
-  comments,
-  depth,
-  elementId,
-  replyingTo,
-  replyText,
-  onReplyTextChange,
-  onStartReply,
-  onCancelReply,
-  onSubmitReply,
-  onResolve,
-  onDelete,
-  onClickComment,
+  comments, depth, elementId, replyingTo, replyText,
+  onReplyTextChange, onStartReply, onCancelReply, onSubmitReply,
+  onResolve, onDelete, onClickComment,
 }: {
-  comments: ElementComment[]
-  depth: number
-  elementId: string
-  replyingTo: string | null
-  replyText: string
-  onReplyTextChange: (v: string) => void
-  onStartReply: (commentId: string) => void
-  onCancelReply: () => void
-  onSubmitReply: (commentId: string) => void
-  onResolve: (commentId: string) => void
-  onDelete: (commentId: string) => void
+  comments: ElementComment[]; depth: number; elementId: string
+  replyingTo: string | null; replyText: string
+  onReplyTextChange: (v: string) => void; onStartReply: (commentId: string) => void
+  onCancelReply: () => void; onSubmitReply: (commentId: string) => void
+  onResolve: (commentId: string) => void; onDelete: (commentId: string) => void
   onClickComment: () => void
 }) {
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col gap-1.5">
       {comments.map((c) => (
-        <li key={c.id}>
+        <li key={c.id} className="relative">
+          {/* Thread connecting line for nested replies */}
+          {depth > 0 && (
+            <div
+              className="absolute -left-2 top-0 bottom-0 w-px bg-zinc-200 dark:bg-zinc-700"
+              style={{ left: `${depth * 12 - 4}px` }}
+            />
+          )}
+
           <div
-            className={`cursor-pointer rounded border p-2 text-[11px] transition-colors ${
+            className={`cursor-pointer rounded-lg p-2.5 text-[11px] transition-colors ${
               c.resolved
-                ? 'border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-500'
-                : 'border-zinc-200 bg-white text-zinc-700 hover:border-violet-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-violet-500/40'
+                ? 'bg-zinc-50 text-zinc-400 dark:bg-zinc-800/30 dark:text-zinc-500'
+                : 'bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800/50 dark:text-zinc-300 dark:hover:bg-zinc-800'
             }`}
-            style={{ marginLeft: depth * 16 }}
+            style={{ marginLeft: depth * 12 }}
             onClick={onClickComment}
-            title="Click to highlight element"
           >
-            {/* Author + date */}
-            <div className="flex items-start justify-between gap-1">
-              <div className="min-w-0">
+            {/* Author row */}
+            <div className="flex items-center gap-2">
+              <Avatar name={c.author} size="xs" />
+              <div className="min-w-0 flex-1">
                 <span className="font-medium">{c.author}</span>
-                <span className="ml-1 text-[9px] text-zinc-400">
-                  {new Date(c.createdAt).toLocaleString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+                <span className="ml-1.5 text-[9px] text-zinc-400 dark:text-zinc-500">{timeAgo(c.createdAt)}</span>
               </div>
-              <div className="flex shrink-0 gap-0.5">
-                {!c.resolved && (
-                  <button
-                    type="button"
-                    className="rounded px-1 py-0.5 text-[9px] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                    title="Resolve"
-                    onClick={(e) => { e.stopPropagation(); onResolve(c.id) }}
-                  >
-                    Resolve
-                  </button>
-                )}
+              {c.resolved && <Badge variant="success" size="sm">Resolved</Badge>}
+            </div>
+
+            {/* Text */}
+            <p className={`mt-1 leading-relaxed ${c.resolved ? 'line-through opacity-60' : ''}`}>{c.text}</p>
+
+            {/* Actions */}
+            <div className="mt-1.5 flex items-center gap-2">
+              <button
+                type="button"
+                className="text-[9px] font-medium text-violet-500 hover:text-violet-700 dark:text-violet-400"
+                onClick={(e) => { e.stopPropagation(); onStartReply(c.id) }}
+              >
+                Reply
+              </button>
+              {!c.resolved && (
                 <button
                   type="button"
-                  className="rounded px-1 py-0.5 text-[9px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
-                  title="Delete"
-                  onClick={(e) => { e.stopPropagation(); onDelete(c.id) }}
+                  className="text-[9px] font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                  onClick={(e) => { e.stopPropagation(); onResolve(c.id) }}
                 >
-                  Delete
+                  Resolve
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                className="text-[9px] font-medium text-red-500 hover:text-red-700 dark:text-red-400"
+                onClick={(e) => { e.stopPropagation(); onDelete(c.id) }}
+              >
+                Delete
+              </button>
             </div>
-            {/* Comment text */}
-            <p className={`mt-0.5 ${c.resolved ? 'line-through' : ''}`}>{c.text}</p>
-            {/* Reply button */}
-            <button
-              type="button"
-              className="mt-1 text-[9px] font-medium text-violet-500 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
-              onClick={(e) => { e.stopPropagation(); onStartReply(c.id) }}
-            >
-              Reply
-            </button>
           </div>
 
           {/* Reply input */}
           {replyingTo === c.id && (
-            <div className="mt-1 flex gap-1" style={{ marginLeft: (depth + 1) * 16 }}>
+            <div className="mt-1 flex gap-1.5" style={{ marginLeft: (depth + 1) * 12 }}>
               <input
                 type="text"
-                className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-[11px] dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                className="min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] outline-none transition-colors focus:border-violet-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 placeholder="Write a reply..."
                 value={replyText}
                 autoFocus
@@ -361,14 +310,9 @@ function CommentThread({
                   if (e.key === 'Escape') onCancelReply()
                 }}
               />
-              <button
-                type="button"
-                className="shrink-0 rounded bg-violet-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-700 disabled:opacity-40"
-                disabled={!replyText.trim()}
-                onClick={() => onSubmitReply(c.id)}
-              >
+              <Button variant="primary" size="xs" disabled={!replyText.trim()} onClick={() => onSubmitReply(c.id)}>
                 Reply
-              </button>
+              </Button>
             </div>
           )}
 
@@ -397,40 +341,20 @@ function CommentThread({
   )
 }
 
-/* ---- Helpers ---- */
+/* ── Element type icon ── */
 
 function ElementTypeIcon({ type }: { type: string }) {
   const cls = 'h-3.5 w-3.5 shrink-0 text-zinc-400'
   switch (type) {
     case 'TEXT':
-      return (
-        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10" />
-        </svg>
-      )
+      return <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10" /></svg>
     case 'IMAGE':
-      return (
-        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-        </svg>
-      )
+      return <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
     case 'TABLE':
-      return (
-        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-12.75m0 0A1.125 1.125 0 0 1 3.375 4.5h17.25c.621 0 1.125.504 1.125 1.125m-20.625 0v12.75m20.625-12.75v12.75m0 0a1.125 1.125 0 0 1-1.125 1.125m1.125-1.125v-12.75m0 12.75h-7.5a1.125 1.125 0 0 1-1.125-1.125m8.625-12.75h-17.25" />
-        </svg>
-      )
+      return <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-12.75m0 0A1.125 1.125 0 013.375 4.5h17.25c.621 0 1.125.504 1.125 1.125m-20.625 0v12.75m20.625-12.75v12.75m0 0a1.125 1.125 0 01-1.125 1.125m1.125-1.125v-12.75m0 12.75h-7.5a1.125 1.125 0 01-1.125-1.125m8.625-12.75h-17.25" /></svg>
     case 'LIST':
-      return (
-        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-        </svg>
-      )
+      return <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h7.5M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
     default:
-      return (
-        <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021.75 18V6a2.25 2.25 0 00-2.25-2.25H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25z" />
-        </svg>
-      )
+      return <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021.75 18V6a2.25 2.25 0 00-2.25-2.25H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
   }
 }

@@ -67,7 +67,6 @@ export function OtpLogin() {
       const data = await res.json()
 
       // Store tokens in auth store (same as login)
-      const store = useAuthStore.getState()
       localStorage.setItem('agreemint-access-token', data.accessToken)
       localStorage.setItem('agreemint-refresh-token', data.refreshToken)
       if (data.org?.id) localStorage.setItem('agreemint-org-id', data.org.id)

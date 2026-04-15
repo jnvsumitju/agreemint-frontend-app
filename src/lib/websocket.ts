@@ -2,7 +2,7 @@ import { Client } from '@stomp/stompjs'
 import type { IMessage, StompSubscription } from '@stomp/stompjs'
 import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
-import type { PresenceUser, ViewportState } from '../stores/presenceStore'
+import type { PresenceUser } from '../stores/presenceStore'
 
 // ── Singleton state ──
 

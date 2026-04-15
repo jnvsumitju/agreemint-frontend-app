@@ -6,6 +6,8 @@ import { useEditorStore } from '../../stores/editorStore'
 import { DND_COMPONENT, DND_NEW, type LayoutComponentDragItem, type NewElementDragItem } from './dndTypes'
 import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
 import { PagesSection } from './PagesSection'
+import { EmptyState } from '../ui/EmptyState'
+import { Tooltip } from './ui/Tooltip'
 
 const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'TEXT', label: 'Text' },
@@ -372,21 +374,24 @@ export function LeftPalette() {
 
   if (collapsed) {
     return (
-      <aside className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-zinc-50 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
-        <button
-          type="button"
-          title="Expand sidebar"
-          className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-700"
-          onClick={() => setCollapsed(false)}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-          </svg>
-        </button>
-        <div className="w-full border-t border-zinc-200 dark:border-zinc-700" />
+      <aside className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-1.5 transition-[width] duration-200 dark:border-zinc-700 dark:bg-zinc-900">
+        <Tooltip content="Expand sidebar" position="right">
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            onClick={() => setCollapsed(false)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        </Tooltip>
+        <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
         <div className="flex flex-col gap-1 px-1">
           {TOOLS.map(({ id, title, Icon }) => (
-            <ToolButton key={id} tool={id} title={title} Icon={Icon} />
+            <Tooltip key={id} content={title} position="right">
+              <span><ToolButton tool={id} title={title} Icon={Icon} /></span>
+            </Tooltip>
           ))}
         </div>
       </aside>
@@ -394,7 +399,7 @@ export function LeftPalette() {
   }
 
   return (
-    <aside className="flex w-36 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 lg:w-[13.5rem] dark:border-zinc-700 dark:bg-zinc-900">
+    <aside className="flex w-36 shrink-0 flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 lg:w-[13.5rem] dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-700">
         <button
           type="button"
@@ -474,9 +479,12 @@ export function LeftPalette() {
                 saved row here onto the page to insert.
               </p>
               {savedComponents.length === 0 ? (
-                <p className="rounded border border-dashed border-zinc-200 px-2 py-2 text-[10px] text-zinc-400 dark:border-zinc-600 dark:text-zinc-500">
-                  No components yet.
-                </p>
+                <EmptyState
+                  title="No components"
+                  description="Right-click an element and save as component"
+                  className="py-4"
+                  icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>}
+                />
               ) : (
                 <div className="flex flex-col gap-1" role="list">
                   {savedComponents.map((c) => (

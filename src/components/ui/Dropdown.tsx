@@ -112,7 +112,7 @@ export function Dropdown({ trigger, items, align = 'left', className }: Dropdown
             animate-in fade-in zoom-in-95 duration-150
             ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
-          {items.map((item, i) => {
+          {items.map((item) => {
             if (item.divider) {
               return <div key={item.key} className="my-1 border-t border-zinc-100 dark:border-zinc-700" />
             }

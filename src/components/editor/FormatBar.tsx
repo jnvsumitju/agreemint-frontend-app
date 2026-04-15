@@ -807,7 +807,7 @@ export function FormatBar({
       <div
         ref={contextToolbarExemptRef}
         data-agreemint-context-toolbar
-        className={`flex h-8 shrink-0 items-center gap-1 overflow-hidden border-b border-zinc-200 bg-zinc-50/80 px-3 transition-opacity dark:border-zinc-700 dark:bg-zinc-900/80${noElement ? ' opacity-40' : ''}`}
+        className={`flex h-8 shrink-0 items-center gap-1 overflow-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm transition-opacity dark:border-zinc-700/50 dark:bg-zinc-900/90${noElement ? ' opacity-40' : ''}`}
         role="toolbar"
         aria-label="Element formatting"
         onMouseDown={(e) => {
