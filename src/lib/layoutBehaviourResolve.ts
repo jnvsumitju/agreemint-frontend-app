@@ -6,9 +6,7 @@ import type { ElementStyle, LayoutElement, LayoutDocumentPage, VariableDefinitio
 import { normalizeCatalogVariableKey } from '../types/layout'
 import { extractVariableKeys } from './variables'
 import type { BehaviourCondition, ElementBehaviour } from '../types/layoutBehaviour'
-import { substituteWithPipes, VAR_PIPE_RE } from './variablePipes'
-
-const VAR_RE = VAR_PIPE_RE
+import { substituteWithPipes } from './variablePipes'
 
 export type ResolveWarning = { code: string; message: string }
 

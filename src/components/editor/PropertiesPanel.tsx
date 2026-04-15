@@ -11,9 +11,8 @@ import {
   resolveVariableChipInfo,
   variableMergeFieldSurfaceLabel,
 } from '../../lib/layoutBehaviourResolve'
-import { isColumnHighlighted } from '../../types/tableSelection'
 import type { ElementStyle, LayoutElement } from '../../types/layout'
-import { LABEL_CLASS, DELETE_LINK_CLASS } from './uiClasses'
+import { LABEL_CLASS } from './uiClasses'
 import { FieldInput } from './ui/FieldInput'
 import { FieldSelect } from './ui/FieldSelect'
 import { FieldCheckbox } from './ui/FieldCheckbox'
@@ -21,7 +20,6 @@ import { ActionButton } from './ui/ActionButton'
 import {
   coerceLayoutScalar,
   isRichTextElement,
-  normalizeColumnWidths,
 } from '../../types/layout'
 import { defaultSampleListItemsJson, normalizeVariableIdentifier } from '../../lib/variables'
 import type { ListStyle } from '../../types/layout'
@@ -38,7 +36,7 @@ import { LayersSection } from './LayersSection'
 import { HistoryPanel } from './HistoryPanel'
 import { CommentsPanel } from './CommentsPanel'
 import { ActivityTab } from './ActivityTab'
-import { RichContentEditor } from './RichContentEditor'
+// RichContentEditor import reserved for future use
 import {
   BoxAppearanceFields,
   RichTextAppearanceFields,
@@ -692,12 +690,9 @@ function BehaviourBody() {
       : bandEditorMode
         ? bandScopeElements
         : activePageElements
-  const variableValues = useEditorStore((s) => s.variableValues)
   const updateElement = useEditorStore((s) => s.updateElement)
-  const tableSelection = useEditorStore((s) => s.tableSelection)
-  const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
   const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
-  const { variableMentionItems, variableKeyOptions, resolveVariableChipDetail, resolveVariableSurfaceLabel } =
+  const { variableKeyOptions } =
     useVariableMentionLists()
 
   if (selectedIds.length > 1) {
@@ -727,43 +722,6 @@ function BehaviourBody() {
   }
 
   const patch = (p: Partial<LayoutElement>) => updateElement(el.id, p)
-
-  const patchColumnKey = (colIndex: number, key: string) => {
-    const cols = [...(el.columns ?? [])]
-    if (!cols[colIndex]) return
-    cols[colIndex] = { ...cols[colIndex], key: normalizeVariableIdentifier(key) }
-    patch({ columns: cols })
-  }
-
-  const patchColumnHeader = (colIndex: number, header: string) => {
-    const cols = [...(el.columns ?? [])]
-    if (!cols[colIndex]) return
-    cols[colIndex] = { ...cols[colIndex], header }
-    patch({ columns: cols })
-  }
-
-  const addTableColumn = () => {
-    const prev = el.columns ?? []
-    const cols = [...prev]
-    const n = cols.length + 1
-    cols.push({ header: `Column ${n}`, key: `col_${n}` })
-    const weights = [...normalizeColumnWidths(prev.length, el.columnWidths)]
-    weights.push(1)
-    patch({ columns: cols, columnWidths: weights })
-  }
-
-  const removeTableColumn = (colIndex: number) => {
-    const prev = el.columns ?? []
-    const nextCols = prev.filter((_, i) => i !== colIndex)
-    const cols = nextCols.length ? nextCols : [{ header: 'Item', key: 'name' }]
-    const w = normalizeColumnWidths(prev.length, el.columnWidths)
-    w.splice(colIndex, 1)
-    const columnWidths =
-      cols.length === w.length && w.length > 0
-        ? w
-        : normalizeColumnWidths(cols.length, undefined)
-    patch({ columns: cols, columnWidths })
-  }
 
   return (
     <div className="flex flex-col gap-3 p-3">

@@ -4,7 +4,7 @@ import { useEditorState } from '@tiptap/react'
 import { createPortal } from 'react-dom'
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/editorConstants'
 import { FONT_LIST, loadFont } from '../../lib/fontLoader'
-import { mergeElementStyle, omitStyleKey, omitGradientKey, patchTextRunColor, patchTextRunFormat } from '../../lib/elementStyleHelpers'
+import { mergeElementStyle, omitStyleKey, patchTextRunColor, patchTextRunFormat } from '../../lib/elementStyleHelpers'
 import type { GradientDef } from '../../types/layout'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 import { parseContentToRuns } from '../../lib/richContent'
@@ -46,7 +46,7 @@ function resolveLiveEditor(): Editor | null {
   return e && !e.isDestroyed ? e : null
 }
 
-function execCmd(label: string, run: (ed: Editor) => boolean) {
+function execCmd(_label: string, run: (ed: Editor) => boolean) {
   const ed = resolveLiveEditor()
   if (!ed || ed.isDestroyed) return
   run(ed)
@@ -836,7 +836,10 @@ export function FormatBar({
                   loadFont(family)
                   patchStyle({ fontFamily: family })
                 } else {
-                  if (el) updateElement(el.id, { style: omitStyleKey(style, 'fontFamily') })
+                  if (el) {
+                    const { fontFamily: _, ...rest } = style
+                    updateElement(el.id, { style: rest })
+                  }
                 }
               }}
             />
@@ -944,7 +947,7 @@ export function FormatBar({
                 <ColorToolbarSwatch
                   title="Text color"
                   value={textDisabled ? undefined : style.color}
-                  onChange={textDisabled ? undefined : setTextColor}
+                  onChange={textDisabled ? () => {} : setTextColor}
                   onClear={textDisabled || !style.color ? undefined : clearTextColor}
                   gradient={textDisabled ? undefined : style.colorGradient}
                   onGradientChange={textDisabled || isInline ? undefined : setTextGradient}
@@ -960,7 +963,7 @@ export function FormatBar({
                 <ColorToolbarSwatch
                   title="Background / highlight"
                   value={textDisabled ? undefined : style.backgroundColor}
-                  onChange={textDisabled ? undefined : setBgColor}
+                  onChange={textDisabled ? () => {} : setBgColor}
                   onClear={textDisabled || !style.backgroundColor ? undefined : clearBgColor}
                   gradient={textDisabled ? undefined : style.bgGradient}
                   onGradientChange={textDisabled || isInline ? undefined : setBgGradient}

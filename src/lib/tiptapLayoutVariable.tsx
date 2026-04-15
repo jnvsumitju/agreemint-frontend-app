@@ -50,7 +50,7 @@ function LayoutVariableChip(props: NodeViewProps) {
   useEffect(() => {
     if (!open || !detailEnabled) return
     const onDown = (e: MouseEvent) => {
-      const t = e.target as Node
+      const t = e.target as unknown as globalThis.Node
       if (wrapRef.current?.contains(t)) return
       if (popRef.current?.contains(t)) return
       setOpen(false)

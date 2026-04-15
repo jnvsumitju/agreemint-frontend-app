@@ -10,7 +10,7 @@ const stepBtnClass =
 
 function ColorRow({
   label,
-  textInputId,
+  textInputId: _textInputId,
   value,
   onChange,
   onClear,

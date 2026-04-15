@@ -410,29 +410,12 @@ export function TableContextToolbar({ el }: { el: LayoutElement }) {
   /* ---- UI state ---- */
 
   const selectionHint = ts ? tableSelectionSummary(ts) : 'Nothing selected on table'
-  const kindLine =
-    ts == null
-      ? 'Click a column letter, row number, or a cell. \u2318/Ctrl+click extends column or row selection.'
-      : ts.mode === 'cell'
-        ? ts.row === HEADER_ROW
-          ? 'Header cell \u2014 double-click the cell on the canvas to edit plain text (variables preserved in Properties).'
-          : 'Data cell \u2014 double-click to edit the preview value (updates Variables JSON).'
-        : ts.mode === 'columns'
-          ? activeColIndices.length > 1
-            ? `${activeColIndices.length} columns \u2014 insert wraps selection; remove deletes all selected.`
-            : 'One column \u2014 move/duplicate apply to that column.'
-          : ts.mode === 'rows'
-            ? dataRowIndices.length > 0
-              ? `${dataRowIndices.length} data row(s) in selection \u2014 remove deletes those rows from JSON.`
-              : 'Header row only \u2014 use column tools or cells to edit headers.'
-            : ''
-
   const isCellEditing = tableCellEdit != null && tableCellEdit.tableId === el.id
 
   return (
     <div className="flex min-w-0 items-center gap-1 px-1 lg:gap-1.5">
       {isCellEditing ? (
-        <RichTextTipTapToolbar canvasEditing />
+        <RichTextTipTapToolbar editor={null} canvasEditing />
       ) : null}
       {isCellEditing ? <span className="mx-0.5 h-5 w-px shrink-0 bg-zinc-200 dark:bg-zinc-700" aria-hidden /> : null}
         {/* ---- Label + Text color ---- */}

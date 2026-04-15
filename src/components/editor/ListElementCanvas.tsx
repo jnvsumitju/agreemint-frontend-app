@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
-import type { LayoutElement, ListItemNode, ListStyle } from '../../types/layout'
+import type { LayoutElement, ListStyle } from '../../types/layout'
 import { buildListTree, flattenListTree } from '../../types/layout'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
 import { variableMergeFieldSurfaceLabel } from '../../lib/layoutBehaviourResolve'
@@ -265,7 +265,7 @@ interface ListElementCanvasProps {
   onEscape?: () => void
 }
 
-export function ListElementCanvas({ el, isEditing, onCommit, onEscape }: ListElementCanvasProps) {
+export function ListElementCanvas({ el, isEditing, onCommit: _onCommit, onEscape }: ListElementCanvasProps) {
   const variableValues = useEditorStore((s) => s.variableValues)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)

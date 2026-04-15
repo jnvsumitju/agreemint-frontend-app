@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchVersions } from '../../lib/api'
-import { parseLayoutJson, type LayoutDocumentPage, type LayoutJson } from '../../types/layout'
+import { parseLayoutJson, type LayoutJson } from '../../types/layout'
 import { diffLayouts, type PageDiff } from '../../lib/layoutDiff'
 
 const DIFF_COLORS: Record<string, string> = {
@@ -38,7 +38,7 @@ export function VersionDiffModal({
     fetchVersions(templateId)
       .then((vs) => {
         const sorted = [...vs].sort((a, b) => a.versionNumber - b.versionNumber)
-        setVersions(sorted)
+        setVersions(sorted.map((v) => ({ id: v.id, versionNumber: v.versionNumber })))
         if (sorted.length >= 2) {
           setVersionA(sorted[sorted.length - 2].id)
           setVersionB(sorted[sorted.length - 1].id)

@@ -8,7 +8,6 @@
 import type { LayoutElement } from '../types/layout'
 import { newElementId } from '../types/layout'
 
-const CLIPBOARD_MIME = 'text/plain'
 const CLIPBOARD_PREFIX = '{"__agreemint_clipboard__":true,'
 
 /** Copy elements to the system clipboard. */

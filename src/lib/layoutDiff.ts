@@ -43,8 +43,8 @@ function diffElementFields(a: LayoutElement, b: LayoutElement): string[] {
   const allKeys = new Set([...Object.keys(a), ...Object.keys(b)])
 
   for (const key of allKeys) {
-    const va = (a as Record<string, unknown>)[key]
-    const vb = (b as Record<string, unknown>)[key]
+    const va = (a as unknown as Record<string, unknown>)[key]
+    const vb = (b as unknown as Record<string, unknown>)[key]
     if (JSON.stringify(va) !== JSON.stringify(vb)) {
       fields.add(key)
     }

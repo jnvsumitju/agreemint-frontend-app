@@ -1,7 +1,6 @@
 import type { LayoutElement } from '../types/layout'
 import { tableRowHidden, variableValuesToDataTree } from './layoutBehaviourResolve'
 import {
-  detectTableDataFormatFromJson,
   parseTableVariableData,
   structuredRowToObject,
 } from './tableDataFormat'

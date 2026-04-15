@@ -486,8 +486,6 @@ export interface EditorState {
   groupSelection: () => void
   ungroupSelection: () => void
   setCanvasInlineEdit: (id: string | null) => void
-  setBandNestedEditorMounted: (v: boolean) => void
-  exitBandCanvasEdit: () => void
   /** Open HEADER/FOOTER in the split band editor (sets `canvasInlineEditId` to the same element). */
   enterBandCanvasEdit: (elementId: string) => void
   setInlineTipTapEditor: (editor: TipTapEditor | null) => void
@@ -605,6 +603,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   focusedTextRunIndex: null,
   tableSelection: null,
   tableCellEdit: null,
+  viewOnly: false,
+  commentingEnabled: true,
+  commentHighlightId: null,
   editorSidebarTab: 'properties',
   pageSpec: defaultPageSpec(),
   snapToGrid: true,

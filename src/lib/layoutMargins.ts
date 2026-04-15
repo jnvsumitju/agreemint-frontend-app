@@ -71,7 +71,6 @@ export function clampElementSizeToPrintMargins(
   page: PageSpec,
   gridSize?: number
 ): { width: number; height: number } {
-  const { width: pw, height: ph } = pageDimensionsPt(page)
   const minW = 20
   const minH = 16
   if (isHeaderOrFooterType(el.type)) {
