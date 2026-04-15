@@ -185,6 +185,8 @@ export interface LayoutElement {
   groupId?: string
   /** MERGED_SHAPE: filled/stroked regions in coordinates relative to element x,y (top-left). */
   shapePolys?: ShapeMultiPolygon
+  /** MERGED_SHAPE: original elements before merge, for unmerge support. */
+  mergedFromElements?: LayoutElement[]
   /**
    * RING: inner ellipse size as a fraction of outer width/height (same center).
    * e.g. 0.5 → inner diameters are half of outer — fill/stroke applies to the band between.
@@ -456,6 +458,9 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   if (el.locked) base.locked = true
   if (el.groupId?.trim()) base.groupId = el.groupId
   if (el.shapePolys != null && el.shapePolys.length > 0) base.shapePolys = el.shapePolys
+  if (el.mergedFromElements && el.mergedFromElements.length > 0) {
+    base.mergedFromElements = el.mergedFromElements.map(elementToJson)
+  }
   if (el.ringInnerRatio != null && Number.isFinite(el.ringInnerRatio)) base.ringInnerRatio = el.ringInnerRatio
   if (el.behaviour && Object.keys(el.behaviour).length > 0) base.behaviour = el.behaviour
   if (el.bandElements && el.bandElements.length > 0) {
@@ -568,6 +573,11 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     groupId:
       raw.groupId != null && String(raw.groupId).trim() ? String(raw.groupId) : undefined,
     shapePolys: parseShapeMultiPolygon(raw.shapePolys),
+    mergedFromElements: (() => {
+      const arr = raw.mergedFromElements
+      if (!Array.isArray(arr) || arr.length === 0) return undefined
+      return arr.map((x) => jsonToElement(x as Record<string, unknown>))
+    })(),
     ringInnerRatio:
       raw.ringInnerRatio != null && Number.isFinite(Number(raw.ringInnerRatio))
         ? Number(raw.ringInnerRatio)

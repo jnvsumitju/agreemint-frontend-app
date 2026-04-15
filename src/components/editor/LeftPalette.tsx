@@ -3,6 +3,7 @@ import { useDrag } from 'react-dnd'
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
 import { useEditorStore } from '../../stores/editorStore'
+import { canSubtractPunchHoleSelection } from '../../lib/shapeGeometry'
 import { DND_COMPONENT, DND_NEW, type LayoutComponentDragItem, type NewElementDragItem } from './dndTypes'
 import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
 import { PagesSection } from './PagesSection'
@@ -103,6 +104,99 @@ function IconMergeShapes() {
       <path d="M8 13h5M13 8v5" strokeDasharray="2 1" />
     </svg>
   )
+}
+
+function IconGroup() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="2" width="8" height="8" rx="1" />
+      <rect x="14" y="14" width="8" height="8" rx="1" />
+      <path d="M10 6h4M6 10v4M14 18h-4M18 14v-4" strokeDasharray="2 2" />
+    </svg>
+  )
+}
+
+function IconUngroup() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="2" width="8" height="8" rx="1" />
+      <rect x="14" y="14" width="8" height="8" rx="1" />
+      <path d="M12 8l-2 2M16 12l-2 2" />
+    </svg>
+  )
+}
+
+function IconPunchHole() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="12" cy="12" r="4" strokeDasharray="3 2" />
+    </svg>
+  )
+}
+
+function IconUnmerge() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M16 3h5v5M8 21H3v-5" />
+      <path d="M21 3l-7 7M3 21l7-7" />
+    </svg>
+  )
+}
+
+function ActionToolButton({
+  title,
+  disabled,
+  onClick,
+  children,
+}: {
+  title: string
+  disabled: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
+      onMouseDown={(e) => {
+        e.preventDefault()
+        if (!disabled) onClick()
+      }}
+      className={`flex h-8 w-full items-center justify-center rounded-md border transition-colors ${
+        disabled
+          ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
+          : 'border-zinc-200 bg-white text-zinc-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-violet-500 dark:hover:bg-violet-950/50 dark:hover:text-violet-200'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function useActionStates() {
+  const selectedIds = useEditorStore((s) => s.selectedIds)
+  const pages = useEditorStore((s) => s.pages)
+  const activePageIndex = useEditorStore((s) => s.activePageIndex)
+  const bandNestedEditorMounted = useEditorStore((s) => s.bandNestedEditorMounted)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
+  const elements = pages[activePageIndex]?.elements ?? []
+
+  const multiSelected = selectedIds.length >= 2
+  const anyGrouped = elements.some((e) => selectedIds.includes(e.id) && e.groupId)
+  const canPunch = canSubtractPunchHoleSelection({ selectedIds, elements })
+
+  const singleEl = selectedIds.length === 1 ? elements.find((e) => e.id === selectedIds[0]) : undefined
+  const canUnmerge = !!(singleEl?.type === 'MERGED_SHAPE' && singleEl.mergedFromElements?.length)
+
+  return {
+    canGroup: !viewOnly && !bandNestedEditorMounted && multiSelected,
+    canUngroup: !viewOnly && !bandNestedEditorMounted && anyGrouped,
+    canPunchHole: !viewOnly && canPunch,
+    canUnmerge: !viewOnly && canUnmerge,
+  }
 }
 
 function BlockIcon({ type }: { type: ElementType }) {
@@ -366,6 +460,75 @@ function ComponentPaletteRow({ component }: { component: SavedLayoutComponent })
   )
 }
 
+function ActionsSection() {
+  const { canGroup, canUngroup, canPunchHole, canUnmerge } = useActionStates()
+  const groupSelection = useEditorStore((s) => s.groupSelection)
+  const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
+  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
+  const unmergeSelection = useEditorStore((s) => s.unmergeSelection)
+
+  return (
+    <div>
+      <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Actions</p>
+      <div className="grid grid-cols-4 gap-1 lg:grid-cols-5">
+        <ActionToolButton title="Group — combine selected elements" disabled={!canGroup} onClick={groupSelection}>
+          <IconGroup />
+        </ActionToolButton>
+        <ActionToolButton title="Ungroup — split grouped elements apart" disabled={!canUngroup} onClick={ungroupSelection}>
+          <IconUngroup />
+        </ActionToolButton>
+        <ActionToolButton title="Punch hole — subtract smaller shape from larger" disabled={!canPunchHole} onClick={subtractSelectionToMergedShape}>
+          <IconPunchHole />
+        </ActionToolButton>
+        <ActionToolButton title="Unmerge — restore original shapes" disabled={!canUnmerge} onClick={unmergeSelection}>
+          <IconUnmerge />
+        </ActionToolButton>
+      </div>
+    </div>
+  )
+}
+
+function CollapsedActions() {
+  const { canGroup, canUngroup, canPunchHole, canUnmerge } = useActionStates()
+  const groupSelection = useEditorStore((s) => s.groupSelection)
+  const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
+  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
+  const unmergeSelection = useEditorStore((s) => s.unmergeSelection)
+
+  return (
+    <div className="flex flex-col gap-1 px-1">
+      <Tooltip content="Group" position="right">
+        <span className="flex">
+          <ActionToolButton title="Group" disabled={!canGroup} onClick={groupSelection}>
+            <IconGroup />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+      <Tooltip content="Ungroup" position="right">
+        <span className="flex">
+          <ActionToolButton title="Ungroup" disabled={!canUngroup} onClick={ungroupSelection}>
+            <IconUngroup />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+      <Tooltip content="Punch hole" position="right">
+        <span className="flex">
+          <ActionToolButton title="Punch hole" disabled={!canPunchHole} onClick={subtractSelectionToMergedShape}>
+            <IconPunchHole />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+      <Tooltip content="Unmerge" position="right">
+        <span className="flex">
+          <ActionToolButton title="Unmerge" disabled={!canUnmerge} onClick={unmergeSelection}>
+            <IconUnmerge />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+    </div>
+  )
+}
+
 export function LeftPalette() {
   const [tab, setTab] = useState<'insert' | 'pages'>('insert')
   const [collapsed, setCollapsed] = useState(false)
@@ -394,6 +557,8 @@ export function LeftPalette() {
             </Tooltip>
           ))}
         </div>
+        <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
+        <CollapsedActions />
       </aside>
     )
   }
@@ -450,6 +615,7 @@ export function LeftPalette() {
                 </p>
               )}
             </div>
+            <ActionsSection />
             <div>
               <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Blocks</p>
               <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">

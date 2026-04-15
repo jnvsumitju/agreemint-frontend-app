@@ -134,11 +134,11 @@ const SEP = <span className={TOOLBAR_DIVIDER} aria-hidden />
 /** Chevron-down arrow for dropdown triggers. */
 const DropdownChevron = () => (
   <svg
-    className="h-3 w-3 shrink-0 text-zinc-400"
+    className="h-2.5 w-2.5 shrink-0 text-zinc-400/70"
     viewBox="0 0 12 12"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.5"
+    strokeWidth="2"
   >
     <path d="M3 5l3 3 3-3" />
   </svg>
@@ -187,7 +187,7 @@ function TextStylePresetDropdown({
         type="button"
         disabled={disabled}
         title="Text style"
-        className={`flex h-6 max-w-[7.5rem] items-center gap-1 truncate rounded border border-zinc-200 bg-white px-1.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
+        className={`flex h-[26px] max-w-[7.5rem] items-center gap-1 truncate rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
         onMouseDown={(e) => {
           e.preventDefault()
           if (!disabled) toggle()
@@ -287,7 +287,7 @@ function FontFamilyDropdown({
         type="button"
         disabled={disabled}
         title="Font family"
-        className={`flex h-6 max-w-[8.5rem] items-center gap-1 truncate rounded border border-zinc-200 bg-white px-1.5 text-[11px] text-zinc-700 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
+        className={`flex h-[26px] max-w-[8.5rem] items-center gap-1 truncate rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
         style={value ? { fontFamily: value } : undefined}
         onMouseDown={(e) => {
           e.preventDefault()
@@ -362,18 +362,18 @@ function StrokeWidthStepper({
   disabled?: boolean
 }) {
   return (
-    <div className="flex items-center gap-0.5 rounded border border-zinc-200 bg-white dark:border-zinc-600 dark:bg-zinc-800">
+    <div className="flex h-[26px] items-center gap-0 rounded-lg border border-zinc-200/60 bg-white dark:border-zinc-600/40 dark:bg-zinc-800">
       <button
         type="button"
         title="Decrease stroke width"
         disabled={disabled}
-        className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        className="flex h-full items-center rounded-l-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
         onMouseDown={(e) => {
           e.preventDefault()
           onChange(Math.max(0.5, value - 0.5))
         }}
       >
-        <IconMinus size={12} />
+        <IconMinus size={11} />
       </button>
       <span className="min-w-[1.5rem] select-none text-center text-[10px] tabular-nums text-zinc-600 dark:text-zinc-200">
         {disabled ? '--' : value}
@@ -382,7 +382,7 @@ function StrokeWidthStepper({
         type="button"
         title="Increase stroke width"
         disabled={disabled}
-        className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        className="flex h-full items-center rounded-r-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
         onMouseDown={(e) => {
           e.preventDefault()
           onChange(value + 0.5)
@@ -439,10 +439,6 @@ export function FormatBar({
   const updateElement = useEditorStore((s) => s.updateElement)
   const inlineTipTapRaw = useEditorStore((s) => s.inlineTipTapEditor)
   const setInlineTipTapEditor = useEditorStore((s) => s.setInlineTipTapEditor)
-  const groupSelection = useEditorStore((s) => s.groupSelection)
-  const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
-  const bandEditorMode = useEditorStore((s) => s.bandCanvasEditElementId) != null
-
   // Rich-text help dialog state
   const [textHelpOpen, setTextHelpOpen] = useState(false)
   const [textHelpVariant, setTextHelpVariant] = useState<'canvas' | 'merge-field'>('canvas')
@@ -728,7 +724,7 @@ export function FormatBar({
   if (viewOnly) {
     return (
       <div
-        className="flex h-8 shrink-0 items-center gap-2 border-b border-zinc-200 bg-amber-50/60 px-3 dark:border-zinc-700 dark:bg-amber-900/10"
+        className="flex h-9 shrink-0 items-center gap-2 border-b border-zinc-200 bg-amber-50/60 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-amber-900/10"
         role="toolbar"
         aria-label="View-only mode"
       >
@@ -743,42 +739,25 @@ export function FormatBar({
     )
   }
 
-  // Multi-selection: show group/ungroup
+  // Multi-selection: lightweight info bar (Group/Ungroup actions live in the left sidebar)
   if (selectedIds.length > 1) {
-    const anyGrouped = selectedIds.some((id) => {
-      const e = findElementByIdInDocumentDeep(pages, id)
-      return e?.groupId != null
-    })
     return (
       <div
         ref={contextToolbarExemptRef}
         data-agreemint-context-toolbar
-        className="flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b border-zinc-200 bg-zinc-50/80 px-3 dark:border-zinc-700 dark:bg-zinc-900/80"
+        className="flex h-9 shrink-0 items-center gap-2.5 overflow-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-zinc-900/90"
         role="toolbar"
         aria-label="Multi-selection"
       >
-        <span className="text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" />
+          </svg>
           {selectedIds.length} selected
         </span>
-        {SEP}
-        <button
-          type="button"
-          className={`${TOOLBAR_ICON_BTN} px-2 text-[11px] font-medium`}
-          disabled={bandEditorMode || selectedIds.length < 2}
-          title="Group selected elements"
-          onMouseDown={(e) => { e.preventDefault(); groupSelection() }}
-        >
-          Group
-        </button>
-        <button
-          type="button"
-          className={`${TOOLBAR_ICON_BTN} px-2 text-[11px] font-medium`}
-          disabled={bandEditorMode || !anyGrouped}
-          title="Ungroup selected elements"
-          onMouseDown={(e) => { e.preventDefault(); ungroupSelection() }}
-        >
-          Ungroup
-        </button>
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+          Use left sidebar actions to group, or drag any selected item to move all.
+        </span>
       </div>
     )
   }
@@ -790,7 +769,7 @@ export function FormatBar({
         <div
           ref={contextToolbarExemptRef}
           data-agreemint-context-toolbar
-          className="flex h-8 shrink-0 items-center overflow-hidden border-b border-zinc-200 bg-zinc-50/80 px-3 dark:border-zinc-700 dark:bg-zinc-900/80"
+          className="flex h-9 shrink-0 items-center overflow-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-zinc-900/90"
           role="toolbar"
           aria-label="Table formatting"
           onMouseDown={(e) => { if (isInline) e.preventDefault() }}
@@ -802,234 +781,246 @@ export function FormatBar({
     )
   }
 
+  // Element type label for the chip
+  const elementTypeLabel = el
+    ? el.type === 'TEXT' ? 'Text'
+    : el.type === 'HEADER' ? 'Header'
+    : el.type === 'FOOTER' ? 'Footer'
+    : el.type === 'TABLE' ? 'Table'
+    : el.type === 'LIST' ? 'List'
+    : el.type === 'IMAGE' ? 'Image'
+    : el.type === 'LINE' ? 'Line'
+    : el.type === 'BOX' ? 'Box'
+    : el.type === 'ELLIPSE' ? 'Ellipse'
+    : el.type === 'MERGED_SHAPE' ? 'Shape'
+    : el.type.charAt(0) + el.type.slice(1).toLowerCase()
+    : null
+
   return (
     <>
       <div
         ref={contextToolbarExemptRef}
         data-agreemint-context-toolbar
-        className={`flex h-8 shrink-0 items-center gap-1 overflow-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm transition-opacity dark:border-zinc-700/50 dark:bg-zinc-900/90${noElement ? ' opacity-40' : ''}`}
+        className={`flex h-9 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm transition-opacity dark:border-zinc-700/50 dark:bg-zinc-900/90${noElement ? ' opacity-40' : ''}`}
         role="toolbar"
         aria-label="Element formatting"
         onMouseDown={(e) => {
           if (isInline) e.preventDefault()
         }}
       >
-        {/* ---- Text Style Preset ---- */}
-        <TextStylePresetDropdown
-          value={textDisabled ? '' : detectCurrentPreset(style)}
-          disabled={textDisabled || isInline}
-          onChange={(preset) => {
-            if (el) patchStyle({ fontSize: preset.fontSize, bold: preset.bold })
-          }}
-        />
-
-        {SEP}
-
-        {/* ---- Font Family ---- */}
-        <FontFamilyDropdown
-          value={textDisabled ? '' : (style.fontFamily ?? '')}
-          disabled={textDisabled || isInline}
-          onChange={(family) => {
-            if (family) {
-              loadFont(family)
-              patchStyle({ fontFamily: family })
-            } else {
-              if (el) updateElement(el.id, { style: omitStyleKey(style, 'fontFamily') })
-            }
-          }}
-        />
-
-        {SEP}
-
-        {/* ---- Font Size Group ---- */}
-        <div className={`flex items-center gap-0.5 rounded border border-zinc-200 bg-white dark:border-zinc-600 dark:bg-zinc-800${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-          <button
-            type="button"
-            title="Decrease font size"
-            disabled={textDisabled || isInline}
-            className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              patchStyle({ fontSize: Math.max(FONT_SIZE_MIN, fs - 1) })
-            }}
-          >
-            <IconMinus size={12} />
-          </button>
-          <span className="min-w-[1.75rem] select-none text-center text-xs tabular-nums text-zinc-700 dark:text-zinc-200">
-            {textDisabled ? '--' : fs}
+        {/* ---- Element type chip ---- */}
+        {elementTypeLabel && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-zinc-100/80 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400">
+            <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+              isText || isList ? 'bg-violet-500' : isShape || isLine ? 'bg-blue-500' : isImage ? 'bg-emerald-500' : 'bg-zinc-400'
+            }`} />
+            {elementTypeLabel}
           </span>
-          <button
-            type="button"
-            title="Increase font size"
-            disabled={textDisabled || isInline}
-            className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              patchStyle({ fontSize: Math.min(FONT_SIZE_MAX, fs + 1) })
-            }}
-          >
-            <IconPlus size={12} />
-          </button>
-        </div>
-
-        {/* ---- Line Height ---- */}
-        <div className={`flex items-center gap-0.5 rounded border border-zinc-200 bg-white dark:border-zinc-600 dark:bg-zinc-800${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-          <button
-            type="button"
-            title="Decrease line height"
-            disabled={textDisabled || isInline}
-            className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              patchStyle({ lineHeight: Math.max(0.8, Math.round(((style.lineHeight ?? 1.4) - 0.1) * 10) / 10) })
-            }}
-          >
-            <IconMinus size={12} />
-          </button>
-          <span
-            className="min-w-[2rem] select-none text-center text-[10px] tabular-nums text-zinc-700 dark:text-zinc-200"
-            title="Line height"
-          >
-            {textDisabled ? '--' : (style.lineHeight ?? 1.4).toFixed(1)}
-          </span>
-          <button
-            type="button"
-            title="Increase line height"
-            disabled={textDisabled || isInline}
-            className="px-1 py-0.5 text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              patchStyle({ lineHeight: Math.min(3.0, Math.round(((style.lineHeight ?? 1.4) + 0.1) * 10) / 10) })
-            }}
-          >
-            <IconPlus size={12} />
-          </button>
-        </div>
-
-        {SEP}
-
-        {/* ---- Text Format Group (B/I/U/S) ---- */}
-        <div className={`flex items-center gap-0.5${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-          <FmtBtn title="Bold (⌘B / Ctrl+B)" active={boldActive} disabled={textDisabled} onMouseDown={toggleBold}>
-            <IconBold size={14} />
-          </FmtBtn>
-          <FmtBtn title="Italic (⌘I / Ctrl+I)" active={italicActive} disabled={textDisabled} onMouseDown={toggleItalic}>
-            <IconItalic size={14} />
-          </FmtBtn>
-          <FmtBtn title="Underline (⌘U / Ctrl+U)" active={underlineActive} disabled={textDisabled || !isInline} onMouseDown={toggleUnderline}>
-            <IconUnderline size={14} />
-          </FmtBtn>
-          <FmtBtn title="Strikethrough" active={strikeActive} disabled={textDisabled || !isInline} onMouseDown={toggleStrike}>
-            <IconStrikethrough size={14} />
-          </FmtBtn>
-        </div>
-
-        {SEP}
-
-        {/* ---- Alignment Group ---- */}
-        <div className={`flex items-center gap-0.5${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-          <FmtBtn title="Align left" active={!textDisabled && align === 'left'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'left' })}>
-            <IconAlignLeft size={14} />
-          </FmtBtn>
-          <FmtBtn title="Align center" active={!textDisabled && align === 'center'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'center' })}>
-            <IconAlignCenter size={14} />
-          </FmtBtn>
-          <FmtBtn title="Align right" active={!textDisabled && align === 'right'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'right' })}>
-            <IconAlignRight size={14} />
-          </FmtBtn>
-        </div>
-
-        {SEP}
-
-        {/* ---- Text Color Group ---- */}
-        <div className={`flex items-center gap-1${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-          <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400" title="Text color">A</span>
-          <ColorToolbarSwatch
-            title="Text color"
-            value={textDisabled ? undefined : style.color}
-            onChange={textDisabled ? undefined : setTextColor}
-            onClear={textDisabled || !style.color ? undefined : clearTextColor}
-            gradient={textDisabled ? undefined : style.colorGradient}
-            onGradientChange={textDisabled || isInline ? undefined : setTextGradient}
-          />
-          <span className="text-zinc-400 dark:text-zinc-500" title="Background / highlight">
-            <IconPaintBucket size={12} />
-          </span>
-          <ColorToolbarSwatch
-            title="Background / highlight"
-            value={textDisabled ? undefined : style.backgroundColor}
-            onChange={textDisabled ? undefined : setBgColor}
-            onClear={textDisabled || !style.backgroundColor ? undefined : clearBgColor}
-            gradient={textDisabled ? undefined : style.bgGradient}
-            onGradientChange={textDisabled || isInline ? undefined : setBgGradient}
-          />
-        </div>
-
-        {/* ---- Element-specific groups ---- */}
-
-        {/* Stroke width (LINE, shapes) */}
-        {hasStroke && el && (
-          <>
-            {SEP}
-            <div className="flex items-center gap-1">
-              <span className="text-zinc-400 dark:text-zinc-500" title="Stroke width">
-                <IconBorderColor size={12} />
-              </span>
-              <StrokeWidthStepper value={strokeWidth} onChange={setStrokeWidth} />
-              <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{strokeWidth}px</span>
-            </div>
-          </>
         )}
 
-        {/* Stroke / Border color (LINE, BOX, IMAGE, shapes) */}
-        {(hasStroke || hasBorderFill) && el && (
-          <>
-            {!hasStroke && SEP}
-            <div className="flex items-center gap-1">
-              {hasStroke ? (
-                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Stroke</span>
-              ) : (
-                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Border</span>
-              )}
-              <ColorToolbarSwatch
-                title={hasStroke ? 'Stroke color' : 'Border color'}
-                value={style.color}
-                onChange={setStrokeColor}
-                onClear={style.color ? clearStrokeColor : undefined}
-                gradient={style.colorGradient}
-                onGradientChange={setStrokeGradient}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Fill color (BOX, IMAGE, shapes) */}
-        {hasBorderFill && el && (
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Fill</span>
-            <ColorToolbarSwatch
-              title="Fill color"
-              value={style.backgroundColor}
-              onChange={setFillColor}
-              onClear={style.backgroundColor ? clearFillColor : undefined}
-              gradient={style.bgGradient}
-              onGradientChange={setFillGradient}
+        {/* ──── Typography group ──── */}
+        {(!noElement && (isText || isList || isInline)) && (
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-1.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30">
+            <TextStylePresetDropdown
+              value={textDisabled ? '' : detectCurrentPreset(style)}
+              disabled={textDisabled || isInline}
+              onChange={(preset) => {
+                if (el) patchStyle({ fontSize: preset.fontSize, bold: preset.bold })
+              }}
             />
+            <FontFamilyDropdown
+              value={textDisabled ? '' : (style.fontFamily ?? '')}
+              disabled={textDisabled || isInline}
+              onChange={(family) => {
+                if (family) {
+                  loadFont(family)
+                  patchStyle({ fontFamily: family })
+                } else {
+                  if (el) updateElement(el.id, { style: omitStyleKey(style, 'fontFamily') })
+                }
+              }}
+            />
+            {/* Font size stepper */}
+            <div className="flex h-[26px] items-center gap-0 rounded-lg border border-zinc-200/60 bg-white dark:border-zinc-600/40 dark:bg-zinc-800">
+              <button
+                type="button"
+                title="Decrease font size"
+                disabled={textDisabled || isInline}
+                className="flex h-full items-center rounded-l-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  patchStyle({ fontSize: Math.max(FONT_SIZE_MIN, fs - 1) })
+                }}
+              >
+                <IconMinus size={11} />
+              </button>
+              <span className="min-w-[1.75rem] select-none text-center text-[11px] tabular-nums text-zinc-700 dark:text-zinc-200">
+                {textDisabled ? '--' : fs}
+              </span>
+              <button
+                type="button"
+                title="Increase font size"
+                disabled={textDisabled || isInline}
+                className="flex h-full items-center rounded-r-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  patchStyle({ fontSize: Math.min(FONT_SIZE_MAX, fs + 1) })
+                }}
+              >
+                <IconPlus size={11} />
+              </button>
+            </div>
+            {/* Line height stepper */}
+            <div className="flex h-[26px] items-center gap-0 rounded-lg border border-zinc-200/60 bg-white dark:border-zinc-600/40 dark:bg-zinc-800">
+              <button
+                type="button"
+                title="Decrease line height"
+                disabled={textDisabled || isInline}
+                className="flex h-full items-center rounded-l-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  patchStyle({ lineHeight: Math.max(0.8, Math.round(((style.lineHeight ?? 1.4) - 0.1) * 10) / 10) })
+                }}
+              >
+                <IconMinus size={11} />
+              </button>
+              <span
+                className="min-w-[2rem] select-none text-center text-[10px] tabular-nums text-zinc-700 dark:text-zinc-200"
+                title="Line height"
+              >
+                {textDisabled ? '--' : (style.lineHeight ?? 1.4).toFixed(1)}
+              </span>
+              <button
+                type="button"
+                title="Increase line height"
+                disabled={textDisabled || isInline}
+                className="flex h-full items-center rounded-r-lg px-1 text-zinc-500 transition-all duration-100 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  patchStyle({ lineHeight: Math.min(3.0, Math.round(((style.lineHeight ?? 1.4) + 0.1) * 10) / 10) })
+                }}
+              >
+                <IconPlus size={11} />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Line-only stroke color */}
-        {isLine && el && (
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Color</span>
-            <ColorToolbarSwatch
-              title="Line color"
-              value={style.color}
-              onChange={setStrokeColor}
-              onClear={style.color ? clearStrokeColor : undefined}
-              gradient={style.colorGradient}
-              onGradientChange={setStrokeGradient}
-            />
+        {/* ──── Text format group (B/I/U/S) ──── */}
+        {(!noElement && (isText || isList || isInline)) && (
+          <div className={`flex shrink-0 items-center gap-0.5 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-0.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30${textDisabled && !noElement ? ' opacity-30' : ''}`}>
+            <FmtBtn title="Bold (⌘B / Ctrl+B)" active={boldActive} disabled={textDisabled} onMouseDown={toggleBold}>
+              <IconBold size={14} />
+            </FmtBtn>
+            <FmtBtn title="Italic (⌘I / Ctrl+I)" active={italicActive} disabled={textDisabled} onMouseDown={toggleItalic}>
+              <IconItalic size={14} />
+            </FmtBtn>
+            <FmtBtn title="Underline (⌘U / Ctrl+U)" active={underlineActive} disabled={textDisabled || !isInline} onMouseDown={toggleUnderline}>
+              <IconUnderline size={14} />
+            </FmtBtn>
+            <FmtBtn title="Strikethrough" active={strikeActive} disabled={textDisabled || !isInline} onMouseDown={toggleStrike}>
+              <IconStrikethrough size={14} />
+            </FmtBtn>
+            {SEP}
+            <FmtBtn title="Align left" active={!textDisabled && align === 'left'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'left' })}>
+              <IconAlignLeft size={14} />
+            </FmtBtn>
+            <FmtBtn title="Align center" active={!textDisabled && align === 'center'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'center' })}>
+              <IconAlignCenter size={14} />
+            </FmtBtn>
+            <FmtBtn title="Align right" active={!textDisabled && align === 'right'} disabled={textDisabled || isInline} onMouseDown={() => patchStyle({ align: 'right' })}>
+              <IconAlignRight size={14} />
+            </FmtBtn>
+          </div>
+        )}
+
+        {/* ──── Colors group ──── */}
+        {!noElement && (
+          <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-1.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30">
+            {/* Text / stroke color */}
+            {(isText || isList || isInline) && (
+              <div className={`flex items-center gap-1${textDisabled ? ' opacity-30' : ''}`}>
+                <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400" title="Text color">A</span>
+                <ColorToolbarSwatch
+                  title="Text color"
+                  value={textDisabled ? undefined : style.color}
+                  onChange={textDisabled ? undefined : setTextColor}
+                  onClear={textDisabled || !style.color ? undefined : clearTextColor}
+                  gradient={textDisabled ? undefined : style.colorGradient}
+                  onGradientChange={textDisabled || isInline ? undefined : setTextGradient}
+                />
+              </div>
+            )}
+            {/* Background / highlight */}
+            {(isText || isList || isInline) && (
+              <div className={`flex items-center gap-1${textDisabled ? ' opacity-30' : ''}`}>
+                <span className="text-zinc-400 dark:text-zinc-500" title="Background / highlight">
+                  <IconPaintBucket size={12} />
+                </span>
+                <ColorToolbarSwatch
+                  title="Background / highlight"
+                  value={textDisabled ? undefined : style.backgroundColor}
+                  onChange={textDisabled ? undefined : setBgColor}
+                  onClear={textDisabled || !style.backgroundColor ? undefined : clearBgColor}
+                  gradient={textDisabled ? undefined : style.bgGradient}
+                  onGradientChange={textDisabled || isInline ? undefined : setBgGradient}
+                />
+              </div>
+            )}
+            {/* Stroke width (LINE, shapes) */}
+            {hasStroke && el && (
+              <div className="flex items-center gap-1">
+                <span className="text-zinc-400 dark:text-zinc-500" title="Stroke width">
+                  <IconBorderColor size={12} />
+                </span>
+                <StrokeWidthStepper value={strokeWidth} onChange={setStrokeWidth} />
+                <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">{strokeWidth}px</span>
+              </div>
+            )}
+            {/* Stroke / Border color */}
+            {(hasStroke || hasBorderFill) && el && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                  {hasStroke ? 'Stroke' : 'Border'}
+                </span>
+                <ColorToolbarSwatch
+                  title={hasStroke ? 'Stroke color' : 'Border color'}
+                  value={style.color}
+                  onChange={setStrokeColor}
+                  onClear={style.color ? clearStrokeColor : undefined}
+                  gradient={style.colorGradient}
+                  onGradientChange={setStrokeGradient}
+                />
+              </div>
+            )}
+            {/* Fill color (BOX, IMAGE, shapes) */}
+            {hasBorderFill && el && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Fill</span>
+                <ColorToolbarSwatch
+                  title="Fill color"
+                  value={style.backgroundColor}
+                  onChange={setFillColor}
+                  onClear={style.backgroundColor ? clearFillColor : undefined}
+                  gradient={style.bgGradient}
+                  onGradientChange={setFillGradient}
+                />
+              </div>
+            )}
+            {/* Line-only stroke color */}
+            {isLine && el && (
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Color</span>
+                <ColorToolbarSwatch
+                  title="Line color"
+                  value={style.color}
+                  onChange={setStrokeColor}
+                  onClear={style.color ? clearStrokeColor : undefined}
+                  gradient={style.colorGradient}
+                  onGradientChange={setStrokeGradient}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -1039,7 +1030,7 @@ export function FormatBar({
 
         {/* No selection hint */}
         {noElement && (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">Select an element</span>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">Select an element to format it</span>
         )}
       </div>
       {textHelpDialog}

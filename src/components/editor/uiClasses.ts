@@ -46,14 +46,14 @@ export const TOOLBAR_CHIP_HIGHLIGHT_CLASS =
 export const DELETE_LINK_CLASS =
   'text-[10px] text-red-600 hover:underline lg:text-xs'
 
-/** Icon-only toolbar button (28×28 / lg 32×32). */
+/** Icon-only toolbar button (26×26 uniform). */
 export const TOOLBAR_ICON_BTN =
-  'flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-30 lg:h-8 lg:w-8 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100'
+  'flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-transparent bg-transparent text-zinc-500 transition-all duration-100 hover:border-zinc-200/60 hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-400 dark:hover:border-zinc-600/40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
 
-/** Active/pressed variant of the icon button (violet accent). */
+/** Active/pressed variant of the icon button (violet ring accent). */
 export const TOOLBAR_ICON_BTN_ACTIVE =
-  'flex h-7 w-7 items-center justify-center rounded-md border border-violet-500 bg-violet-100 text-violet-900 transition-colors disabled:cursor-not-allowed disabled:opacity-30 lg:h-8 lg:w-8 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100'
+  'flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-violet-400/50 bg-violet-50 text-violet-700 ring-1 ring-violet-400/30 transition-all duration-100 disabled:cursor-not-allowed disabled:opacity-30 dark:border-violet-500/40 dark:bg-violet-950/40 dark:text-violet-300 dark:ring-violet-500/20'
 
 /** Thin vertical divider between toolbar groups. */
 export const TOOLBAR_DIVIDER =
-  'mx-1 hidden h-5 w-px shrink-0 bg-zinc-200 sm:block dark:bg-zinc-700'
+  'mx-0.5 hidden h-4 w-px shrink-0 bg-zinc-200/60 sm:block dark:bg-zinc-700/40'

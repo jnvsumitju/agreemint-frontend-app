@@ -517,6 +517,8 @@ export interface EditorState {
    * Punch hole: subtract the smaller-bbox shape from the larger (two selected, or a group of two mergeable shapes).
    */
   subtractSelectionToMergedShape: () => void
+  /** Reverse a merge: replace the selected MERGED_SHAPE with its original elements. */
+  unmergeSelection: () => void
   /** User-saved snippets (localStorage); drag from left palette onto the page. */
   savedComponents: SavedLayoutComponent[]
   saveSelectionAsLayoutComponent: (name: string) => void
@@ -1967,6 +1969,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         height: merged.height,
         shapePolys: merged.shapePolys,
         strokeWidth: merged.strokeWidth,
+        mergedFromElements: groupEls.map((e) => ({ ...e })),
         style: {
           ...(merged.color ? { color: merged.color } : { color: '#374151' }),
           ...(bg ? { backgroundColor: bg } : {}),
@@ -2021,6 +2024,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         height: merged.height,
         shapePolys: merged.shapePolys,
         strokeWidth: merged.strokeWidth,
+        mergedFromElements: [{ ...outer }, { ...inner }],
         style: {
           ...(merged.color ? { color: merged.color } : { color: '#374151' }),
           ...(merged.backgroundColor ? { backgroundColor: merged.backgroundColor } : {}),
@@ -2033,6 +2037,32 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ...replaceActiveElements(s, next),
         selectedIds: [newEl.id],
         canvasTool: 'select',
+        canvasInlineEditId: null,
+        bandCanvasEditElementId: null,
+        inlineTipTapEditor: null,
+        tableSelection: null,
+        tableCellEdit: null,
+      }
+    }),
+
+  unmergeSelection: () =>
+    set((s) => {
+      if (s.selectedIds.length !== 1) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === s.selectedIds[0])
+      if (!el || el.type !== 'MERGED_SHAPE' || !el.mergedFromElements?.length) return {}
+      const restored = el.mergedFromElements.map((orig) => ({
+        ...orig,
+        id: newElementId(),
+        groupId: undefined,
+        mergedFromElements: undefined,
+      }))
+      const next = elements.filter((e) => e.id !== el.id).concat(restored)
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
+        selectedIds: restored.map((e) => e.id),
+        canvasTool: 'select' as const,
         canvasInlineEditId: null,
         bandCanvasEditElementId: null,
         inlineTipTapEditor: null,
