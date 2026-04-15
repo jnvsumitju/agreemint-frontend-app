@@ -9,22 +9,46 @@ import {
   SUGGESTED_TAGS,
 } from '../lib/templateTags'
 import { getAllThumbnails } from '../lib/templateThumbnails'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
+import { Badge } from '../components/ui/Badge'
+import { EmptyState } from '../components/ui/EmptyState'
+import { SkeletonCard } from '../components/ui/Skeleton'
+import { Modal, ModalFooter } from '../components/ui/Modal'
+import { useToast } from '../components/ui/Toast'
 
 type ViewMode = 'grid' | 'list'
+type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc'
 
-/* ------------------------------------------------------------------ */
-/*  Tag Pill                                                          */
-/* ------------------------------------------------------------------ */
+/* ── Sort Helpers ── */
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'name-asc', label: 'Name A-Z' },
+  { value: 'name-desc', label: 'Name Z-A' },
+]
+
+function sortTemplates(list: TemplateDto[], sort: SortOption): TemplateDto[] {
+  const sorted = [...list]
+  switch (sort) {
+    case 'newest':
+      return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    case 'oldest':
+      return sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    case 'name-asc':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name))
+    case 'name-desc':
+      return sorted.sort((a, b) => b.name.localeCompare(a.name))
+  }
+}
+
+/* ── Tag Pill ── */
+
 function TagPill({
-  tag,
-  onRemove,
-  onClick,
-  active,
+  tag, onRemove, onClick, active,
 }: {
-  tag: string
-  onRemove?: () => void
-  onClick?: () => void
-  active?: boolean
+  tag: string; onRemove?: () => void; onClick?: () => void; active?: boolean
 }) {
   return (
     <span
@@ -53,28 +77,15 @@ function TagPill({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Tag Editor (inline on cards)                                      */
-/* ------------------------------------------------------------------ */
-function TagEditor({
-  templateId,
-  tags,
-  onUpdate,
-}: {
-  templateId: string
-  tags: string[]
-  onUpdate: () => void
-}) {
+/* ── Tag Editor ── */
+
+function TagEditor({ templateId, tags, onUpdate }: { templateId: string; tags: string[]; onUpdate: () => void }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
 
   const commitTag = () => {
     const t = draft.trim().toLowerCase()
-    if (t) {
-      addTemplateTag(templateId, t)
-      onUpdate()
-    }
+    if (t) { addTemplateTag(templateId, t); onUpdate() }
     setDraft('')
     setAdding(false)
   }
@@ -82,15 +93,10 @@ function TagEditor({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {tags.map((tag) => (
-        <TagPill
-          key={tag}
-          tag={tag}
-          onRemove={() => { removeTemplateTag(templateId, tag); onUpdate() }}
-        />
+        <TagPill key={tag} tag={tag} onRemove={() => { removeTemplateTag(templateId, tag); onUpdate() }} />
       ))}
       {adding ? (
         <input
-          ref={inputRef}
           type="text"
           className="w-16 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] outline-none focus:border-violet-400 dark:border-zinc-600 dark:bg-zinc-800"
           value={draft}
@@ -114,7 +120,6 @@ function TagEditor({
           +
         </button>
       )}
-      {/* Suggested tags datalist */}
       <datalist id="ag-suggested-tags">
         {SUGGESTED_TAGS.filter((s) => !tags.includes(s)).map((s) => (
           <option key={s} value={s} />
@@ -124,41 +129,30 @@ function TagEditor({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Template Card (grid mode)                                         */
-/* ------------------------------------------------------------------ */
+/* ── Template Card ── */
+
 function TemplateCard({
-  template,
-  thumbnail,
-  tags,
-  onDuplicate,
-  onTagUpdate,
-  duplicating,
+  template, thumbnail, tags, onDuplicate, onTagUpdate, duplicating,
 }: {
-  template: TemplateDto
-  thumbnail: string | null
-  tags: string[]
-  onDuplicate: () => void
-  onTagUpdate: () => void
-  duplicating: boolean
+  template: TemplateDto; thumbnail: string | null; tags: string[]
+  onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
 }) {
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900">
-      {/* Thumbnail / placeholder */}
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600">
+      {/* Status badge */}
+      <div className="absolute left-2 top-2 z-10">
+        <Badge variant="warning" size="sm" dot>Draft</Badge>
+      </div>
+
+      {/* Thumbnail */}
       <Link to={`/editor/${template.id}`} className="block">
-        <div className="flex h-36 items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
+        <div className="flex h-40 items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
           {thumbnail ? (
-            <img
-              src={thumbnail}
-              alt={`${template.name} preview`}
-              className="h-full w-full object-contain object-top p-1"
-            />
+            <img src={thumbnail} alt={`${template.name} preview`} className="h-full w-full object-contain object-top p-1" />
           ) : (
-            <div className="flex flex-col items-center gap-1 text-zinc-300 dark:text-zinc-600">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="9" y1="21" x2="9" y2="9" />
+            <div className="flex flex-col items-center gap-1.5 text-zinc-300 dark:text-zinc-600">
+              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
               <span className="text-[10px]">No preview</span>
             </div>
@@ -167,84 +161,75 @@ function TemplateCard({
       </Link>
 
       {/* Info */}
-      <div className="flex flex-1 flex-col gap-1.5 px-3 py-2.5">
-        <Link
-          to={`/editor/${template.id}`}
-          className="text-sm font-semibold text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400"
-        >
+      <div className="flex flex-1 flex-col gap-1.5 px-3 py-3">
+        <Link to={`/editor/${template.id}`} className="text-sm font-semibold text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400 line-clamp-1">
           {template.name}
         </Link>
-        <span className="text-[10px] text-zinc-400">
-          {new Date(template.createdAt).toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+          {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
         <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
       </div>
 
-      {/* Actions overlay */}
+      {/* Hover actions */}
       <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button
           type="button"
-          className="rounded-md bg-white/90 p-1 text-zinc-500 shadow-sm hover:bg-white hover:text-violet-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
+          className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-violet-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
           title="Duplicate template"
           disabled={duplicating}
           onClick={(e) => { e.preventDefault(); onDuplicate() }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
+          {duplicating ? (
+            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
         </button>
       </div>
     </div>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Template Row (list mode)                                          */
-/* ------------------------------------------------------------------ */
+/* ── Template Row ── */
+
 function TemplateRow({
-  template,
-  tags,
-  onDuplicate,
-  onTagUpdate,
-  duplicating,
+  template, tags, onDuplicate, onTagUpdate, duplicating,
 }: {
-  template: TemplateDto
-  tags: string[]
-  onDuplicate: () => void
-  onTagUpdate: () => void
-  duplicating: boolean
+  template: TemplateDto; tags: string[]
+  onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
 }) {
   return (
-    <li className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/80">
-      <Link
-        to={`/editor/${template.id}`}
-        className="min-w-0 flex-1"
-      >
-        <span className="block font-medium text-zinc-900 dark:text-zinc-100">{template.name}</span>
+    <li className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
+        <svg className="h-4 w-4 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+      </div>
+      <Link to={`/editor/${template.id}`} className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">{template.name}</span>
       </Link>
-      <div className="hidden shrink-0 sm:block">
+      <Badge variant="warning" size="sm" className="hidden sm:inline-flex">Draft</Badge>
+      <div className="hidden shrink-0 md:block">
         <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
       </div>
-      <span className="shrink-0 text-xs text-zinc-500">
-        {new Date(template.createdAt).toLocaleDateString(undefined, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        })}
+      <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
+        {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
       </span>
       <button
         type="button"
-        className="shrink-0 rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
+        className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
         title="Duplicate template"
         disabled={duplicating}
         onClick={() => onDuplicate()}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
@@ -253,9 +238,8 @@ function TemplateRow({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  View Toggle                                                       */
-/* ------------------------------------------------------------------ */
+/* ── View Toggle ── */
+
 function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
   const btn = (m: ViewMode, label: string, icon: React.ReactNode) => (
     <button
@@ -275,18 +259,14 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
 
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-700">
-      {btn(
-        'grid',
-        'Grid view',
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {btn('grid', 'Grid view',
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
         </svg>
       )}
-      {btn(
-        'list',
-        'List view',
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {btn('list', 'List view',
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
           <line x1="8" y1="18" x2="21" y2="18" />
           <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" />
@@ -297,48 +277,40 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Main Gallery Page                                                 */
-/* ------------------------------------------------------------------ */
+/* ── Main Gallery Page ── */
+
 export function TemplateList() {
   const navigate = useNavigate()
+  const toast = useToast()
   const [templates, setTemplates] = useState<TemplateDto[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('agreemint-gallery-view') as ViewMode) ?? 'grid'
-  })
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    (localStorage.getItem('agreemint-gallery-view') as ViewMode) ?? 'grid'
+  )
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortOption>('newest')
   const [tagVersion, setTagVersion] = useState(0)
-
-  // Thumbnail cache
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
+  const createInputRef = useRef<HTMLInputElement>(null)
 
-  // Tag data
   const tagMap = useMemo(() => getAllTemplateTags(), [tagVersion])
   const usedTags = useMemo(() => allUsedTags(), [tagVersion])
-
   const refreshTags = useCallback(() => setTagVersion((v) => v + 1), [])
 
   const load = () => {
     setLoading(true)
-    setError(null)
     fetchTemplates()
-      .then((list) => {
-        setTemplates(list)
-        setThumbnails(getAllThumbnails())
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .then((list) => { setTemplates(list); setThumbnails(getAllThumbnails()) })
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load templates'))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   const onViewChange = (m: ViewMode) => {
     setViewMode(m)
@@ -349,13 +321,14 @@ export function TemplateList() {
     e.preventDefault()
     if (!name.trim()) return
     setCreating(true)
-    setError(null)
     try {
       const t = await createTemplate(name.trim())
       setName('')
+      setShowCreateModal(false)
+      toast.success(`Template "${t.name}" created`)
       navigate(`/editor/${t.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Create failed')
+      toast.error(err instanceof Error ? err.message : 'Create failed')
     } finally {
       setCreating(false)
     }
@@ -363,111 +336,91 @@ export function TemplateList() {
 
   const onDuplicate = async (t: TemplateDto) => {
     setDuplicatingId(t.id)
-    setError(null)
     try {
-      await duplicateTemplate(t.id, t.name)
+      const newT = await duplicateTemplate(t.id, t.name)
+      toast.success(`Duplicated as "${newT.name}"`)
       load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Duplicate failed')
+      toast.error(err instanceof Error ? err.message : 'Duplicate failed')
     } finally {
       setDuplicatingId(null)
     }
   }
 
-  // Filtered templates
+  // Filter + sort
   const filtered = useMemo(() => {
     let list = templates
-    // Search by name
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter((t) => t.name.toLowerCase().includes(q))
     }
-    // Filter by tag
     if (filterTag) {
       list = list.filter((t) => (tagMap[t.id] ?? []).includes(filterTag))
     }
-    return list
-  }, [templates, search, filterTag, tagMap])
+    return sortTemplates(list, sort)
+  }, [templates, search, filterTag, tagMap, sort])
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
+    <div className="page-enter mx-auto max-w-6xl px-4 py-8">
       {/* Header */}
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Agreemint</h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Visual PDF templates with versioned layouts and iText rendering.
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Templates</h1>
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+            {templates.length} template{templates.length !== 1 ? 's' : ''} in your workspace
           </p>
         </div>
+        <Button
+          variant="primary"
+          onClick={() => { setShowCreateModal(true); setTimeout(() => createInputRef.current?.focus(), 100) }}
+          icon={
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          }
+        >
+          New Template
+        </Button>
       </div>
 
-      {/* Create form */}
-      <form onSubmit={(e) => void onCreate(e)} className="mb-6 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">New template name</span>
-          <input
-            id="ag-template-new-name"
-            name="ag-template-new-name"
-            type="text"
-            className="min-w-[240px] rounded-lg border border-zinc-300 px-3 py-2 dark:border-zinc-600 dark:bg-zinc-800"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Invoice, NDA, …"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={creating || !name.trim()}
-          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-        >
-          {creating ? 'Creating…' : 'Create'}
-        </button>
-      </form>
-
-      {/* Toolbar: search + tag filter + view toggle */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      {/* Toolbar: search + sort + tag filter + view toggle */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1">
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
           <input
             type="text"
-            className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-sm outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400 dark:border-zinc-700 dark:bg-zinc-900"
+            className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition-colors focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             placeholder="Search templates…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
+        {/* Sort */}
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortOption)}
+          className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-violet-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+        >
+          {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
         {/* Tag filters */}
         {usedTags.length > 0 && (
           <div className="flex flex-wrap items-center gap-1">
-            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Filter:</span>
             {filterTag && (
               <button
                 type="button"
-                className="rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300"
+                className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-600 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300"
                 onClick={() => setFilterTag(null)}
               >
-                All
+                Clear
               </button>
             )}
             {usedTags.map((tag) => (
-              <TagPill
-                key={tag}
-                tag={tag}
-                active={filterTag === tag}
-                onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-              />
+              <TagPill key={tag} tag={tag} active={filterTag === tag} onClick={() => setFilterTag(filterTag === tag ? null : tag)} />
             ))}
           </div>
         )}
@@ -475,31 +428,36 @@ export function TemplateList() {
         <ViewToggle mode={viewMode} onChange={onViewChange} />
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
       {/* Content */}
       {loading ? (
-        <div className="flex items-center gap-2 py-12 text-sm text-zinc-500">
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          Loading templates…
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonCard key={i} className="h-52" />)}
         </div>
       ) : templates.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3 text-zinc-300 dark:text-zinc-600">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">No templates yet. Create one above.</p>
-        </div>
+        <EmptyState
+          title="No templates yet"
+          description="Create your first template to start building beautiful agreements"
+          icon={
+            <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+          }
+          action={{ label: 'Create template', onClick: () => setShowCreateModal(true) }}
+          className="py-20"
+        />
       ) : filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-500">No templates match your search.</p>
+        <EmptyState
+          title="No templates match"
+          description={search ? `No results for "${search}"` : 'Try clearing your tag filter'}
+          icon={
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+          }
+          action={{ label: 'Clear filters', onClick: () => { setSearch(''); setFilterTag(null) }, variant: 'secondary' }}
+        />
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((t) => (
             <TemplateCard
               key={t.id}
@@ -513,7 +471,7 @@ export function TemplateList() {
           ))}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-900">
+        <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
           {filtered.map((t) => (
             <TemplateRow
               key={t.id}
@@ -529,12 +487,42 @@ export function TemplateList() {
 
       {/* Count footer */}
       {!loading && templates.length > 0 && (
-        <p className="mt-4 text-[11px] text-zinc-400">
-          {filtered.length} of {templates.length} template{templates.length !== 1 ? 's' : ''}
+        <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
+          Showing {filtered.length} of {templates.length} template{templates.length !== 1 ? 's' : ''}
           {filterTag ? ` tagged "${filterTag}"` : ''}
           {search.trim() ? ` matching "${search.trim()}"` : ''}
         </p>
       )}
+
+      {/* Create Modal */}
+      <Modal
+        open={showCreateModal}
+        onClose={() => { setShowCreateModal(false); setName('') }}
+        title="Create new template"
+        description="Give your template a name to get started"
+        size="sm"
+      >
+        <form onSubmit={(e) => void onCreate(e)}>
+          <Input
+            ref={createInputRef}
+            label="Template name"
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Invoice, NDA, Proposal…"
+            autoFocus
+          />
+          <ModalFooter>
+            <Button variant="secondary" size="sm" type="button" onClick={() => { setShowCreateModal(false); setName('') }}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" type="submit" loading={creating} disabled={!name.trim()}>
+              Create
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
     </div>
   )
 }

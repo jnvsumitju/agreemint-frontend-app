@@ -64,8 +64,8 @@ export function connectToTemplate(templateId: string): void {
           try {
             const users = JSON.parse(message.body) as PresenceUser[]
             usePresenceStore.getState().setUsers(users)
-          } catch {
-            // Malformed message — ignore
+          } catch (err) {
+            console.error('[websocket] Malformed presence message:', err)
           }
         },
       )
@@ -86,8 +86,8 @@ export function connectToTemplate(templateId: string): void {
               scrollX: data.scrollX,
               scrollY: data.scrollY,
             })
-          } catch {
-            // Malformed message — ignore
+          } catch (err) {
+            console.error('[websocket] Malformed viewport message:', err)
           }
         },
       )

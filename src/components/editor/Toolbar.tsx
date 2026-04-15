@@ -20,6 +20,7 @@ import { TOOLBAR_ICON_BTN, TOOLBAR_DIVIDER } from './uiClasses'
 import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
+import { ShareModal } from './ShareModal'
 
 function EditorSurfaceSwitcher() {
   const pages = useEditorStore((s) => s.pages)
@@ -251,6 +252,7 @@ export function Toolbar() {
   const [generatingVersionPdf, setGeneratingVersionPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
 
@@ -441,6 +443,18 @@ export function Toolbar() {
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            title="Share template"
+            disabled={!templateId}
+            onClick={() => setShareOpen(true)}
+          >
+            <svg className="h-[15px] w-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+            <span className="hidden lg:inline">Share</span>
+          </button>
+          <button
+            type="button"
+            className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
             title="Preview PDF from current editor state"
             disabled={!templateId}
             onClick={() => setPreviewOpen(true)}
@@ -623,6 +637,13 @@ export function Toolbar() {
         <VersionDiffModal
           open={versionDiffOpen}
           onClose={() => setVersionDiffOpen(false)}
+          templateId={templateId}
+        />
+      )}
+      {templateId && (
+        <ShareModal
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
           templateId={templateId}
         />
       )}

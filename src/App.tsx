@@ -1,25 +1,29 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { PageLoader } from './components/ui/PageLoader'
 
-// Auth pages
+// Auth pages (small — keep eager for instant load)
 import { Login } from './pages/auth/Login'
 import { Register } from './pages/auth/Register'
 import { ForgotPassword } from './pages/auth/ForgotPassword'
 import { ResetPassword } from './pages/auth/ResetPassword'
 import { OAuthCallback } from './pages/auth/OAuthCallback'
+import { VerifyEmail } from './pages/auth/VerifyEmail'
+import { OtpLogin } from './pages/auth/OtpLogin'
 
-// Layout
+// Layout (always needed)
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 
-// Pages
-import { TemplateList } from './pages/TemplateList'
-import { TemplateEditor } from './pages/TemplateEditor'
-import { Dashboard } from './pages/Dashboard'
-import { Profile } from './pages/Profile'
-import { Settings } from './pages/Settings'
-import { Marketplace } from './pages/Marketplace'
+// Lazy-loaded pages (code-split per route)
+const TemplateList = lazy(() => import('./pages/TemplateList').then((m) => ({ default: m.TemplateList })))
+const TemplateEditor = lazy(() => import('./pages/TemplateEditor').then((m) => ({ default: m.TemplateEditor })))
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
+const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })))
+const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
+const Marketplace = lazy(() => import('./pages/Marketplace').then((m) => ({ default: m.Marketplace })))
 
 export default function App() {
   useEffect(() => {
@@ -28,29 +32,35 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public auth routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/oauth/callback" element={<OAuthCallback />} />
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            {/* Public auth routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/otp-login" element={<OtpLogin />} />
 
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          {/* With AppLayout (nav bar) */}
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<TemplateList />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-          </Route>
+            {/* Protected routes */}
+            <Route element={<ProtectedRoute />}>
+              {/* With AppLayout (nav bar) */}
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<TemplateList />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/marketplace" element={<Marketplace />} />
+              </Route>
 
-          {/* Full-screen (no nav bar) */}
-          <Route path="/editor/:templateId" element={<TemplateEditor />} />
-        </Route>
-      </Routes>
+              {/* Full-screen (no nav bar) */}
+              <Route path="/editor/:templateId" element={<TemplateEditor />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

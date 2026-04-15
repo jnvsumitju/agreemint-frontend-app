@@ -130,7 +130,8 @@ export function Marketplace() {
             setError('Failed to load marketplace listings')
           }
         }
-      } catch {
+      } catch (err) {
+        console.error('[Marketplace] Failed to load listings:', err)
         if (!cancelled) setError('Failed to load marketplace listings')
       } finally {
         if (!cancelled) setLoading(false)

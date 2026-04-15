@@ -25,6 +25,12 @@ export function OrgSettingsTab() {
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+    if (file.size > MAX_SIZE) {
+      showToast('error', 'Logo image must be under 2MB')
+      e.target.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => {
       setLogoPreview(reader.result as string)

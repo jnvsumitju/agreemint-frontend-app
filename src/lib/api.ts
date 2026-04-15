@@ -3,8 +3,14 @@ import { useAuthStore } from '../stores/authStore'
 const API_BASE = ''
 
 /**
+ * Singleton guard — prevents concurrent refresh attempts from racing.
+ */
+let refreshPromise: Promise<boolean> | null = null
+
+/**
  * Authenticated fetch wrapper. Attaches Bearer token + org context.
- * On 401, attempts one token refresh and retries.
+ * On 401, attempts one token refresh and retries. Uses singleton guard
+ * to prevent concurrent refresh races.
  */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const store = useAuthStore.getState()
@@ -15,16 +21,24 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
   let res = await fetch(url, { ...init, headers })
 
   if (res.status === 401 && store.refreshToken) {
-    const ok = await store.refreshTokens()
+    // Use singleton promise to prevent concurrent refresh calls
+    if (!refreshPromise) {
+      refreshPromise = store.refreshTokens().finally(() => { refreshPromise = null })
+    }
+    const ok = await refreshPromise
+
     if (ok) {
       const retryHeaders = new Headers(init?.headers)
       retryHeaders.set('Authorization', `Bearer ${useAuthStore.getState().accessToken}`)
-      if (store.org?.id) retryHeaders.set('X-Org-Id', store.org.id)
+      if (useAuthStore.getState().org?.id) retryHeaders.set('X-Org-Id', useAuthStore.getState().org!.id)
       res = await fetch(url, { ...init, headers: retryHeaders })
     }
+
+    // If still 401 after refresh attempt, log out
     if (res.status === 401) {
       store.logout()
-      window.location.href = '/login'
+      sessionStorage.setItem('redirectAfterLogin', window.location.pathname)
+      window.location.replace('/login')
     }
   }
 
