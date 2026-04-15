@@ -17,6 +17,7 @@ import {
   IconZoomIn, IconZoomOut,
 } from './ToolbarIcons'
 import { TOOLBAR_ICON_BTN, TOOLBAR_DIVIDER } from './uiClasses'
+import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
 
@@ -434,6 +435,7 @@ export function Toolbar() {
               <IconZoomIn size={14} />
             </button>
           </div>
+        <PresenceAvatars />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           {error && <span className="max-w-xs truncate text-xs text-red-600">{error}</span>}
           <button

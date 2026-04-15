@@ -390,10 +390,12 @@ export interface EditorState {
   tableCellEdit: { tableId: string; row: number; col: number } | null
   /** View-only mode — disables editing, shows comment icon on hover. */
   viewOnly: boolean
+  /** Whether commenting is enabled (false for VIEWER role). */
+  commentingEnabled: boolean
   /** Element ID currently highlighted from the comments panel. */
   commentHighlightId: string | null
   /** Right sidebar tab (toolbar can open Variables for table JSON). */
-  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments'
+  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments' | 'activity'
   /** Document page (size, margins). */
   pageSpec: PageSpec
   /** Snap element moves/resizes to grid when not aligned to a smart guide. */
@@ -494,6 +496,7 @@ export interface EditorState {
   openTableCellEdit: (payload: { tableId: string; row: number; col: number }) => void
   setTableCellEdit: (edit: { tableId: string; row: number; col: number } | null) => void
   setViewOnly: (v: boolean) => void
+  setCommentingEnabled: (v: boolean) => void
   setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments') => void
   /** Stack order: later items paint on top. Pass `pageIndex` to reorder a non-active page (e.g. page 0 bands). */
   moveLayer: (id: string, direction: 'forward' | 'backward', pageIndex?: number) => void
@@ -554,6 +557,7 @@ const clearEditorUi = {
   tableSelection: null,
   tableCellEdit: null,
   viewOnly: false,
+  commentingEnabled: true,
   commentHighlightId: null as string | null,
   editorSidebarTab: 'properties' as const,
   dragGuides: { vertical: [] as number[], horizontal: [] as number[] },
@@ -641,6 +645,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         tableSelection: null,
         tableCellEdit: null,
         viewOnly: false,
+        commentingEnabled: true,
         commentHighlightId: null,
         editorSidebarTab: 'properties',
         pageSpec: defaultPageSpec(),
@@ -1528,6 +1533,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setTableCellEdit: (edit) => set({ tableCellEdit: edit, ...(edit === null ? { inlineTipTapEditor: null } : {}) }),
 
   setViewOnly: (v) => set({ viewOnly: v }),
+
+  setCommentingEnabled: (v) => set({ commentingEnabled: v }),
 
   setEditorSidebarTab: (tab) => set({ editorSidebarTab: tab }),
 

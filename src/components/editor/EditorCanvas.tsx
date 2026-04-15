@@ -20,6 +20,7 @@ import {
   unregisterActiveCanvasTipTapEditor,
   useEditorStore,
 } from '../../stores/editorStore'
+import { useAuthStore } from '../../stores/authStore'
 import { computeDragSnap, computeResizeSnap } from '../../lib/canvasGuides'
 import { isHeaderOrFooterType } from '../../lib/layoutMargins'
 import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
@@ -144,6 +145,7 @@ function CanvasElement({
   const spaceMoveTool = useEditorStore((s) => s.spaceMoveTool)
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const viewOnly = useEditorStore((s) => s.viewOnly)
+  const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
   const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
   const isCommentHighlighted = commentHighlightId === el.id
 
@@ -883,8 +885,8 @@ function CanvasElement({
                 : 'Double-click to edit · click a purple field for details · ⌘/Ctrl+Enter to finish'}
         </span>
       )}
-      {/* View-only mode: comment icon on hover */}
-      {viewOnly && (
+      {/* View-only mode: comment icon on hover (only if commenting is enabled) */}
+      {viewOnly && commentingEnabled && (
         <button
           type="button"
           className="absolute -right-1 -top-1 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 hover:bg-violet-700"
@@ -1528,8 +1530,10 @@ export function EditorCanvas({
   )
 
   const viewOnly = useEditorStore((s) => s.viewOnly)
+  const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
   const addComment = useEditorStore((s) => s.addComment)
   const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
+  const authUserName = useAuthStore((s) => s.user?.name ?? 'User')
 
   /** View-only mode: click comment icon → select element, open Comments tab, prompt for text. */
   const onCommentClick = useCallback(
@@ -1539,10 +1543,10 @@ export function EditorCanvas({
       // Small delay so the panel renders, then prompt
       setTimeout(() => {
         const text = window.prompt('Add a comment')
-        if (text?.trim()) addComment(elId, text.trim())
+        if (text?.trim()) addComment(elId, text.trim(), authUserName)
       }, 100)
     },
-    [select, setEditorSidebarTab, addComment],
+    [select, setEditorSidebarTab, addComment, authUserName],
   )
 
   const onElementContextMenu = useCallback((e: ReactMouseEvent, elId: string) => {
@@ -2552,28 +2556,30 @@ export function EditorCanvas({
               <div className="border-t border-zinc-100 dark:border-zinc-700" />
             </>
           )}
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
-            onClick={() => {
-              const st = useEditorStore.getState()
-              const elId = st.selectedIds[0]
-              setElementContextMenu(null)
-              if (elId) {
-                setEditorSidebarTab('comments')
-                setTimeout(() => {
-                  const text = window.prompt('Add a comment')
-                  if (text?.trim()) addComment(elId, text.trim())
-                }, 100)
-              }
-            }}
-          >
-            <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-            </svg>
-            Add comment
-          </button>
+          {commentingEnabled && (
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              onClick={() => {
+                const st = useEditorStore.getState()
+                const elId = st.selectedIds[0]
+                setElementContextMenu(null)
+                if (elId) {
+                  setEditorSidebarTab('comments')
+                  setTimeout(() => {
+                    const text = window.prompt('Add a comment')
+                    if (text?.trim()) addComment(elId, text.trim(), authUserName)
+                  }, 100)
+                }
+              }}
+            >
+              <svg className="h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+              </svg>
+              Add comment
+            </button>
+          )}
         </div>
       </>
     ) : null}

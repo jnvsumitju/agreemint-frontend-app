@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { fetchTemplate, fetchVersions } from '../lib/api'
+import { authFetch, fetchTemplate, fetchVersions } from '../lib/api'
 import { bootstrapEditorFromRemote } from '../lib/templateEditorBootstrap'
+import { connectToTemplate, disconnectFromTemplate } from '../lib/websocket'
 import { useEditorStore } from '../stores/editorStore'
+import { useFollowMode } from '../hooks/useFollowMode'
 import { LeftPalette } from '../components/editor/LeftPalette'
 import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { PropertiesPanel } from '../components/editor/PropertiesPanel'
@@ -17,6 +19,7 @@ export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
   const contextToolbarExemptRef = useRef<HTMLDivElement | null>(null)
   const shortcuts = useShortcutCheatsheet()
+  useFollowMode()
   const reset = useEditorStore((s) => s.reset)
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
   const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)
@@ -24,6 +27,8 @@ export function TemplateEditor() {
   const loadElements = useEditorStore((s) => s.loadElements)
   const setVersionInfo = useEditorStore((s) => s.setVersionInfo)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
+  const setViewOnly = useEditorStore((s) => s.setViewOnly)
+  const setCommentingEnabled = useEditorStore((s) => s.setCommentingEnabled)
 
   useEffect(() => {
     if (!templateId) return
@@ -43,6 +48,18 @@ export function TemplateEditor() {
           setVersionInfo,
           setVariableValue,
         })
+
+        // Fetch user's role for this template and set editor mode
+        try {
+          const accessRes = await authFetch(`/api/templates/${templateId}/access`)
+          if (accessRes.ok && !cancelled) {
+            const access = await accessRes.json() as { role: string; canEdit: boolean; canComment: boolean }
+            setViewOnly(!access.canEdit)
+            setCommentingEnabled(access.canComment)
+          }
+        } catch {
+          // If access endpoint not available (e.g. no auth), default to full edit
+        }
       } catch {
         if (!cancelled) {
           setTemplateMeta(templateId, 'Unknown template')
@@ -70,7 +87,18 @@ export function TemplateEditor() {
     loadElements,
     setVersionInfo,
     setVariableValue,
+    setViewOnly,
+    setCommentingEnabled,
   ])
+
+  // WebSocket presence connection lifecycle
+  useEffect(() => {
+    if (!templateId) return
+    connectToTemplate(templateId)
+    return () => {
+      disconnectFromTemplate()
+    }
+  }, [templateId])
 
   if (!templateId) {
     return <p className="p-6 text-sm text-red-600">Missing template id</p>

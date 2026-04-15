@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
+import { useAuthStore } from '../../stores/authStore'
 import type { ElementComment, LayoutElement } from '../../types/layout'
 
 type FilterMode = 'all' | 'open' | 'resolved'
@@ -44,6 +45,9 @@ export function CommentsPanel() {
   const deleteComment = useEditorStore((s) => s.deleteComment)
   const setCommentHighlightId = useEditorStore((s) => s.setCommentHighlightId)
   const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
+  const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
+  const authUser = useAuthStore((s) => s.user)
+  const authorName = authUser?.name ?? 'User'
 
   const [filter, setFilter] = useState<FilterMode>('all')
   const [addingTo, setAddingTo] = useState<string | null>(null)
@@ -69,7 +73,7 @@ export function CommentsPanel() {
   const submitComment = (elementId: string) => {
     const t = newText.trim()
     if (!t) return
-    addComment(elementId, t)
+    addComment(elementId, t, authorName)
     setNewText('')
     setAddingTo(null)
   }
@@ -77,7 +81,7 @@ export function CommentsPanel() {
   const submitReply = (elementId: string, commentId: string) => {
     const t = replyText.trim()
     if (!t) return
-    addReply(elementId, commentId, t)
+    addReply(elementId, commentId, t, authorName)
     setReplyText('')
     setReplyingTo(null)
   }
@@ -211,37 +215,39 @@ export function CommentsPanel() {
               </div>
 
               {/* Inline add top-level comment */}
-              {addingTo === el.id ? (
-                <div className="flex gap-1 border-t border-zinc-100 px-2 py-2 dark:border-zinc-700">
-                  <input
-                    type="text"
-                    className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-[11px] dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                    placeholder="Add a comment..."
-                    value={newText}
-                    autoFocus
-                    onChange={(e) => setNewText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') submitComment(el.id)
-                      if (e.key === 'Escape') { setAddingTo(null); setNewText('') }
-                    }}
-                  />
+              {commentingEnabled && (
+                addingTo === el.id ? (
+                  <div className="flex gap-1 border-t border-zinc-100 px-2 py-2 dark:border-zinc-700">
+                    <input
+                      type="text"
+                      className="min-w-0 flex-1 rounded border border-zinc-300 px-2 py-1 text-[11px] dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                      placeholder="Add a comment..."
+                      value={newText}
+                      autoFocus
+                      onChange={(e) => setNewText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitComment(el.id)
+                        if (e.key === 'Escape') { setAddingTo(null); setNewText('') }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="shrink-0 rounded bg-violet-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-700 disabled:opacity-40"
+                      disabled={!newText.trim()}
+                      onClick={() => submitComment(el.id)}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ) : (
                   <button
                     type="button"
-                    className="shrink-0 rounded bg-violet-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-violet-700 disabled:opacity-40"
-                    disabled={!newText.trim()}
-                    onClick={() => submitComment(el.id)}
+                    className="w-full border-t border-zinc-100 px-3 py-1.5 text-left text-[10px] text-zinc-400 hover:text-violet-600 dark:border-zinc-700 dark:hover:text-violet-400"
+                    onClick={() => { setAddingTo(el.id); setNewText('') }}
                   >
-                    Add
+                    + Add comment
                   </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full border-t border-zinc-100 px-3 py-1.5 text-left text-[10px] text-zinc-400 hover:text-violet-600 dark:border-zinc-700 dark:hover:text-violet-400"
-                  onClick={() => { setAddingTo(el.id); setNewText('') }}
-                >
-                  + Add comment
-                </button>
+                )
               )}
             </div>
           ))}

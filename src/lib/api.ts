@@ -1,4 +1,35 @@
+import { useAuthStore } from '../stores/authStore'
+
 const API_BASE = ''
+
+/**
+ * Authenticated fetch wrapper. Attaches Bearer token + org context.
+ * On 401, attempts one token refresh and retries.
+ */
+export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  const store = useAuthStore.getState()
+  const headers = new Headers(init?.headers)
+  if (store.accessToken) headers.set('Authorization', `Bearer ${store.accessToken}`)
+  if (store.org?.id) headers.set('X-Org-Id', store.org.id)
+
+  let res = await fetch(url, { ...init, headers })
+
+  if (res.status === 401 && store.refreshToken) {
+    const ok = await store.refreshTokens()
+    if (ok) {
+      const retryHeaders = new Headers(init?.headers)
+      retryHeaders.set('Authorization', `Bearer ${useAuthStore.getState().accessToken}`)
+      if (store.org?.id) retryHeaders.set('X-Org-Id', store.org.id)
+      res = await fetch(url, { ...init, headers: retryHeaders })
+    }
+    if (res.status === 401) {
+      store.logout()
+      window.location.href = '/login'
+    }
+  }
+
+  return res
+}
 
 async function parseJson<T>(res: Response): Promise<T> {
   const text = await res.text()
@@ -38,17 +69,17 @@ export interface GenerateResultDto {
 }
 
 export async function fetchTemplates(): Promise<TemplateDto[]> {
-  const res = await fetch(`${API_BASE}/api/templates`)
+  const res = await authFetch(`${API_BASE}/api/templates`)
   return parseJson<TemplateDto[]>(res)
 }
 
 export async function fetchTemplate(id: string): Promise<TemplateDto> {
-  const res = await fetch(`${API_BASE}/api/templates/${id}`)
+  const res = await authFetch(`${API_BASE}/api/templates/${id}`)
   return parseJson<TemplateDto>(res)
 }
 
 export async function createTemplate(name: string, createdBy?: string): Promise<TemplateDto> {
-  const res = await fetch(`${API_BASE}/api/templates`, {
+  const res = await authFetch(`${API_BASE}/api/templates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, createdBy: createdBy ?? null }),
@@ -57,7 +88,7 @@ export async function createTemplate(name: string, createdBy?: string): Promise<
 }
 
 export async function fetchVersions(templateId: string): Promise<TemplateVersionDto[]> {
-  const res = await fetch(`${API_BASE}/api/templates/${templateId}/versions`)
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/versions`)
   return parseJson<TemplateVersionDto[]>(res)
 }
 
@@ -66,7 +97,7 @@ export async function createVersion(
   layout: Record<string, unknown>,
   variables: Record<string, unknown> | null
 ): Promise<TemplateVersionDto> {
-  const res = await fetch(`${API_BASE}/api/templates/${templateId}/versions`, {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/versions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ layout, variables }),
@@ -81,7 +112,7 @@ export interface TemplateDraftDto {
 }
 
 export async function fetchDraft(templateId: string): Promise<TemplateDraftDto | null> {
-  const res = await fetch(`${API_BASE}/api/templates/${templateId}/draft`)
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft`)
   if (res.status === 404) return null
   return parseJson<TemplateDraftDto>(res)
 }
@@ -91,7 +122,7 @@ export async function putDraft(
   layout: Record<string, unknown>,
   variables: Record<string, string>
 ): Promise<TemplateDraftDto> {
-  const res = await fetch(`${API_BASE}/api/templates/${templateId}/draft`, {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ layout, variables }),
@@ -100,7 +131,7 @@ export async function putDraft(
 }
 
 export async function commitDraft(templateId: string): Promise<TemplateVersionDto> {
-  const res = await fetch(`${API_BASE}/api/templates/${templateId}/draft/commit`, {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft/commit`, {
     method: 'POST',
   })
   return parseJson<TemplateVersionDto>(res)
@@ -110,7 +141,7 @@ export async function generatePreviewPdf(
   layout: Record<string, unknown>,
   data: Record<string, unknown>
 ): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/api/generate/preview`, {
+  const res = await authFetch(`${API_BASE}/api/generate/preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ layout, data }),
@@ -134,7 +165,7 @@ export async function generatePdf(
   versionId: string,
   data: Record<string, unknown>
 ): Promise<GenerateResultDto> {
-  const res = await fetch(`${API_BASE}/api/generate`, {
+  const res = await authFetch(`${API_BASE}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ templateId, versionId, data }),

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
+    "@stomp/stompjs": "^7.3.0",
     "@tiptap/extension-color": "^3.22.3",
     "@tiptap/extension-highlight": "^3.22.3",
     "@tiptap/extension-mention": "^3.22.3",

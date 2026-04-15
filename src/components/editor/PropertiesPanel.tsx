@@ -37,6 +37,7 @@ import { VariablesSection } from './VariablesSection'
 import { LayersSection } from './LayersSection'
 import { HistoryPanel } from './HistoryPanel'
 import { CommentsPanel } from './CommentsPanel'
+import { ActivityTab } from './ActivityTab'
 import { RichContentEditor } from './RichContentEditor'
 import {
   BoxAppearanceFields,
@@ -1145,6 +1146,9 @@ export function PropertiesPanel() {
         <button type="button" className={activeTab('comments')} onClick={() => setTab('comments')}>
           Comments
         </button>
+        <button type="button" className={activeTab('activity')} onClick={() => setTab('activity')}>
+          Activity
+        </button>
       </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto">
         {effectiveTab === 'properties' ? (
@@ -1157,6 +1161,8 @@ export function PropertiesPanel() {
           <HistoryPanel />
         ) : effectiveTab === 'comments' ? (
           <CommentsPanel />
+        ) : effectiveTab === 'activity' ? (
+          <ActivityTab />
         ) : (
           <VariablesSection />
         )}
