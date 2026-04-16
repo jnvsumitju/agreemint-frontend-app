@@ -1,6 +1,6 @@
 import { useAuthStore } from '../stores/authStore'
 
-const API_BASE = ''
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 /**
  * Singleton guard — prevents concurrent refresh attempts from racing.
