@@ -3,6 +3,7 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs'
 import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
 import type { PresenceUser } from '../stores/presenceStore'
+import { API_BASE } from './api'
 
 // ── Singleton state ──
 
@@ -14,6 +15,17 @@ let activeTemplateId: string | null = null
 // ── Helpers ──
 
 function wsUrl(): string {
+  // If API_BASE is set (e.g. production with separate backend host), use it.
+  // Otherwise fall back to same-origin (local dev with Vite proxy).
+  if (API_BASE) {
+    try {
+      const u = new URL(API_BASE)
+      const proto = u.protocol === 'https:' ? 'wss' : 'ws'
+      return `${proto}://${u.host}/ws`
+    } catch {
+      // fall through to same-origin
+    }
+  }
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${window.location.host}/ws`
 }

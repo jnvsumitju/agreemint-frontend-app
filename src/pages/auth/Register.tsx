@@ -58,8 +58,12 @@ export function Register() {
 
     setLoading(true)
     try {
-      await register(email, name, password, inviteToken ?? undefined)
-      navigate('/')
+      const result = await register(email, name, password, inviteToken ?? undefined)
+      if (result.requiresVerification) {
+        navigate(`/verify-email?pending=${encodeURIComponent(email)}`)
+      } else {
+        navigate('/')
+      }
     } catch (err: unknown) {
       setErrors({ form: err instanceof Error ? err.message : 'Registration failed' })
     } finally {

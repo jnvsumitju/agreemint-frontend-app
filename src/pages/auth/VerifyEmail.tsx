@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { API_BASE } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
+import { useAuthStore } from '../../stores/authStore'
 
 export function VerifyEmail() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
-  const email = searchParams.get('email') ?? ''
+  // `pending` = email address waiting to be verified (from register redirect)
+  // `email` = legacy alias
+  const email = searchParams.get('email') ?? searchParams.get('pending') ?? ''
 
   const [status, setStatus] = useState<'pending' | 'verifying' | 'success' | 'error'>(
     token ? 'verifying' : 'pending'
@@ -20,15 +24,32 @@ export function VerifyEmail() {
   useEffect(() => {
     if (!token) return
     fetch(`${API_BASE}/api/auth/verify-email?token=${encodeURIComponent(token)}`)
-      .then((res) => {
-        if (res.ok) setStatus('success')
-        else throw new Error('Invalid or expired token')
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Invalid or expired token')
+        const data = await res.json()
+        // Log the user in with the returned tokens so they land directly on the dashboard
+        if (data.accessToken && data.refreshToken) {
+          useAuthStore.setState({
+            user: data.user,
+            org: data.org ?? null,
+            orgs: data.org ? [{ org: data.org, role: data.role ?? 'ADMIN' }] : [],
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            isAuthenticated: true,
+          })
+          localStorage.setItem('agreemint-access-token', data.accessToken)
+          localStorage.setItem('agreemint-refresh-token', data.refreshToken)
+          if (data.org?.id) localStorage.setItem('agreemint-org-id', data.org.id)
+        }
+        setStatus('success')
+        // Auto-redirect after a short moment
+        setTimeout(() => navigate('/'), 1500)
       })
       .catch((err) => {
         setStatus('error')
         setErrorMsg(err instanceof Error ? err.message : 'Verification failed')
       })
-  }, [token])
+  }, [token, navigate])
 
   async function handleResend() {
     if (!email) return
@@ -69,13 +90,8 @@ export function VerifyEmail() {
             </div>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Email verified!</h2>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Your email has been confirmed. You can now sign in.
+              Redirecting you to the dashboard…
             </p>
-            <Link to="/login">
-              <Button variant="primary" className="mt-5">
-                Go to Sign in
-              </Button>
-            </Link>
           </>
         )}
 

@@ -39,7 +39,7 @@ interface AuthState {
   /** Initialize from localStorage tokens, fetch /me if valid. Idempotent — safe to call multiple times. */
   init: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, name: string, password: string, inviteToken?: string) => Promise<void>
+  register: (email: string, name: string, password: string, inviteToken?: string) => Promise<{ requiresVerification: boolean }>
   logout: () => void
   refreshTokens: () => Promise<boolean>
   setOrg: (org: OrgDto) => void
@@ -145,6 +145,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw new Error(err.message || 'Registration failed')
     }
     const data = await res.json()
+
+    // Verification required — don't log in, frontend should redirect to "check your email"
+    if (data.requiresVerification) {
+      return { requiresVerification: true }
+    }
+
     persistTokens(data.accessToken, data.refreshToken)
     if (data.org?.id) localStorage.setItem(ORG_KEY, data.org.id)
     const orgs: MeOrgEntry[] = data.org
@@ -158,6 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       refreshToken: data.refreshToken,
       isAuthenticated: true,
     })
+    return { requiresVerification: false }
   },
 
   logout: () => {
