@@ -39,7 +39,7 @@ interface AuthState {
   /** Initialize from localStorage tokens, fetch /me if valid. Idempotent — safe to call multiple times. */
   init: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, name: string, password: string) => Promise<void>
+  register: (email: string, name: string, password: string, inviteToken?: string) => Promise<void>
   logout: () => void
   refreshTokens: () => Promise<boolean>
   setOrg: (org: OrgDto) => void
@@ -132,11 +132,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     })
   },
 
-  register: async (email, name, password) => {
+  register: async (email, name, password, inviteToken?) => {
+    const body: Record<string, string> = { email, name, password }
+    if (inviteToken) body.inviteToken = inviteToken
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, password }),
+      body: JSON.stringify(body),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: 'Registration failed' }))

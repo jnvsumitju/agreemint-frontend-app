@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { authFetch } from '../../lib/api'
 
+interface PendingInvitation {
+  id: string
+  orgId: string
+  email: string
+  role: string
+  createdAt: string
+  expiresAt: string
+}
+
 interface OrgMember {
   id: string
   userId: string
@@ -50,6 +59,7 @@ export function MembersTab() {
   const isAdmin = entry?.role === 'ADMIN'
 
   const [members, setMembers] = useState<OrgMember[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvitation[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
@@ -81,9 +91,23 @@ export function MembersTab() {
     }
   }, [org])
 
+  const fetchInvitations = useCallback(async () => {
+    if (!org || !isAdmin) return
+    try {
+      const res = await authFetch(`/api/orgs/${org.id}/invitations`)
+      if (res.ok) {
+        const data: PendingInvitation[] = await res.json()
+        setPendingInvites(data)
+      }
+    } catch {
+      // non-critical
+    }
+  }, [org, isAdmin])
+
   useEffect(() => {
     void fetchMembers()
-  }, [fetchMembers])
+    void fetchInvitations()
+  }, [fetchMembers, fetchInvitations])
 
   async function changeRole(memberId: string, newRole: string) {
     if (!org) return
@@ -133,13 +157,20 @@ export function MembersTab() {
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Failed to invite' }))
-        throw new Error(err.message || 'Failed to invite')
+        const err = await res.json().catch(() => ({ error: 'Failed to invite' }))
+        throw new Error(err.error || err.message || 'Failed to invite')
       }
+      const result = await res.json().catch(() => null)
+      const targetEmail = inviteEmail.trim()
       setInviteEmail('')
       setInviteRole('VIEWER')
-      showToast('success', `Invitation sent to ${inviteEmail.trim()}`)
+      if (result?.status === 'added') {
+        showToast('success', `${targetEmail} added to the organization`)
+      } else {
+        showToast('success', `Invitation email sent to ${targetEmail}`)
+      }
       void fetchMembers()
+      void fetchInvitations()
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Failed to invite')
     } finally {
@@ -273,6 +304,57 @@ export function MembersTab() {
           </div>
         )}
       </div>
+
+      {/* Pending Invitations */}
+      {isAdmin && pendingInvites.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">Pending Invitations</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {pendingInvites.length} pending invite{pendingInvites.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {pendingInvites.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-4 px-6 py-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{inv.email}</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Expires {new Date(inv.expiresAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${roleBadgeColor(inv.role)}`}>
+                  {inv.role}
+                </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await authFetch(`/api/orgs/${org!.id}/invitations/${inv.id}`, { method: 'DELETE' })
+                      if (!res.ok) throw new Error()
+                      setPendingInvites((prev) => prev.filter((i) => i.id !== inv.id))
+                      showToast('success', 'Invitation cancelled')
+                    } catch {
+                      showToast('error', 'Failed to cancel invitation')
+                    }
+                  }}
+                  className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                  title="Cancel invitation"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Invite form */}
       {isAdmin && (
