@@ -110,6 +110,7 @@ function ListingCard({
 /* ── Main Marketplace ── */
 
 export function Marketplace() {
+  const { canCreateTemplates } = usePermissions()
   const [listings, setListings] = useState<MarketplaceListing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -202,7 +203,9 @@ export function Marketplace() {
         <div>
           <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Marketplace</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Browse and install community templates
+            {canCreateTemplates
+              ? 'Browse and install community templates'
+              : 'Browse community templates (installing requires designer access)'}
           </p>
         </div>
         <div className="relative min-w-[240px]">

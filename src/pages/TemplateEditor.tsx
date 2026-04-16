@@ -40,16 +40,8 @@ export function TemplateEditor() {
         const t = await fetchTemplate(templateId)
         if (cancelled) return
         setTemplateMeta(t.id, t.name)
-        const versions = await fetchVersions(templateId)
-        if (cancelled) return
-        await bootstrapEditorFromRemote(templateId, versions, {
-          loadLayout,
-          loadElements,
-          setVersionInfo,
-          setVariableValue,
-        })
 
-        // Fetch user's role for this template and set editor mode
+        // Fetch role FIRST so viewOnly is set before any layout loads
         try {
           const accessRes = await authFetch(`/api/templates/${templateId}/access`)
           if (accessRes.ok && !cancelled) {
@@ -63,6 +55,15 @@ export function TemplateEditor() {
         } catch {
           // If access endpoint not available (e.g. no auth), default to full edit
         }
+
+        const versions = await fetchVersions(templateId)
+        if (cancelled) return
+        await bootstrapEditorFromRemote(templateId, versions, {
+          loadLayout,
+          loadElements,
+          setVersionInfo,
+          setVariableValue,
+        })
       } catch {
         if (!cancelled) {
           setTemplateMeta(templateId, 'Unknown template')

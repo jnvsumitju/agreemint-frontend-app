@@ -763,17 +763,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     withUndoSuppressed(() => {
       unregisterInlineTipTapDestroyListener()
       clearActiveCanvasTipTapEditorMap()
-      return set({
+      return set((s) => ({
         pages: normPages,
         activePageIndex: 0,
         pageSpec: normalizePageSpec(page),
         globalVariableDefinitions: globals,
         variableValues: mergeVariableValues({}, allPageElements(normPages), globals, normPages, 0),
         ...clearEditorUi,
+        // Preserve role-based access (viewOnly/commentingEnabled) across layout reloads
+        viewOnly: s.viewOnly,
+        commentingEnabled: s.commentingEnabled,
         historyBatchDepth: 0,
         undoPast: [],
         undoFuture: [],
-      })
+      }))
     })
   },
 

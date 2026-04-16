@@ -5,6 +5,7 @@ import {
   subscribeDarkMode,
   type DarkModeValue,
 } from '../../lib/darkMode'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const GRID_KEY = 'agreemint-grid-default-size'
 const AUTOSAVE_KEY = 'agreemint-autosave-interval'
@@ -26,6 +27,7 @@ function getAutoSaveInterval(): number {
 }
 
 export function PreferencesTab() {
+  const { canEdit } = usePermissions()
   const darkMode = useSyncExternalStore(subscribeDarkMode, getDarkModePreference)
   const [gridSize, setGridSize] = useState(getGridSize)
   const [autoSave, setAutoSave] = useState(getAutoSaveInterval)
@@ -113,7 +115,8 @@ export function PreferencesTab() {
         </div>
       </div>
 
-      {/* Editor defaults */}
+      {/* Editor defaults — only visible for users who can edit */}
+      {canEdit && (
       <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <h2 className="mb-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">Editor defaults</h2>
 
@@ -167,6 +170,7 @@ export function PreferencesTab() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

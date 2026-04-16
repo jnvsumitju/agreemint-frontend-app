@@ -76,15 +76,29 @@ function ActionIcon({ action }: { action: string }) {
 function OnboardingChecklist({ templates, members }: { templates: TemplateDto[]; members: OrgMember[] }) {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('agreemint-onboarding-dismissed') === 'true')
   const { org } = useAuthStore()
+  const { canCreateTemplates, canManageOrg, canComment } = usePermissions()
 
   if (dismissed) return null
 
-  const steps = [
-    { label: 'Create your first template', done: templates.length > 0, href: '/' },
-    { label: 'Set up your workspace logo', done: !!org?.logoUrl, href: '/settings?tab=org' },
-    { label: 'Invite a team member', done: members.length > 1, href: '/settings?tab=members' },
-    { label: 'Explore the marketplace', done: false, href: '/marketplace' },
-  ]
+  // Role-appropriate steps
+  const steps: { label: string; done: boolean; href: string }[] = []
+
+  if (canCreateTemplates) {
+    steps.push({ label: 'Create your first template', done: templates.length > 0, href: '/' })
+  } else {
+    steps.push({ label: 'Browse templates in your workspace', done: templates.length > 0, href: '/' })
+  }
+
+  if (canManageOrg) {
+    steps.push({ label: 'Set up your workspace logo', done: !!org?.logoUrl, href: '/settings?tab=org' })
+    steps.push({ label: 'Invite a team member', done: members.length > 1, href: '/settings?tab=members' })
+  }
+
+  if (canComment && !canCreateTemplates) {
+    steps.push({ label: 'Leave a comment on a template', done: false, href: '/' })
+  }
+
+  steps.push({ label: canCreateTemplates ? 'Explore the marketplace' : 'Browse the marketplace', done: false, href: '/marketplace' })
 
   const completedCount = steps.filter((s) => s.done).length
   const allDone = completedCount === steps.length

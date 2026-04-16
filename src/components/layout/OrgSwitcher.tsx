@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore, type OrgDto, type MeOrgEntry } from '../../stores/authStore'
 import { authFetch } from '../../lib/api'
+import { usePermissions } from '../../hooks/usePermissions'
 
 export function OrgSwitcher() {
+  const { canManageOrg } = usePermissions()
   const org = useAuthStore((s) => s.org)
   const orgs = useAuthStore((s) => s.orgs)
   const setOrg = useAuthStore((s) => s.setOrg)
@@ -118,10 +120,10 @@ export function OrgSwitcher() {
             </button>
           ))}
 
-          {orgs.length > 0 && <div className="my-1 border-t border-zinc-100 dark:border-zinc-700" />}
+          {orgs.length > 0 && canManageOrg && <div className="my-1 border-t border-zinc-100 dark:border-zinc-700" />}
 
-          {/* Create workspace — inline form or trigger button */}
-          {showCreate ? (
+          {/* Create workspace — only for admins of the current org */}
+          {canManageOrg && showCreate && (
             <form onSubmit={(e) => void handleCreate(e)} className="px-3 py-2">
               <p className="mb-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">New workspace name</p>
               <input
@@ -152,7 +154,8 @@ export function OrgSwitcher() {
                 </button>
               </div>
             </form>
-          ) : (
+          )}
+          {canManageOrg && !showCreate && (
             <button
               onClick={openCreate}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
