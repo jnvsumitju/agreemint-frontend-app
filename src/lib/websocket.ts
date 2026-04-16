@@ -70,12 +70,19 @@ export function connectToTemplate(templateId: string): void {
         }),
       })
 
-      // Subscribe to presence updates
+      // Subscribe to presence updates.
+      // Backend sends PresenceMessage { users: [...] }; tolerate either shape
+      // (bare array or envelope) to keep this resilient to wire-format churn.
       presenceSub = client.subscribe(
         `/topic/template/${templateId}/presence`,
         (message: IMessage) => {
           try {
-            const users = JSON.parse(message.body) as PresenceUser[]
+            const parsed = JSON.parse(message.body) as PresenceUser[] | { users?: PresenceUser[] }
+            const users: PresenceUser[] = Array.isArray(parsed)
+              ? parsed
+              : Array.isArray(parsed?.users)
+                ? parsed.users!
+                : []
             usePresenceStore.getState().setUsers(users)
           } catch (err) {
             console.error('[websocket] Malformed presence message:', err)
