@@ -60,7 +60,7 @@ export function NotificationBell() {
 
   const fetchUnread = useCallback(async () => {
     try {
-      const res = await authFetch('/api/notifications/unread')
+      const res = await authFetch('/api/notifications/unread-count')
       if (res.ok) {
         const data = await res.json()
         setUnreadCount(data.count ?? 0)
