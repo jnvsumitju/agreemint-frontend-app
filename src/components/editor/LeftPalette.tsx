@@ -530,7 +530,8 @@ function CollapsedActions() {
 }
 
 export function LeftPalette() {
-  const [tab, setTab] = useState<'insert' | 'pages'>('insert')
+  const viewOnly = useEditorStore((s) => s.viewOnly)
+  const [tab, setTab] = useState<'insert' | 'pages'>(viewOnly ? 'pages' : 'insert')
   const [collapsed, setCollapsed] = useState(false)
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const savedComponents = useEditorStore((s) => s.savedComponents)
@@ -549,16 +550,20 @@ export function LeftPalette() {
             </svg>
           </button>
         </Tooltip>
-        <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
-        <div className="flex flex-col gap-1 px-1">
-          {TOOLS.map(({ id, title, Icon }) => (
-            <Tooltip key={id} content={title} position="right">
-              <span><ToolButton tool={id} title={title} Icon={Icon} /></span>
-            </Tooltip>
-          ))}
-        </div>
-        <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
-        <CollapsedActions />
+        {!viewOnly && (
+          <>
+            <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
+            <div className="flex flex-col gap-1 px-1">
+              {TOOLS.map(({ id, title, Icon }) => (
+                <Tooltip key={id} content={title} position="right">
+                  <span><ToolButton tool={id} title={title} Icon={Icon} /></span>
+                </Tooltip>
+              ))}
+            </div>
+            <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
+            <CollapsedActions />
+          </>
+        )}
       </aside>
     )
   }
@@ -566,17 +571,19 @@ export function LeftPalette() {
   return (
     <aside className="flex w-36 shrink-0 flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 lg:w-[13.5rem] dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex shrink-0 border-b border-zinc-200 dark:border-zinc-700">
-        <button
-          type="button"
-          className={`min-w-0 flex-1 px-1 py-1.5 text-[9px] font-semibold leading-tight transition-colors lg:px-1.5 lg:py-2 lg:text-[11px] ${
-            tab === 'insert'
-              ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
-              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-          }`}
-          onClick={() => setTab('insert')}
-        >
+        {!viewOnly && (
+          <button
+            type="button"
+            className={`min-w-0 flex-1 px-1 py-1.5 text-[9px] font-semibold leading-tight transition-colors lg:px-1.5 lg:py-2 lg:text-[11px] ${
+              tab === 'insert'
+                ? 'border-b-2 border-violet-600 text-violet-700 dark:text-violet-300'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+            onClick={() => setTab('insert')}
+          >
           Insert &amp; tools
         </button>
+        )}
         <button
           type="button"
           className={`min-w-0 flex-1 px-1 py-1.5 text-[9px] font-semibold leading-tight transition-colors lg:px-1.5 lg:py-2 lg:text-[11px] ${

@@ -56,6 +56,9 @@ export function TemplateEditor() {
             const access = await accessRes.json() as { role: string; canEdit: boolean; canComment: boolean }
             setViewOnly(!access.canEdit)
             setCommentingEnabled(access.canComment)
+            if (!access.canEdit) {
+              useEditorStore.getState().setShowGrid(false)
+            }
           }
         } catch {
           // If access endpoint not available (e.g. no auth), default to full edit

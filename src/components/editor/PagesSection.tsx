@@ -39,11 +39,14 @@ export function PagesSection() {
   const addPage = useEditorStore((s) => s.addPage)
   const removePage = useEditorStore((s) => s.removePage)
   const renamePage = useEditorStore((s) => s.renamePage)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        Click a page to show it on the canvas. Add or remove pages; names are saved with the template.
+        {viewOnly
+          ? 'Click a page to view it on the canvas.'
+          : 'Click a page to show it on the canvas. Add or remove pages; names are saved with the template.'}
       </p>
       <ul className="flex flex-col gap-1.5">
         {pages.map((p, i) => {
@@ -69,8 +72,12 @@ export function PagesSection() {
               <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
                 Page {i + 1} · {p.elements.length} element{p.elements.length === 1 ? '' : 's'}
               </div>
-              <PageNameField pageId={p.id} name={p.name} onCommit={(n) => renamePage(p.id, n)} />
-              {pages.length > 1 && (
+              {viewOnly ? (
+                <div className="mt-0.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">{p.name || `Page ${i + 1}`}</div>
+              ) : (
+                <PageNameField pageId={p.id} name={p.name} onCommit={(n) => renamePage(p.id, n)} />
+              )}
+              {!viewOnly && pages.length > 1 && (
                 <button
                   type="button"
                   className="mt-2 w-full rounded border border-red-200 bg-white py-1 text-[10px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
@@ -87,13 +94,15 @@ export function PagesSection() {
           )
         })}
       </ul>
-      <button
-        type="button"
-        className="rounded-lg border border-zinc-300 bg-white py-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-        onClick={() => addPage()}
-      >
-        + Add page
-      </button>
+      {!viewOnly && (
+        <button
+          type="button"
+          className="rounded-lg border border-zinc-300 bg-white py-2 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+          onClick={() => addPage()}
+        >
+          + Add page
+        </button>
+      )}
     </div>
   )
 }

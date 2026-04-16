@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { authFetch } from '../lib/api'
+import { usePermissions } from '../hooks/usePermissions'
 
 /* ── Types ── */
 
@@ -31,6 +32,7 @@ function ListingCard({
   onClone: () => void
   cloning: boolean
 }) {
+  const { canCreateTemplates } = usePermissions()
   const excerpt =
     listing.description && listing.description.length > 100
       ? listing.description.slice(0, 100) + '...'
@@ -90,14 +92,16 @@ function ListingCard({
           </span>
         )}
 
-        <button
-          type="button"
-          disabled={cloning}
-          onClick={onClone}
-          className="mt-2 w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
-        >
-          {cloning ? 'Cloning...' : 'Use Template'}
-        </button>
+        {canCreateTemplates && (
+          <button
+            type="button"
+            disabled={cloning}
+            onClick={onClone}
+            className="mt-2 w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+          >
+            {cloning ? 'Cloning...' : 'Use Template'}
+          </button>
+        )}
       </div>
     </div>
   )

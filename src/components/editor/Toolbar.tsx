@@ -91,6 +91,7 @@ function EditorSurfaceSwitcher() {
 function InlineTemplateName() {
   const templateId = useEditorStore((s) => s.templateId)
   const templateName = useEditorStore((s) => s.templateName)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
   const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -124,6 +125,14 @@ function InlineTemplateName() {
           if (e.key === 'Escape') setEditing(false)
         }}
       />
+    )
+  }
+
+  if (viewOnly) {
+    return (
+      <span className="truncate px-1 py-0.5 text-[11px] font-semibold text-zinc-900 lg:text-sm dark:text-zinc-100">
+        {templateName || 'Untitled'}
+      </span>
     )
   }
 
@@ -440,18 +449,20 @@ export function Toolbar() {
         <PresenceAvatars />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           {error && <span className="max-w-xs truncate text-xs text-red-600">{error}</span>}
-          <button
-            type="button"
-            className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            title="Share template"
-            disabled={!templateId}
-            onClick={() => setShareOpen(true)}
-          >
-            <svg className="h-[15px] w-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-            </svg>
-            <span className="hidden lg:inline">Share</span>
-          </button>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              title="Share template"
+              disabled={!templateId}
+              onClick={() => setShareOpen(true)}
+            >
+              <svg className="h-[15px] w-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+              </svg>
+              <span className="hidden lg:inline">Share</span>
+            </button>
+          )}
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
@@ -462,16 +473,18 @@ export function Toolbar() {
             <IconEye size={15} />
             <span className="hidden lg:inline">Preview</span>
           </button>
-          <button
-            type="button"
-            className="flex h-7 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-[11px] font-medium text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-violet-600 dark:bg-violet-900/40 dark:text-violet-100 dark:hover:bg-violet-900/60"
-            title="Save current draft as a new numbered version"
-            disabled={!templateId || saving}
-            onClick={() => void commitVersion()}
-          >
-            <IconSave size={15} />
-            <span className="hidden lg:inline">{saving ? 'Saving…' : 'Commit'}</span>
-          </button>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-[11px] font-medium text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-violet-600 dark:bg-violet-900/40 dark:text-violet-100 dark:hover:bg-violet-900/60"
+              title="Save current draft as a new numbered version"
+              disabled={!templateId || saving}
+              onClick={() => void commitVersion()}
+            >
+              <IconSave size={15} />
+              <span className="hidden lg:inline">{saving ? 'Saving…' : 'Commit'}</span>
+            </button>
+          )}
           <DarkModeToggle />
           <button
             type="button"
@@ -529,57 +542,61 @@ export function Toolbar() {
                 <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                   Uses committed layout with current variable values.
                 </p>
-                <div className="border-t border-zinc-100 dark:border-zinc-700" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    const s = useEditorStore.getState()
-                    exportTemplateJson(
-                      s.pages,
-                      s.pageSpec,
-                      s.globalVariableDefinitions,
-                      s.variableValues,
-                      `template-${templateId.slice(0, 8)}.json`
-                    )
-                    setMenuOpen(false)
-                  }}
-                >
-                  Export JSON
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    const input = document.createElement('input')
-                    input.type = 'file'
-                    input.accept = '.json'
-                    input.onchange = async () => {
-                      const file = input.files?.[0]
-                      if (!file) return
-                      try {
-                        const data = await importTemplateJson(file)
+                {!viewOnly && (
+                  <>
+                    <div className="border-t border-zinc-100 dark:border-zinc-700" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => {
                         const s = useEditorStore.getState()
-                        s.loadLayout({
-                          pages: data.pages,
-                          page: data.pageSpec,
-                          globalVariables: data.globalVariables,
-                        })
-                        for (const [k, v] of Object.entries(data.variableValues)) {
-                          s.setVariableValue(k, v)
+                        exportTemplateJson(
+                          s.pages,
+                          s.pageSpec,
+                          s.globalVariableDefinitions,
+                          s.variableValues,
+                          `template-${templateId.slice(0, 8)}.json`
+                        )
+                        setMenuOpen(false)
+                      }}
+                    >
+                      Export JSON
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => {
+                        const input = document.createElement('input')
+                        input.type = 'file'
+                        input.accept = '.json'
+                        input.onchange = async () => {
+                          const file = input.files?.[0]
+                          if (!file) return
+                          try {
+                            const data = await importTemplateJson(file)
+                            const s = useEditorStore.getState()
+                            s.loadLayout({
+                              pages: data.pages,
+                              page: data.pageSpec,
+                              globalVariables: data.globalVariables,
+                            })
+                            for (const [k, v] of Object.entries(data.variableValues)) {
+                              s.setVariableValue(k, v)
+                            }
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Import failed')
+                          }
                         }
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : 'Import failed')
-                      }
-                    }
-                    input.click()
-                    setMenuOpen(false)
-                  }}
-                >
-                  Import JSON
-                </button>
+                        input.click()
+                        setMenuOpen(false)
+                      }}
+                    >
+                      Import JSON
+                    </button>
+                  </>
+                )}
                 <div className="border-t border-zinc-100 dark:border-zinc-700" />
                 <button
                   type="button"

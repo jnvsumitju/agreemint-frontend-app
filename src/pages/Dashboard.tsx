@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { authFetch, type TemplateDto } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Skeleton, SkeletonRow } from '../components/ui/Skeleton'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -175,8 +176,12 @@ function StatCard({ label, value, icon, loading }: { label: string; value: strin
 
 function QuickActions() {
   const navigate = useNavigate()
-  const actions = [
-    {
+  const { canCreateTemplates, canManageOrg } = usePermissions()
+
+  const actions: { label: string; icon: React.ReactNode; onClick: () => void; color: string }[] = []
+
+  if (canCreateTemplates) {
+    actions.push({
       label: 'Create Template',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -185,8 +190,11 @@ function QuickActions() {
       ),
       onClick: () => navigate('/'),
       color: 'bg-violet-500 text-white',
-    },
-    {
+    })
+  }
+
+  if (canManageOrg) {
+    actions.push({
       label: 'Invite Member',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -195,18 +203,19 @@ function QuickActions() {
       ),
       onClick: () => navigate('/settings?tab=members'),
       color: 'bg-blue-500 text-white',
-    },
-    {
-      label: 'Marketplace',
-      icon: (
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.15c0 .415.336.75.75.75z" />
-        </svg>
-      ),
-      onClick: () => navigate('/marketplace'),
-      color: 'bg-emerald-500 text-white',
-    },
-  ]
+    })
+  }
+
+  actions.push({
+    label: canCreateTemplates ? 'Marketplace' : 'Browse Templates',
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.15c0 .415.336.75.75.75z" />
+      </svg>
+    ),
+    onClick: () => canCreateTemplates ? navigate('/marketplace') : navigate('/'),
+    color: 'bg-emerald-500 text-white',
+  })
 
   return (
     <div className="mb-6 flex gap-3">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { usePermissions } from '../hooks/usePermissions'
 import { createTemplate, duplicateTemplate, fetchTemplates, type TemplateDto } from '../lib/api'
 import {
   addTemplateTag,
@@ -137,6 +138,7 @@ function TemplateCard({
   template: TemplateDto; thumbnail: string | null; tags: string[]
   onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
 }) {
+  const { canEdit, canCreateTemplates } = usePermissions()
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600">
       {/* Status badge */}
@@ -168,31 +170,38 @@ function TemplateCard({
         <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
           {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
-        <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
+        {canEdit && <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />}
+        {!canEdit && tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {tags.map((tag) => <span key={tag} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{tag}</span>)}
+          </div>
+        )}
       </div>
 
-      {/* Hover actions */}
-      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
-          type="button"
-          className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-violet-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
-          title="Duplicate template"
-          disabled={duplicating}
-          onClick={(e) => { e.preventDefault(); onDuplicate() }}
-        >
-          {duplicating ? (
-            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          )}
-        </button>
-      </div>
+      {/* Hover actions — only for users who can clone */}
+      {canCreateTemplates && (
+        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-violet-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
+            title="Duplicate template"
+            disabled={duplicating}
+            onClick={(e) => { e.preventDefault(); onDuplicate() }}
+          >
+            {duplicating ? (
+              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -205,6 +214,7 @@ function TemplateRow({
   template: TemplateDto; tags: string[]
   onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
 }) {
+  const { canEdit, canCreateTemplates } = usePermissions()
   return (
     <li className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
@@ -217,23 +227,31 @@ function TemplateRow({
       </Link>
       <Badge variant="warning" size="sm" className="hidden sm:inline-flex">Draft</Badge>
       <div className="hidden shrink-0 md:block">
-        <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
+        {canEdit ? (
+          <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
+        ) : tags.length > 0 ? (
+          <div className="flex gap-1">
+            {tags.map((tag) => <span key={tag} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">{tag}</span>)}
+          </div>
+        ) : null}
       </div>
       <span className="shrink-0 text-xs text-zinc-400 dark:text-zinc-500">
         {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
       </span>
-      <button
-        type="button"
-        className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
-        title="Duplicate template"
-        disabled={duplicating}
-        onClick={() => onDuplicate()}
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-      </button>
+      {canCreateTemplates && (
+        <button
+          type="button"
+          className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
+          title="Duplicate template"
+          disabled={duplicating}
+          onClick={() => onDuplicate()}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
+      )}
     </li>
   )
 }
@@ -282,6 +300,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
 export function TemplateList() {
   const navigate = useNavigate()
   const toast = useToast()
+  const { canCreateTemplates } = usePermissions()
   const [templates, setTemplates] = useState<TemplateDto[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
@@ -370,17 +389,19 @@ export function TemplateList() {
             {templates.length} template{templates.length !== 1 ? 's' : ''} in your workspace
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => { setShowCreateModal(true); setTimeout(() => createInputRef.current?.focus(), 100) }}
-          icon={
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          }
-        >
-          New Template
-        </Button>
+        {canCreateTemplates && (
+          <Button
+            variant="primary"
+            onClick={() => { setShowCreateModal(true); setTimeout(() => createInputRef.current?.focus(), 100) }}
+            icon={
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            }
+          >
+            New Template
+          </Button>
+        )}
       </div>
 
       {/* Toolbar: search + sort + tag filter + view toggle */}
