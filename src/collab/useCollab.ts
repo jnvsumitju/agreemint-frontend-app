@@ -31,7 +31,9 @@ import type {
 } from '../types/layout'
 import { parseLayoutJson } from '../types/layout'
 import { onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
+import { connectYDoc, disconnectYDoc, isYDocActive } from './yDocProvider'
 import { useAuthStore } from '../stores/authStore'
+import { sendSelectionUpdate } from '../lib/websocket'
 
 /**
  * Mount this hook once per editor instance. It binds store observers + collab
@@ -108,6 +110,11 @@ export function useCollab(templateId: string | null): void {
 
     // ── Send ───────────────────────────────────────────────────────────────────
 
+    // Spin up the Y.Doc transport for this template so TipTap Collaboration
+    // extensions attached via yDocProvider.getYFragment(...) start syncing.
+    activeTemplateIdForDiff = templateId
+    connectYDoc(templateId)
+
     // Capture the baseline at mount so the first diff is well-defined.
     captureBaseline(useEditorStore.getState())
 
@@ -118,13 +125,26 @@ export function useCollab(templateId: string | null): void {
         return
       }
       emitOpsForChange(state)
+      // Selection broadcast (throttled): fires when the local selectedIds
+      // array changes and flushes at most every SELECTION_THROTTLE_MS.
+      maybeEmitSelection(templateId, state.selectedIds)
     })
 
     return () => {
       offRemote()
       offSnapshot()
       unsubscribe()
+      disconnectYDoc()
+      activeTemplateIdForDiff = null
       resetBaseline()
+      // Clear the pending selection broadcast so a re-mount starts fresh.
+      if (pendingSelectionTimer != null) {
+        window.clearTimeout(pendingSelectionTimer)
+        pendingSelectionTimer = null
+      }
+      pendingSelection = null
+      pendingSelectionTemplateId = null
+      lastSelectionJson = null
     }
   }, [templateId])
 }
@@ -138,6 +158,31 @@ interface Baseline {
 
 let remoteOpInFlight = false
 let baseline: Baseline | null = null
+let activeTemplateIdForDiff: string | null = null
+
+// ── Selection broadcast throttle ─────────────────────────────────────────────
+const SELECTION_THROTTLE_MS = 80
+let lastSelectionJson: string | null = null
+let pendingSelectionTimer: number | null = null
+let pendingSelection: string[] | null = null
+let pendingSelectionTemplateId: string | null = null
+
+function maybeEmitSelection(templateId: string, selectedIds: string[]) {
+  const json = JSON.stringify(selectedIds)
+  if (json === lastSelectionJson) return
+  pendingSelection = selectedIds
+  pendingSelectionTemplateId = templateId
+  if (pendingSelectionTimer != null) return
+  pendingSelectionTimer = window.setTimeout(() => {
+    pendingSelectionTimer = null
+    if (pendingSelection && pendingSelectionTemplateId) {
+      lastSelectionJson = JSON.stringify(pendingSelection)
+      sendSelectionUpdate(pendingSelectionTemplateId, pendingSelection)
+    }
+    pendingSelection = null
+    pendingSelectionTemplateId = null
+  }, SELECTION_THROTTLE_MS)
+}
 
 function captureBaseline(state: { pages: LayoutDocumentPage[]; globalVariableDefinitions: VariableDefinition[] }) {
   baseline = {
@@ -271,9 +316,14 @@ function emitElementDiffs(pageIndex: number, prev: LayoutElement[], next: Layout
  */
 function computeElementPatch(a: LayoutElement, b: LayoutElement): Record<string, unknown> | null {
   const patch: Record<string, unknown> = {}
+  // When Yjs is active it owns the rich-text `content` of every text-bearing
+  // element; skipping the field here prevents double-writes racing the Yjs
+  // relay and prevents redundant ops for every keystroke.
+  const skipContent = isYDocActive(activeTemplateIdForDiff)
   const keys = new Set([...Object.keys(a), ...Object.keys(b)])
   for (const k of keys) {
     if (k === 'id') continue
+    if (skipContent && k === 'content') continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const av = (a as any)[k]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

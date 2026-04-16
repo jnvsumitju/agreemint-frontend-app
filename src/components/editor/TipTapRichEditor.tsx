@@ -8,6 +8,8 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
+import Collaboration from '@tiptap/extension-collaboration'
+import type * as Y from 'yjs'
 import { LayoutVariable } from '../../lib/tiptapLayoutVariable'
 import { VariableSuggestStorage } from '../../lib/tiptapVariableSuggestStorage'
 import { VariableAtSuggestion } from '../../lib/tiptapVariableAtSuggestion'
@@ -47,6 +49,15 @@ export interface TipTapRichEditorProps {
     onEscape: () => void
     onCommitShortcut: () => void
   }
+  /**
+   * When supplied, the editor document is backed by this Y.XmlFragment via the
+   * Collaboration extension. Character-level concurrent edits merge through Yjs
+   * CRDT. StarterKit's history module is disabled in this mode — Yjs owns undo.
+   *
+   * Seeding: if the fragment is empty on first mount, TipTap applies the initial
+   * `content` prop into it once. Subsequent remotes flow via yDocProvider.
+   */
+  collabFragment?: Y.XmlFragment
 }
 
 function proseMirrorHasFocus(editor: Editor) {
@@ -76,6 +87,7 @@ export function TipTapRichEditor({
   onReady,
   onUnmount,
   canvasKeyboard,
+  collabFragment,
 }: TipTapRichEditorProps) {
   const lastEmitted = useRef<string | null>(null)
   const onChangeRef = useRef(onChange)
@@ -101,32 +113,40 @@ export function TipTapRichEditor({
         : false
 
   const extensions = useMemo(
-    () => [
-      VariableSuggestStorage,
-      LayoutVariable,
-      VariableAtSuggestion,
-      StarterKit.configure({
-        heading: false,
-        blockquote: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        codeBlock: false,
-        horizontalRule: false,
-        code: false,
-        // Underline is included in StarterKit; do not register @tiptap/extension-underline again.
-      }),
-      Subscript,
-      Superscript,
-      TextStyle,
-      Color.configure({ types: ['textStyle'] }),
-      Highlight.configure({ multicolor: true }),
-      Placeholder.configure({
-        placeholder,
-        emptyEditorClass: 'is-editor-empty',
-      }),
-    ],
-    [placeholder]
+    () => {
+      const base = [
+        VariableSuggestStorage,
+        LayoutVariable,
+        VariableAtSuggestion,
+        StarterKit.configure({
+          heading: false,
+          blockquote: false,
+          bulletList: false,
+          orderedList: false,
+          listItem: false,
+          codeBlock: false,
+          horizontalRule: false,
+          code: false,
+          // Underline is included in StarterKit; do not register @tiptap/extension-underline again.
+          // Yjs owns history when Collaboration is active; otherwise use StarterKit's default.
+          ...(collabFragment ? { history: false } : {}),
+        }),
+        Subscript,
+        Superscript,
+        TextStyle,
+        Color.configure({ types: ['textStyle'] }),
+        Highlight.configure({ multicolor: true }),
+        Placeholder.configure({
+          placeholder,
+          emptyEditorClass: 'is-editor-empty',
+        }),
+      ]
+      if (collabFragment) {
+        base.push(Collaboration.configure({ fragment: collabFragment }))
+      }
+      return base
+    },
+    [placeholder, collabFragment]
   )
 
   const editor = useEditor(

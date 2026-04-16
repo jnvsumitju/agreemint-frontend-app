@@ -11,6 +11,7 @@ import { bindCollabBus, requestSnapshot, unbindCollabBus } from '../collab/colla
 let stompClient: Client | null = null
 let presenceSub: StompSubscription | null = null
 let viewportSub: StompSubscription | null = null
+let selectionSub: StompSubscription | null = null
 let activeTemplateId: string | null = null
 
 // ── Helpers ──
@@ -112,6 +113,23 @@ export function connectToTemplate(templateId: string): void {
         },
       )
 
+      // Subscribe to remote selection updates
+      selectionSub = client.subscribe(
+        `/topic/template/${templateId}/selection`,
+        (message: IMessage) => {
+          try {
+            const data = JSON.parse(message.body) as {
+              userId: string
+              selectedIds?: string[]
+            }
+            const ids = Array.isArray(data.selectedIds) ? data.selectedIds : []
+            usePresenceStore.getState().updateSelection(data.userId, ids)
+          } catch (err) {
+            console.error('[websocket] Malformed selection message:', err)
+          }
+        },
+      )
+
       // Bind collaborative-editor topics (structural ops + snapshot reply) and
       // ask the server for the current hot layout now that we're connected.
       bindCollabBus(client, templateId, user.id)
@@ -187,6 +205,10 @@ export function disconnectFromTemplate(): void {
     try { viewportSub.unsubscribe() } catch { /* ignore */ }
     viewportSub = null
   }
+  if (selectionSub) {
+    try { selectionSub.unsubscribe() } catch { /* ignore */ }
+    selectionSub = null
+  }
   unbindCollabBus()
 
   // Deactivate
@@ -217,6 +239,23 @@ export function sendViewportUpdate(
       zoom,
       scrollX,
       scrollY,
+    }),
+  })
+}
+
+/**
+ * Broadcast the current user's selected element ids. Server re-broadcasts to
+ * every other subscriber for colored selection outlines.
+ */
+export function sendSelectionUpdate(templateId: string, selectedIds: string[]): void {
+  if (!stompClient?.connected) return
+  const user = useAuthStore.getState().user
+  if (!user) return
+  stompClient.publish({
+    destination: `/app/template/${templateId}/selection`,
+    body: JSON.stringify({
+      userId: user.id,
+      selectedIds,
     }),
   })
 }

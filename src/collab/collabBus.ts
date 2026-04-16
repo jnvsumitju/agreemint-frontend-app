@@ -43,14 +43,37 @@ export interface SnapshotMessage {
 
 let currentClient: Client | null = null
 let currentTemplateId: string | null = null
+let currentUserId: string | null = null
 let opsSub: StompSubscription | null = null
 let snapshotSub: StompSubscription | null = null
+let yjsSub: StompSubscription | null = null
+let yjsStateSub: StompSubscription | null = null
 
 const remoteOpListeners = new Set<(msg: RemoteOpMessage) => void>()
 const snapshotListeners = new Set<(msg: SnapshotMessage) => void>()
+const yjsUpdateListeners = new Set<(msg: YjsUpdateMessage) => void>()
+const yjsStateListeners = new Set<(msg: YjsStateMessage) => void>()
 
 // Track our own outbound op ids so we can distinguish echo from remote.
 const outstandingClientOpIds = new Set<string>()
+
+// ── Yjs relay message shapes ─────────────────────────────────────────────────
+
+export interface YjsUpdateMessage {
+  /** base64-encoded Y.Doc update payload */
+  update: string
+  /** optional base64-encoded awareness update */
+  awareness: string
+  /** user id of the sender (used to dedupe our own echo) */
+  userId: string
+}
+
+export interface YjsStateMessage {
+  /** base64-encoded Y.Doc snapshot (possibly empty string when no state yet) */
+  state: string
+  /** base64 updates since the snapshot, oldest first */
+  updates: string[]
+}
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -65,6 +88,7 @@ export function bindCollabBus(client: Client, templateId: string, userId: string
 
   currentClient = client
   currentTemplateId = templateId
+  currentUserId = userId
 
   opsSub = client.subscribe(`/topic/template/${templateId}/ops`, (m: IMessage) => {
     try {
@@ -89,20 +113,45 @@ export function bindCollabBus(client: Client, templateId: string, userId: string
       }
     },
   )
+
+  yjsSub = client.subscribe(`/topic/template/${templateId}/yjs`, (m: IMessage) => {
+    try {
+      const payload = JSON.parse(m.body) as YjsUpdateMessage
+      for (const fn of yjsUpdateListeners) fn(payload)
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[collab] malformed yjs update:', err)
+    }
+  })
+
+  yjsStateSub = client.subscribe(
+    `/topic/template/${templateId}/yjs-state/${userId}`,
+    (m: IMessage) => {
+      try {
+        const payload = JSON.parse(m.body) as YjsStateMessage
+        for (const fn of yjsStateListeners) fn(payload)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[collab] malformed yjs state:', err)
+      }
+    },
+  )
 }
 
 /** Unsubscribe and forget the client. Call from lib/websocket.ts `disconnectFromTemplate`. */
 export function unbindCollabBus(): void {
-  if (opsSub) {
-    try { opsSub.unsubscribe() } catch { /* ignore */ }
-    opsSub = null
+  for (const sub of [opsSub, snapshotSub, yjsSub, yjsStateSub]) {
+    if (sub) {
+      try { sub.unsubscribe() } catch { /* ignore */ }
+    }
   }
-  if (snapshotSub) {
-    try { snapshotSub.unsubscribe() } catch { /* ignore */ }
-    snapshotSub = null
-  }
+  opsSub = null
+  snapshotSub = null
+  yjsSub = null
+  yjsStateSub = null
   currentClient = null
   currentTemplateId = null
+  currentUserId = null
   outstandingClientOpIds.clear()
 }
 
@@ -140,6 +189,53 @@ export function requestSnapshot(): void {
 /** Was the given clientOpId originated by this client (i.e. still outstanding)? */
 export function isOwnOp(clientOpId: string): boolean {
   return outstandingClientOpIds.has(clientOpId)
+}
+
+// ── Yjs relay ────────────────────────────────────────────────────────────────
+
+export function onYjsUpdate(fn: (msg: YjsUpdateMessage) => void): () => void {
+  yjsUpdateListeners.add(fn)
+  return () => yjsUpdateListeners.delete(fn)
+}
+
+export function onYjsState(fn: (msg: YjsStateMessage) => void): () => void {
+  yjsStateListeners.add(fn)
+  return () => yjsStateListeners.delete(fn)
+}
+
+/** Publish a Yjs doc update (base64) + optional awareness update (base64). */
+export function sendYjsUpdate(updateBase64: string, awarenessBase64?: string): void {
+  if (!currentClient?.connected || !currentTemplateId) return
+  currentClient.publish({
+    destination: `/app/template/${currentTemplateId}/yjs`,
+    body: JSON.stringify({
+      update: updateBase64,
+      awareness: awarenessBase64 ?? '',
+    }),
+  })
+}
+
+/** Post a compacted full-doc snapshot that replaces the server's buffered state. */
+export function sendYjsSnapshot(stateBase64: string): void {
+  if (!currentClient?.connected || !currentTemplateId) return
+  currentClient.publish({
+    destination: `/app/template/${currentTemplateId}/yjs-snapshot`,
+    body: JSON.stringify({ state: stateBase64 }),
+  })
+}
+
+/** Ask the server for the current Yjs snapshot + pending updates. */
+export function requestYjsState(): void {
+  if (!currentClient?.connected || !currentTemplateId) return
+  currentClient.publish({
+    destination: `/app/template/${currentTemplateId}/yjs-state`,
+    body: '{}',
+  })
+}
+
+/** Our user id as bound to the current session (null when not connected). */
+export function ownUserId(): string | null {
+  return currentUserId
 }
 
 function generateClientOpId(): string {

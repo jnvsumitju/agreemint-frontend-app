@@ -21,6 +21,8 @@ import {
   useEditorStore,
 } from '../../stores/editorStore'
 import { useAuthStore } from '../../stores/authStore'
+import { usePresenceStore } from '../../stores/presenceStore'
+import { getYFragment } from '../../collab/yDocProvider'
 import { computeDragSnap, computeResizeSnap } from '../../lib/canvasGuides'
 import { isHeaderOrFooterType } from '../../lib/layoutMargins'
 import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
@@ -148,6 +150,18 @@ function CanvasElement({
   const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
   const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
   const isCommentHighlighted = commentHighlightId === el.id
+  const templateId = useEditorStore((s) => s.templateId)
+  const authUserId = useAuthStore((s) => s.user?.id ?? null)
+  // Remote selections: the first presence user (other than me) whose selection
+  // contains this element's id — render a colored outline in their colour.
+  const remoteSelector = usePresenceStore((s) => {
+    for (const u of s.users) {
+      if (authUserId && u.userId === authUserId) continue
+      const sel = s.selections[u.userId]
+      if (sel && sel.includes(el.id)) return u
+    }
+    return null
+  })
 
   const variableMentions = useMemo(
     () =>
@@ -709,7 +723,15 @@ function CanvasElement({
                   : 'ring-2 ring-violet-500 ring-offset-1'
               : 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
       } ${isDragging ? 'z-10' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
-      style={style}
+      style={
+        remoteSelector
+          ? {
+              ...style,
+              outline: `2px solid ${remoteSelector.color}`,
+              outlineOffset: 1,
+            }
+          : style
+      }
       onPointerDownCapture={onPointerDownCapture}
       onPointerDown={onPointerDownBubble}
       title={
@@ -785,6 +807,9 @@ function CanvasElement({
               mode="canvas"
               sessionKey={el.id}
               autoFocus
+              // Collaborative TEXT: bind to a Y.XmlFragment keyed by element id so
+              // concurrent typing from multiple users merges CRDT-style.
+              collabFragment={templateId ? getYFragment(templateId, el.id) : undefined}
               editorClassName="bg-transparent font-normal not-italic"
               editorStyle={{
                 fontSize: el.style?.fontSize ?? 12,
