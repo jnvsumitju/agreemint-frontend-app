@@ -23,7 +23,13 @@
 import { useEffect } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import type { CollabOpForStore } from '../stores/editorStore'
-import type { LayoutDocumentPage, LayoutElement, VariableDefinition } from '../types/layout'
+import type {
+  LayoutDocumentPage,
+  LayoutElement,
+  LayoutJson,
+  VariableDefinition,
+} from '../types/layout'
+import { parseLayoutJson } from '../types/layout'
 import { onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
 import { useAuthStore } from '../stores/authStore'
 
@@ -58,22 +64,42 @@ export function useCollab(templateId: string | null): void {
     })
 
     const offSnapshot = onSnapshot((snap) => {
-      // Full hydrate from server. We only replace pages + global variables —
-      // activePageIndex and UI state stay as-is.
-      const layout = snap.layout as { pages?: LayoutDocumentPage[]; globalVariables?: VariableDefinition[] } | null
-      if (!layout || !Array.isArray(layout.pages) || layout.pages.length === 0) {
+      // Full hydrate from server. The wire payload is whatever shape is in Redis
+      // or Postgres — possibly wire-format (buildLayoutJson output with elements
+      // run through elementToJson) or in-store-format (what ops have been writing
+      // to Redis). `parseLayoutJson` tolerates both and normalises to the
+      // in-store shape the editor uses.
+      const layout = snap.layout as Record<string, unknown> | null
+      if (!layout || typeof layout !== 'object') {
+        captureBaseline(useEditorStore.getState())
+        return
+      }
+      const hasPages = Array.isArray((layout as { pages?: unknown }).pages)
+        && ((layout as { pages: unknown[] }).pages.length > 0)
+      const hasLegacyElements = Array.isArray((layout as { elements?: unknown }).elements)
+      if (!hasPages && !hasLegacyElements) {
         // Empty server state — keep whatever the client already has (bootstrapped
         // from the REST /draft call on editor load).
         captureBaseline(useEditorStore.getState())
         return
       }
+      let parsed
+      try {
+        // `parseLayoutJson` accepts either the strict LayoutJson or an arbitrary
+        // record; cast via `unknown` to satisfy the stricter typed overload.
+        parsed = parseLayoutJson(layout as unknown as LayoutJson)
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[collab] failed to parse snapshot layout; keeping local state', err)
+        captureBaseline(useEditorStore.getState())
+        return
+      }
       remoteOpInFlight = true
       try {
-        useEditorStore.setState({
-          pages: layout.pages,
-          globalVariableDefinitions: Array.isArray(layout.globalVariables) ? layout.globalVariables : [],
-          activePageIndex: 0,
-        })
+        // `loadLayout` is the canonical entry point — it normalises page spec,
+        // rebuilds variableValues, clears editor UI state while preserving
+        // view-only flags, and resets undo/redo history.
+        useEditorStore.getState().loadLayout(parsed)
       } finally {
         remoteOpInFlight = false
         captureBaseline(useEditorStore.getState())
