@@ -720,24 +720,8 @@ export function FormatBar({
 
   const viewOnly = useEditorStore((s) => s.viewOnly)
 
-  // View-only mode: show informational bar
-  if (viewOnly) {
-    return (
-      <div
-        className="flex h-9 shrink-0 items-center gap-2 border-b border-zinc-200 bg-amber-50/60 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-amber-900/10"
-        role="toolbar"
-        aria-label="View-only mode"
-      >
-        <svg className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-        </svg>
-        <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-          View-only mode — hover elements to comment, right-click for options
-        </span>
-      </div>
-    )
-  }
+  // View-only mode: hide the entire format bar
+  if (viewOnly) return null
 
   // Multi-selection: lightweight info bar (Group/Ungroup actions live in the left sidebar)
   if (selectedIds.length > 1) {

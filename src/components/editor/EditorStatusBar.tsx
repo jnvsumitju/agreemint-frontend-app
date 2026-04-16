@@ -134,6 +134,7 @@ function MarginInput({ side, letter, value, onChange }: {
 /* ── Main Status Bar ── */
 
 export function EditorStatusBar() {
+  const viewOnly = useEditorStore((s) => s.viewOnly)
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const pageSpec = useEditorStore((s) => s.pageSpec)
@@ -165,30 +166,36 @@ export function EditorStatusBar() {
         </span>
       </div>
 
-      {/* Separator */}
-      <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
+      {!viewOnly && (
+        <>
+          {/* Separator */}
+          <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
 
-      {/* Margins */}
-      <div
-        className="flex items-center gap-1.5"
-        onPointerDown={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <span className="hidden text-[9px] font-medium text-zinc-400 dark:text-zinc-500 lg:inline">Margins</span>
-        <MarginInput side="left" letter="L" value={m.left} onChange={(v) => setPageMargins({ left: v })} />
-        <MarginInput side="top" letter="T" value={m.top} onChange={(v) => setPageMargins({ top: v })} />
-        <MarginInput side="right" letter="R" value={m.right} onChange={(v) => setPageMargins({ right: v })} />
-        <MarginInput side="bottom" letter="B" value={m.bottom} onChange={(v) => setPageMargins({ bottom: v })} />
-      </div>
+          {/* Margins */}
+          <div
+            className="flex items-center gap-1.5"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <span className="hidden text-[9px] font-medium text-zinc-400 dark:text-zinc-500 lg:inline">Margins</span>
+            <MarginInput side="left" letter="L" value={m.left} onChange={(v) => setPageMargins({ left: v })} />
+            <MarginInput side="top" letter="T" value={m.top} onChange={(v) => setPageMargins({ top: v })} />
+            <MarginInput side="right" letter="R" value={m.right} onChange={(v) => setPageMargins({ right: v })} />
+            <MarginInput side="bottom" letter="B" value={m.bottom} onChange={(v) => setPageMargins({ bottom: v })} />
+          </div>
+        </>
+      )}
 
       {/* Separator */}
       <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
 
       {/* Pointer + Tool */}
       <span className="hidden text-[9px] tabular-nums text-zinc-400 dark:text-zinc-500 lg:inline">{pointer}</span>
-      <Tooltip content={`Current tool: ${TOOL_LABELS[canvasTool]}`}>
-        <Badge variant="primary" size="sm">{TOOL_LABELS[canvasTool]}</Badge>
-      </Tooltip>
+      {!viewOnly && (
+        <Tooltip content={`Current tool: ${TOOL_LABELS[canvasTool]}`}>
+          <Badge variant="primary" size="sm">{TOOL_LABELS[canvasTool]}</Badge>
+        </Tooltip>
+      )}
 
       {/* Right section */}
       <div className="ml-auto flex items-center gap-3">

@@ -388,14 +388,15 @@ export function Toolbar() {
             <VersionBadge versionNumber={versionNumber} onCommit={() => void commitVersion()} saving={saving} />
           )}
         </div>
-        <EditorSurfaceSwitcher />
+        {!viewOnly && <EditorSurfaceSwitcher />}
+        {!viewOnly && (
         <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-l border-zinc-200 pl-1.5 lg:pl-3 dark:border-zinc-600">
           <button
             type="button"
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Undo (⌘Z / Ctrl+Z)"
             aria-label="Undo"
-            disabled={viewOnly || !canUndo}
+            disabled={!canUndo}
             onClick={() => undo()}
           >
             <IconUndo size={18} />
@@ -405,7 +406,7 @@ export function Toolbar() {
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Redo (⌘⇧Z / Ctrl+Shift+Z or Ctrl+Y)"
             aria-label="Redo"
-            disabled={viewOnly || !canRedo}
+            disabled={!canRedo}
             onClick={() => redo()}
           >
             <IconRedo size={18} />
@@ -415,13 +416,14 @@ export function Toolbar() {
             className="ml-0.5 flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-xs font-medium text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
             title="Subtract smaller shape from larger (two mergeable shapes, or a group of two)"
             aria-label="Punch hole"
-            disabled={viewOnly || !canPunchHole}
+            disabled={!canPunchHole}
             onClick={() => subtractSelectionToMergedShape()}
           >
             <IconScissors />
             <span className="hidden lg:inline">Punch hole</span>
           </button>
         </div>
+        )}
           <span className={TOOLBAR_DIVIDER} aria-hidden />
           <div className="flex shrink-0 items-center gap-0.5">
             <button
@@ -486,28 +488,19 @@ export function Toolbar() {
             </button>
           )}
           <DarkModeToggle />
-          <button
-            type="button"
-            className={`flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-medium lg:h-8 lg:px-3 lg:text-xs ${
-              viewOnly
-                ? 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
-                : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
-            }`}
-            title={viewOnly ? 'Switch to Edit mode' : 'Switch to View-only mode (hover elements to comment)'}
-            onClick={() => setViewOnly(!viewOnly)}
-          >
-            {viewOnly ? (
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-            ) : (
+          {!viewOnly && (
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              title="Switch to View-only mode (hover elements to comment)"
+              onClick={() => setViewOnly(true)}
+            >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
               </svg>
-            )}
-            <span className="hidden lg:inline">{viewOnly ? 'Viewing' : 'Editing'}</span>
-          </button>
+              <span className="hidden lg:inline">Editing</span>
+            </button>
+          )}
           <div className="relative" ref={menuRef}>
             <button
               type="button"

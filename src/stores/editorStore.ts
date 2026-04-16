@@ -813,6 +813,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addPage: () =>
     set((s) => {
+      if (s.viewOnly) return {}
       const n = s.pages.length + 1
       const newPage: LayoutDocumentPage = { id: newPageId(), name: `Page ${n}`, elements: [] }
       const pages = [...s.pages, newPage]
@@ -841,6 +842,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   removePage: (pageId) =>
     set((s) => {
+      if (s.viewOnly) return {}
       if (s.pages.length <= 1) return {}
       const idx = s.pages.findIndex((p) => p.id === pageId)
       if (idx < 0) return {}
@@ -871,15 +873,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
   renamePage: (pageId, name) =>
-    set((s) => ({
-      ...takeUndoBarrier(s),
-      pages: s.pages.map((p) =>
-        p.id === pageId ? { ...p, name: name.trim() || p.name } : p
-      ),
-    })),
+    set((s) => {
+      if (s.viewOnly) return {}
+      return {
+        ...takeUndoBarrier(s),
+        pages: s.pages.map((p) =>
+          p.id === pageId ? { ...p, name: name.trim() || p.name } : p
+        ),
+      }
+    }),
 
   addElement: (el) =>
     set((s) => {
+      if (s.viewOnly) return {}
       if (s.bandNestedEditorMounted && s.bandCanvasEditElementId) {
         if (el.type === 'HEADER' || el.type === 'FOOTER') return {}
         const loc = findElementLocation(s, s.bandCanvasEditElementId)
@@ -986,6 +992,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateElement: (id, patch, options) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const hit = findBandNestedChild(s.pages, id)
       if (hit) {
         let merged: LayoutElement = { ...hit.child, ...patch }
@@ -1023,6 +1030,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   removeElement: (id) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const nestedHit = findBandNestedChild(s.pages, id)
       if (nestedHit) {
         const wasInSelection = s.selectedIds.includes(id)
@@ -1063,6 +1071,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   removeElements: (ids) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const remove = new Set(ids)
       if (remove.size === 0) return {}
 
@@ -1125,6 +1134,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   duplicateElements: (ids) =>
     set((s) => {
+      if (s.viewOnly) return {}
       if (ids.length === 0) return {}
       const idSet = new Set(ids)
       const src = activeElements(s).filter((e) => idSet.has(e.id))
@@ -1228,6 +1238,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   groupSelection: () =>
     set((s) => {
+      if (s.viewOnly) return {}
       const ids = s.selectedIds
       if (ids.length < 2) return {}
       const gid = newGroupId()
@@ -1248,6 +1259,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   ungroupSelection: () =>
     set((s) => {
+      if (s.viewOnly) return {}
       const sel = new Set(s.selectedIds)
       if (sel.size === 0) return {}
       if (s.bandNestedEditorMounted && s.bandCanvasEditElementId) {
@@ -1408,6 +1420,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   enterBandCanvasEdit: (elementId) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const loc = findElementLocation(s, elementId)
       if (!loc) return {}
       const el = loc.el
@@ -1468,6 +1481,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           focusedTextRunIndex: null,
         }
       }
+      if (s.viewOnly) return {}
       const bandNested = findBandNestedChild(s.pages, id)
       if (bandNested && s.bandCanvasEditElementId !== bandNested.container.id) {
         return {}
@@ -1531,9 +1545,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
   openTableCellEdit: ({ tableId, row, col }) =>
-    set({
-      tableSelection: { tableId, mode: 'cell', row, col },
-      tableCellEdit: { tableId, row, col },
+    set((s) => {
+      if (s.viewOnly) return {}
+      return {
+        tableSelection: { tableId, mode: 'cell', row, col },
+        tableCellEdit: { tableId, row, col },
+      }
     }),
 
   setTableCellEdit: (edit) => set({ tableCellEdit: edit, ...(edit === null ? { inlineTipTapEditor: null } : {}) }),
@@ -1546,6 +1563,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   moveLayer: (id, direction, pageIndex) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const pi = pageIndex ?? s.activePageIndex
       const cur = s.pages[pi]?.elements ?? []
       const i = cur.findIndex((e) => e.id === id)
@@ -1561,6 +1579,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   bringLayerToFront: (id, pageIndex) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const pi = pageIndex ?? s.activePageIndex
       const cur = s.pages[pi]?.elements ?? []
       const i = cur.findIndex((e) => e.id === id)
@@ -1573,6 +1592,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   sendLayerToBack: (id, pageIndex) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const pi = pageIndex ?? s.activePageIndex
       const cur = s.pages[pi]?.elements ?? []
       const i = cur.findIndex((e) => e.id === id)
@@ -1585,6 +1605,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   reorderLayerDrop: (draggedId, targetId, position, pageIndex) =>
     set((s) => {
+      if (s.viewOnly) return {}
       if (draggedId === targetId) return {}
       const pi = pageIndex ?? s.activePageIndex
       const cur = s.pages[pi]?.elements ?? []
@@ -1850,6 +1871,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   moveElement: (id, x, y) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const n = findBandNestedChild(s.pages, id)
       if (n) {
         const elements = n.container.bandElements ?? []
@@ -1920,6 +1942,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   resizeElement: (id, width, height) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const hit = findBandNestedChild(s.pages, id)
       if (hit) {
         const el = hit.child
@@ -1954,6 +1977,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   mergeGroupedShapesContaining: (elId) =>
     set((s) => {
+      if (s.viewOnly) return {}
       const elements = activeElements(s)
       const el = elements.find((e) => e.id === elId)
       if (!el?.groupId) return {}
@@ -1996,6 +2020,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   subtractSelectionToMergedShape: () =>
     set((s) => {
+      if (s.viewOnly) return {}
       const elements = activeElements(s)
       let a: LayoutElement | undefined
       let b: LayoutElement | undefined
@@ -2051,6 +2076,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   unmergeSelection: () =>
     set((s) => {
+      if (s.viewOnly) return {}
       if (s.selectedIds.length !== 1) return {}
       const elements = activeElements(s)
       const el = elements.find((e) => e.id === s.selectedIds[0])
