@@ -7,6 +7,7 @@ import { bootstrapEditorFromRemote } from '../lib/templateEditorBootstrap'
 import { connectToTemplate, disconnectFromTemplate } from '../lib/websocket'
 import { useEditorStore } from '../stores/editorStore'
 import { useFollowMode } from '../hooks/useFollowMode'
+import { useCollab } from '../collab/useCollab'
 import { LeftPalette } from '../components/editor/LeftPalette'
 import { EditorCanvas } from '../components/editor/EditorCanvas'
 import { PropertiesPanel } from '../components/editor/PropertiesPanel'
@@ -20,6 +21,7 @@ export function TemplateEditor() {
   const contextToolbarExemptRef = useRef<HTMLDivElement | null>(null)
   const shortcuts = useShortcutCheatsheet()
   useFollowMode()
+  useCollab(templateId ?? null)
   const reset = useEditorStore((s) => s.reset)
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
   const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)

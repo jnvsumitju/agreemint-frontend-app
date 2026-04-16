@@ -302,6 +302,14 @@ export function Toolbar() {
     return () => window.clearInterval(id)
   }, [templateId])
 
+  // Legacy per-client draft sync — replaced by the collaborative-editor flow in
+  // src/collab/*. Ops flow via STOMP; the backend CollabFlushJob persists the hot
+  // Redis layout to Postgres every 5s. See plan "Collaborative Editor".
+  //
+  // Kept behind an env flag as a fallback if the collab path is ever disabled:
+  // set VITE_EDITOR_DRAFT_SYNC_MS > 0 to re-enable. With the collab path active
+  // the two would race and the older snapshot would clobber remote ops — leave
+  // disabled unless you have a reason.
   useEffect(() => {
     const tid = templateId
     if (!tid) return

@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import { usePresenceStore } from '../stores/presenceStore'
 import type { PresenceUser } from '../stores/presenceStore'
 import { API_BASE } from './api'
+import { bindCollabBus, requestSnapshot, unbindCollabBus } from '../collab/collabBus'
 
 // ── Singleton state ──
 
@@ -103,6 +104,11 @@ export function connectToTemplate(templateId: string): void {
           }
         },
       )
+
+      // Bind collaborative-editor topics (structural ops + snapshot reply) and
+      // ask the server for the current hot layout now that we're connected.
+      bindCollabBus(client, templateId, user.id)
+      requestSnapshot()
     },
 
     onStompError: (frame) => {
@@ -174,6 +180,7 @@ export function disconnectFromTemplate(): void {
     try { viewportSub.unsubscribe() } catch { /* ignore */ }
     viewportSub = null
   }
+  unbindCollabBus()
 
   // Deactivate
   void stompClient.deactivate()

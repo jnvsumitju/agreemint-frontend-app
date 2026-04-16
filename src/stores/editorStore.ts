@@ -535,7 +535,38 @@ export interface EditorState {
   historyBatchDepth: number
   undoPast: EditorUndoSnapshot[]
   undoFuture: EditorUndoSnapshot[]
+  /**
+   * Apply a structural op received from another collaborator.
+   *
+   * Mutates `pages` / `globalVariableDefinitions` in place for the given op
+   * without going through the editing mutations (skips undo capture, skips
+   * variable-value rebuilding, skips the view-only gate). The observer in
+   * `useCollab` is expected to have set `remoteOpInFlight` for the duration
+   * of this call so that the diff observer does not echo the change back.
+   */
+  applyRemoteOp: (op: CollabOpForStore) => void
 }
+
+/**
+ * Minimal op shape used by `applyRemoteOp`. Kept as a local union to avoid
+ * importing from the collab module (which depends on STOMP types) here.
+ * Must stay structurally compatible with `src/collab/collabBus.ts#CollabOp`.
+ */
+export type CollabOpForStore =
+  | { type: 'addElement'; pageIndex: number; element: LayoutElement }
+  | { type: 'deleteElements'; pageIndex: number; elementIds: string[] }
+  | { type: 'updateElement'; pageIndex: number; elementId: string; patch: Partial<LayoutElement> }
+  | {
+      type: 'bulkUpdateElements'
+      pageIndex: number
+      updates: Array<{ elementId: string; patch: Partial<LayoutElement> }>
+    }
+  | { type: 'addPage'; index: number; page: LayoutDocumentPage }
+  | { type: 'deletePage'; index: number }
+  | { type: 'reorderPages'; from: number; to: number }
+  | { type: 'updatePage'; pageIndex: number; patch: Partial<LayoutDocumentPage> }
+  | { type: 'setGlobalVariables'; variables: VariableDefinition[] }
+  | { type: 'setPageVariables'; pageIndex: number; variables: VariableDefinition[] | undefined }
 
 /** Primary (last-clicked) selected element id, if any. */
 export function primarySelectedId(s: Pick<EditorState, 'selectedIds'>): string | null {
@@ -2373,6 +2404,104 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }
       })
     ),
+
+  applyRemoteOp: (op) =>
+    set((s) => {
+      let pages = s.pages
+      let globalVariableDefinitions = s.globalVariableDefinitions
+
+      switch (op.type) {
+        case 'addElement': {
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex ? { ...p, elements: [...p.elements, op.element] } : p
+          )
+          break
+        }
+        case 'deleteElements': {
+          const remove = new Set(op.elementIds)
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex ? { ...p, elements: p.elements.filter((e) => !remove.has(e.id)) } : p
+          )
+          break
+        }
+        case 'updateElement': {
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex
+              ? {
+                  ...p,
+                  elements: p.elements.map((e) =>
+                    e.id === op.elementId ? ({ ...e, ...op.patch } as LayoutElement) : e
+                  ),
+                }
+              : p
+          )
+          break
+        }
+        case 'bulkUpdateElements': {
+          const byId = new Map(op.updates.map((u) => [u.elementId, u.patch]))
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex
+              ? {
+                  ...p,
+                  elements: p.elements.map((e) => {
+                    const patch = byId.get(e.id)
+                    return patch ? ({ ...e, ...patch } as LayoutElement) : e
+                  }),
+                }
+              : p
+          )
+          break
+        }
+        case 'addPage': {
+          const next = [...s.pages]
+          const idx = Math.max(0, Math.min(op.index, next.length))
+          next.splice(idx, 0, op.page)
+          pages = next
+          break
+        }
+        case 'deletePage': {
+          if (op.index < 0 || op.index >= s.pages.length || s.pages.length <= 1) break
+          pages = s.pages.filter((_, i) => i !== op.index)
+          break
+        }
+        case 'reorderPages': {
+          if (
+            op.from < 0 || op.from >= s.pages.length ||
+            op.to < 0 || op.to >= s.pages.length ||
+            op.from === op.to
+          ) break
+          const next = [...s.pages]
+          const [moved] = next.splice(op.from, 1)
+          next.splice(op.to, 0, moved)
+          pages = next
+          break
+        }
+        case 'updatePage': {
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex ? ({ ...p, ...op.patch } as LayoutDocumentPage) : p
+          )
+          break
+        }
+        case 'setGlobalVariables': {
+          globalVariableDefinitions = op.variables
+          break
+        }
+        case 'setPageVariables': {
+          pages = s.pages.map((p, i) =>
+            i === op.pageIndex ? { ...p, localVariables: op.variables } : p
+          )
+          break
+        }
+      }
+
+      // Clamp activePageIndex in case a page was removed.
+      const activePageIndex = Math.min(s.activePageIndex, Math.max(0, pages.length - 1))
+      return {
+        pages,
+        globalVariableDefinitions,
+        activePageIndex,
+      }
+    }),
 }))
 
 export function createDefaultElement(
