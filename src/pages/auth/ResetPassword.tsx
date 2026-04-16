@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
+import { API_BASE } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 import { Input, PasswordStrength } from '../../components/ui/Input'
 
@@ -27,7 +28,7 @@ export function ResetPassword() {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, password }),

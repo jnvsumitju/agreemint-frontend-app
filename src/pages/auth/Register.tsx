@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { API_BASE } from '../../lib/api'
 import { AuthLayout } from '../../components/layout/AuthLayout'
 import { Button } from '../../components/ui/Button'
 import { Input, PasswordStrength } from '../../components/ui/Input'
@@ -18,7 +19,7 @@ export function Register() {
   const [providers, setProviders] = useState<Providers | null>(null)
 
   useEffect(() => {
-    fetch('/api/auth/providers')
+    fetch(`${API_BASE}/api/auth/providers`)
       .then((r) => r.json())
       .then((d) => setProviders(d))
       .catch(() => setProviders({ google: false, github: false }))

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AuthLayout } from '../../components/layout/AuthLayout'
+import { API_BASE } from '../../lib/api'
 import { Button } from '../../components/ui/Button'
 
 export function VerifyEmail() {
@@ -18,7 +19,7 @@ export function VerifyEmail() {
   // Auto-verify if token is present
   useEffect(() => {
     if (!token) return
-    fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
+    fetch(`${API_BASE}/api/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then((res) => {
         if (res.ok) setStatus('success')
         else throw new Error('Invalid or expired token')
@@ -33,7 +34,7 @@ export function VerifyEmail() {
     if (!email) return
     setResending(true)
     try {
-      await fetch('/api/auth/resend-verification', {
+      await fetch(`${API_BASE}/api/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

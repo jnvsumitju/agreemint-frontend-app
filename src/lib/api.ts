@@ -1,6 +1,6 @@
 import { useAuthStore } from '../stores/authStore'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 /**
  * Singleton guard — prevents concurrent refresh attempts from racing.
@@ -13,12 +13,13 @@ let refreshPromise: Promise<boolean> | null = null
  * to prevent concurrent refresh races.
  */
 export async function authFetch(url: string, init?: RequestInit): Promise<Response> {
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`
   const store = useAuthStore.getState()
   const headers = new Headers(init?.headers)
   if (store.accessToken) headers.set('Authorization', `Bearer ${store.accessToken}`)
   if (store.org?.id) headers.set('X-Org-Id', store.org.id)
 
-  let res = await fetch(url, { ...init, headers })
+  let res = await fetch(fullUrl, { ...init, headers })
 
   if (res.status === 401 && store.refreshToken) {
     // Use singleton promise to prevent concurrent refresh calls
@@ -31,7 +32,7 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
       const retryHeaders = new Headers(init?.headers)
       retryHeaders.set('Authorization', `Bearer ${useAuthStore.getState().accessToken}`)
       if (useAuthStore.getState().org?.id) retryHeaders.set('X-Org-Id', useAuthStore.getState().org!.id)
-      res = await fetch(url, { ...init, headers: retryHeaders })
+      res = await fetch(fullUrl, { ...init, headers: retryHeaders })
     }
 
     // If still 401 after refresh attempt, log out

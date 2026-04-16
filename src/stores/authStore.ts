@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { API_BASE } from '../lib/api'
 
 // ── DTOs ──
 
@@ -80,7 +81,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         try {
-          const res = await fetch('/api/auth/me', {
+          const res = await fetch(`${API_BASE}/api/auth/me`, {
             headers: { Authorization: `Bearer ${get().accessToken}` },
           })
           if (!res.ok) throw new Error('Failed to fetch user')
@@ -106,7 +107,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   login: async (email, password) => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -132,7 +133,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (email, name, password) => {
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, name, password }),
@@ -176,7 +177,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const rt = get().refreshToken
     if (!rt) return false
     try {
-      const res = await fetch('/api/auth/refresh', {
+      const res = await fetch(`${API_BASE}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: rt }),
