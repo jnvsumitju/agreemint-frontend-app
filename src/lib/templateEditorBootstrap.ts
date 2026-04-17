@@ -9,12 +9,6 @@ import {
 import type { LayoutElement, ParsedLayoutResult } from '../types/layout'
 import { parseLayoutJson, type LayoutJson } from '../types/layout'
 
-function serverDraftTime(iso: string | undefined): number {
-  if (!iso) return 0
-  const t = Date.parse(iso)
-  return Number.isFinite(t) ? t : 0
-}
-
 export interface BootstrapEditorActions {
   loadLayout: (p: ParsedLayoutResult) => void
   loadElements: (elements: LayoutElement[]) => void
@@ -22,7 +16,18 @@ export interface BootstrapEditorActions {
   setVariableValue: (k: string, v: string) => void
 }
 
-/** Prefer newest of localStorage vs server DRAFT; otherwise latest committed version. */
+/**
+ * Bootstrap precedence (server is authoritative under collab):
+ *   1. Server DRAFT — the live editing state flushed by {@code CollabFlushJob}
+ *   2. Latest committed VERSION — for fresh templates with no draft yet
+ *   3. Local snapshot — last-resort offline fallback only (both server paths failed)
+ *
+ * The old logic preferred local over server whenever local was newer, which let
+ * a stale local cache from a prior session load an outdated layout with
+ * mismatched element ids — remote ops then silently dropped on the receiver.
+ * With collab, the server is the single source of truth; local storage exists
+ * only to survive a genuinely-offline reload.
+ */
 export async function bootstrapEditorFromRemote(
   templateId: string,
   versions: TemplateVersionDto[],
@@ -33,24 +38,17 @@ export async function bootstrapEditorFromRemote(
     variables: Record<string, unknown> | null
     updatedAt: string
   } | null = null
+  let serverReachable = true
   try {
     serverDraft = await fetchDraft(templateId)
-  } catch {
+  } catch (err) {
+    // fetchDraft returns null on 404 (no draft yet). Distinguish "no draft"
+    // from "fetch failed" — we only want to fall through to localStorage in
+    // the genuinely-unreachable case.
     serverDraft = null
-  }
-
-  const local: LocalEditorSnapshot | null = readLocalEditorSnapshot(templateId)
-  const localT = local?.updatedAt ?? 0
-  const serverT = serverDraft ? serverDraftTime(serverDraft.updatedAt) : 0
-
-  if (local && (!serverDraft || localT >= serverT)) {
-    applyLayoutAndVariablesFromSnapshot(
-      local,
-      actions.loadLayout,
-      actions.setVariableValue,
-      actions.setVersionInfo
-    )
-    return
+    if (err instanceof TypeError || isNetworkError(err)) {
+      serverReachable = false
+    }
   }
 
   if (serverDraft) {
@@ -73,6 +71,26 @@ export async function bootstrapEditorFromRemote(
     return
   }
 
+  // Only now reach for localStorage — every server path is empty/unreachable.
+  if (!serverReachable) {
+    const local: LocalEditorSnapshot | null = readLocalEditorSnapshot(templateId)
+    if (local) {
+      applyLayoutAndVariablesFromSnapshot(
+        local,
+        actions.loadLayout,
+        actions.setVariableValue,
+        actions.setVersionInfo
+      )
+      return
+    }
+  }
+
   actions.loadElements([])
   actions.setVersionInfo(null, null)
+}
+
+function isNetworkError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const name = (err as { name?: unknown }).name
+  return name === 'NetworkError' || name === 'AbortError'
 }

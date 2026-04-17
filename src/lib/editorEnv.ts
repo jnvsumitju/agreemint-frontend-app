@@ -4,9 +4,20 @@ function parseMs(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback
 }
 
-/** Interval for writing editor state to localStorage (ms). `0` = disabled. */
+/**
+ * Interval for writing editor state to localStorage (ms). `0` = disabled (default).
+ *
+ * Disabled by default because collab + CollabFlushJob own persistence now.
+ * Previously this ran at 1 Hz and continuously refreshed local snapshots that
+ * could out-rank the server draft on reload, loading a layout whose element
+ * ids didn't match the authoritative state — remote ops then silently dropped.
+ *
+ * Set VITE_EDITOR_LOCAL_SAVE_INTERVAL_MS > 0 only if you explicitly want an
+ * offline-edit buffer. Bootstrap now only consults the cache when the server
+ * is truly unreachable.
+ */
 export function editorLocalSaveIntervalMs(): number {
-  return parseMs(import.meta.env.VITE_EDITOR_LOCAL_SAVE_INTERVAL_MS, 1000)
+  return parseMs(import.meta.env.VITE_EDITOR_LOCAL_SAVE_INTERVAL_MS, 0)
 }
 
 /**
