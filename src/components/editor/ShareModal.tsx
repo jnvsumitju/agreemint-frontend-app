@@ -169,13 +169,12 @@ export function ShareModal({ open, onClose, templateId }: { open: boolean; onClo
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function initials(name: string): string {
-    return name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]!.toUpperCase())
-      .join('')
+  function initials(name: string | null | undefined): string {
+    const safe = (name ?? '').trim()
+    if (!safe) return '?'
+    const parts = safe.split(/\s+/).filter(Boolean).slice(0, 2)
+    if (parts.length === 0) return safe.charAt(0).toUpperCase()
+    return parts.map((w) => w[0]!.toUpperCase()).join('')
   }
 
   return (

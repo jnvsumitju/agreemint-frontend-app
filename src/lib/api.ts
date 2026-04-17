@@ -392,8 +392,21 @@ export async function duplicateTemplate(
 
 // ── Org members (for Share modal autocomplete + reviewer picker) ─────────────
 
+/** Shape returned directly by the backend (see OrgMembershipResponse.java). */
+interface OrgMembershipRaw {
+  id: string
+  userId: string
+  orgId: string
+  role: 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER'
+  userName: string | null
+  userEmail: string | null
+  userAvatar: string | null
+  createdAt: string
+}
+
+/** Normalised shape consumed by UI — name / email / avatarUrl, never undefined. */
 export interface OrgMemberDto {
-  id: string          // membership id
+  id: string
   userId: string
   name: string
   email: string
@@ -404,7 +417,16 @@ export interface OrgMemberDto {
 
 export async function fetchOrgMembers(orgId: string): Promise<OrgMemberDto[]> {
   const res = await authFetch(`/api/orgs/${orgId}/members`)
-  return parseJson<OrgMemberDto[]>(res)
+  const raw = await parseJson<OrgMembershipRaw[]>(res)
+  return raw.map((m) => ({
+    id: m.id,
+    userId: m.userId,
+    name: m.userName ?? m.userEmail ?? '',
+    email: m.userEmail ?? '',
+    avatarUrl: m.userAvatar ?? null,
+    role: m.role,
+    createdAt: m.createdAt,
+  }))
 }
 
 // ── Template review workflow ────────────────────────────────────────────────
