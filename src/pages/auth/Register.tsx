@@ -8,6 +8,14 @@ import { Input, PasswordStrength } from '../../components/ui/Input'
 
 interface Providers { google: boolean; github: boolean }
 
+interface InviteInfo {
+  email: string
+  orgName: string
+  inviterName: string
+  role: string
+  expired: boolean
+}
+
 export function Register() {
   const register = useAuthStore((s) => s.register)
   const navigate = useNavigate()
@@ -16,9 +24,14 @@ export function Register() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; form?: string }>({})
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [errors, setErrors] = useState<{
+    name?: string; email?: string; password?: string; confirmPassword?: string; form?: string
+  }>({})
   const [loading, setLoading] = useState(false)
   const [providers, setProviders] = useState<Providers | null>(null)
+  const [invite, setInvite] = useState<InviteInfo | null>(null)
+  const [inviteLoading, setInviteLoading] = useState(Boolean(inviteToken))
 
   useEffect(() => {
     fetch(`${API_BASE}/api/auth/providers`)
@@ -27,8 +40,32 @@ export function Register() {
       .catch(() => setProviders({ google: false, github: false }))
   }, [])
 
+  // Resolve invite token → lock the email field to the invited address.
+  useEffect(() => {
+    if (!inviteToken) return
+    setInviteLoading(true)
+    fetch(`${API_BASE}/api/auth/invitations/resolve?token=${encodeURIComponent(inviteToken)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error('Invite not found')
+        return r.json() as Promise<InviteInfo>
+      })
+      .then((info) => {
+        setInvite(info)
+        // Pre-fill the email — recipient cannot change it to a different address.
+        setEmail(info.email)
+      })
+      .catch(() => {
+        setInvite(null)
+        setErrors((p) => ({
+          ...p,
+          form: 'This invitation link is invalid or has been withdrawn. Ask the inviter to send a new one.',
+        }))
+      })
+      .finally(() => setInviteLoading(false))
+  }, [inviteToken])
+
   // Real-time inline validation
-  function validateField(field: string, value: string) {
+  function validateField(field: string, value: string, ctx?: { password?: string; confirmPassword?: string }) {
     setErrors((prev) => {
       const next = { ...prev, form: undefined }
       switch (field) {
@@ -40,9 +77,21 @@ export function Register() {
             ? 'Enter a valid email address'
             : undefined
           break
-        case 'password':
+        case 'password': {
           next.password = value && value.length < 8 ? 'Password must be at least 8 characters' : undefined
+          const other = ctx?.confirmPassword ?? confirmPassword
+          if (other && value !== other) {
+            next.confirmPassword = 'Passwords do not match'
+          } else if (other) {
+            next.confirmPassword = undefined
+          }
           break
+        }
+        case 'confirmPassword': {
+          const primary = ctx?.password ?? password
+          next.confirmPassword = value && value !== primary ? 'Passwords do not match' : undefined
+          break
+        }
       }
       return next
     })
@@ -55,6 +104,8 @@ export function Register() {
     // Final validation
     if (name.trim().length < 2) { setErrors((p) => ({ ...p, name: 'Name must be at least 2 characters' })); return }
     if (password.length < 8) { setErrors((p) => ({ ...p, password: 'Password must be at least 8 characters' })); return }
+    if (password !== confirmPassword) { setErrors((p) => ({ ...p, confirmPassword: 'Passwords do not match' })); return }
+    if (invite?.expired) { setErrors((p) => ({ ...p, form: 'This invitation has expired.' })); return }
 
     setLoading(true)
     try {
@@ -71,17 +122,42 @@ export function Register() {
     }
   }
 
+  const emailLocked = Boolean(invite && !invite.expired)
+
   const hasOAuth = providers && (providers.google || providers.github)
 
   return (
     <AuthLayout>
       <div className="page-enter">
-        {inviteToken && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-700 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
-            <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        {/* Invite banner — shown while loading and on successful resolve.
+            Skipped when the lookup failed (invite=null, not loading): the
+            generic form-level error banner already explains what went wrong,
+            and showing both is duplicative. */}
+        {inviteToken && (inviteLoading || invite) && (
+          <div
+            className={`mb-4 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${
+              invite?.expired
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300'
+                : 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-900/30 dark:text-violet-300'
+            }`}
+          >
+            <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
             </svg>
-            You've been invited to join a team. Create your account to get started.
+            <div className="min-w-0 flex-1">
+              {inviteLoading ? (
+                'Loading invitation…'
+              ) : invite?.expired ? (
+                <span>
+                  This invitation has expired. Ask <strong>{invite.inviterName}</strong> to send a new one.
+                </span>
+              ) : invite ? (
+                <span>
+                  <strong>{invite.inviterName}</strong> invited you to join{' '}
+                  <strong>{invite.orgName}</strong> as <strong>{invite.role.toLowerCase()}</strong>.
+                </span>
+              ) : null}
+            </div>
           </div>
         )}
         <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Create your account</h2>
@@ -157,17 +233,28 @@ export function Register() {
               autoComplete="name"
             />
 
-            <Input
-              label="Email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); validateField('email', e.target.value) }}
-              onBlur={() => validateField('email', email)}
-              error={errors.email}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
+            <div>
+              <Input
+                label="Email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); validateField('email', e.target.value) }}
+                onBlur={() => validateField('email', email)}
+                error={errors.email}
+                placeholder="you@example.com"
+                autoComplete="email"
+                // Inviter chose this address; recipient can't change it, so we
+                // also avoid registering under a different identity.
+                disabled={emailLocked}
+                readOnly={emailLocked}
+              />
+              {emailLocked && (
+                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Using the email the invitation was sent to
+                </p>
+              )}
+            </div>
 
             <div>
               <Input
@@ -184,6 +271,19 @@ export function Register() {
               />
               <PasswordStrength password={password} />
             </div>
+
+            <Input
+              label="Confirm password"
+              type="password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); validateField('confirmPassword', e.target.value) }}
+              onBlur={() => validateField('confirmPassword', confirmPassword)}
+              error={errors.confirmPassword}
+              placeholder="Re-enter your password"
+              autoComplete="new-password"
+            />
           </div>
 
           <Button type="submit" loading={loading} className="mt-5 w-full">
