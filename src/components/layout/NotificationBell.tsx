@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { authFetch } from '../../lib/api'
 
 interface NotificationDto {
@@ -52,7 +52,38 @@ function timeAgo(iso: string) {
 
 /* ── Component ── */
 
+/**
+ * Resolve the in-app destination for a notification. Notifications carry
+ * `entityType` + `entityId` pointing at the resource; we map that to a route
+ * and add a `?tab=` hint for the sidebar where relevant so the user lands on
+ * the section of the template that actually produced the alert.
+ *
+ * Returns null when there is no meaningful destination (should stay in place).
+ */
+function resolveNotificationTarget(n: NotificationDto): string | null {
+  if (n.entityType === 'TEMPLATE' && n.entityId) {
+    switch (n.type) {
+      case 'REVIEW_REQUEST':
+      case 'REVIEW_APPROVED':
+      case 'REVIEW_CHANGES_REQUESTED':
+      case 'REVIEW_REOPENED':
+      case 'REVIEW_DISMISSED':
+        return `/editor/${n.entityId}?tab=reviews`
+      case 'COMMENT_MENTION':
+        return `/editor/${n.entityId}?tab=comments`
+      case 'TEMPLATE_SHARED':
+      default:
+        return `/editor/${n.entityId}`
+    }
+  }
+  if (n.entityType === 'DOCUMENT' && n.entityId) {
+    return `/documents/${n.entityId}`
+  }
+  return null
+}
+
 export function NotificationBell() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationDto[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -179,7 +210,12 @@ export function NotificationBell() {
                     className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 ${
                       !n.read ? 'bg-violet-50/40 dark:bg-violet-900/5' : ''
                     }`}
-                    onClick={() => { if (!n.read) void markRead(n.id) }}
+                    onClick={() => {
+                      if (!n.read) void markRead(n.id)
+                      const target = resolveNotificationTarget(n)
+                      setOpen(false)
+                      if (target) navigate(target)
+                    }}
                   >
                     <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${bg}`} aria-hidden="true">
                       {icon}

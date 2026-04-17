@@ -27,6 +27,7 @@ const Marketplace = lazy(() => import('./pages/Marketplace').then((m) => ({ defa
 const Documents = lazy(() => import('./pages/Documents').then((m) => ({ default: m.Documents })))
 const DocumentDetail = lazy(() => import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail })))
 const ReviewsInbox = lazy(() => import('./pages/ReviewsInbox').then((m) => ({ default: m.ReviewsInbox })))
+const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
 
 export default function App() {
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function App() {
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/documents/:documentId" element={<DocumentDetail />} />
                 <Route path="/reviews" element={<ReviewsInbox />} />
+                <Route path="/notifications" element={<Notifications />} />
               </Route>
 
               {/* Full-screen (no nav bar) */}
