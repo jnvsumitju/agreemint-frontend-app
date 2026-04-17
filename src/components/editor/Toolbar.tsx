@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { commitDraft, generatePdf, pdfFileUrl, putDraft } from '../../lib/api'
+import { commitDraft, dismissReview, generatePdf, isReviewBlockError, pdfFileUrl, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
 import { editorDraftSyncIntervalMs, editorLocalSaveIntervalMs } from '../../lib/editorEnv'
 import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/editorLocalDraft'
@@ -22,6 +22,7 @@ import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
 import { ShareModal } from './ShareModal'
+import { RequestReviewModal } from './RequestReviewModal'
 
 function EditorSurfaceSwitcher() {
   const pages = useEditorStore((s) => s.pages)
@@ -265,6 +266,10 @@ export function Toolbar() {
   const [shareOpen, setShareOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [reviewModalVersion, setReviewModalVersion] = useState<{ id: string; number: number } | null>(null)
+  /** Server-returned blockers when a commit hits 409 REVIEW_BLOCK. */
+  const [commitBlockers, setCommitBlockers] = useState<TemplateReviewDto[] | null>(null)
 
   const lastLocalJson = useRef<string>('')
   const lastDraftPayload = useRef<string>('')
@@ -360,6 +365,7 @@ export function Toolbar() {
     if (!templateId) return
     setSaving(true)
     setError(null)
+    setCommitBlockers(null)
     try {
       const s = useEditorStore.getState()
       const snap = snapshotFromEditorState(s)
@@ -372,12 +378,43 @@ export function Toolbar() {
       captureCanvasThumbnail().then((dataUrl) => {
         if (dataUrl && templateId) setTemplateThumbnail(templateId, dataUrl)
       }).catch(() => { /* non-critical */ })
+      // Prompt to request review from someone on the new version.
+      setReviewModalVersion({ id: v.id, number: v.versionNumber })
+      setReviewModalOpen(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Commit failed')
+      // Mandatory changes from a prior reviewer → surface blockers UI; designer
+      // addresses by reopening (→ PENDING) or dismissing each blocking review.
+      if (isReviewBlockError(e)) {
+        setCommitBlockers(e.payload.blockers)
+        setError(null)
+      } else {
+        setError(e instanceof Error ? e.message : 'Commit failed')
+      }
     } finally {
       setSaving(false)
     }
   }
+
+  // Stay in sync with blocker list as the designer resolves them one by one.
+  const handleDismissBlocker = useCallback(async (review: TemplateReviewDto) => {
+    if (!templateId) return
+    try {
+      await dismissReview(templateId, review.id)
+      setCommitBlockers((prev) => (prev ?? []).filter((r) => r.id !== review.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Dismiss failed')
+    }
+  }, [templateId])
+
+  const handleReopenBlocker = useCallback(async (review: TemplateReviewDto) => {
+    if (!templateId) return
+    try {
+      await reopenReview(templateId, review.id)
+      setCommitBlockers((prev) => (prev ?? []).filter((r) => r.id !== review.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Reopen failed')
+    }
+  }, [templateId])
 
   const generateFromLatestCommitted = async () => {
     if (!templateId || !currentVersionId) return
@@ -696,6 +733,98 @@ export function Toolbar() {
           templateId={templateId}
         />
       )}
+      {templateId && reviewModalOpen && (
+        <RequestReviewModal
+          open={reviewModalOpen}
+          onClose={() => setReviewModalOpen(false)}
+          templateId={templateId}
+          versionId={reviewModalVersion?.id ?? null}
+          versionNumber={reviewModalVersion?.number ?? null}
+        />
+      )}
+      {commitBlockers && commitBlockers.length > 0 && (
+        <CommitBlockerBanner
+          blockers={commitBlockers}
+          onClose={() => setCommitBlockers(null)}
+          onDismiss={handleDismissBlocker}
+          onReopen={handleReopenBlocker}
+        />
+      )}
     </>
+  )
+}
+
+/**
+ * Floating banner that appears when `POST /draft/commit` returns 409 REVIEW_BLOCK.
+ * Lists each blocking review and lets the designer dismiss or reopen per-row.
+ * Fixed-position so the Toolbar's own stacking context doesn't clip it.
+ */
+function CommitBlockerBanner({
+  blockers,
+  onClose,
+  onDismiss,
+  onReopen,
+}: {
+  blockers: TemplateReviewDto[]
+  onClose: () => void
+  onDismiss: (r: TemplateReviewDto) => void
+  onReopen: (r: TemplateReviewDto) => void
+}) {
+  return (
+    <div className="fixed inset-x-0 top-16 z-[9999] mx-auto w-[min(640px,90vw)] rounded-xl border border-red-200 bg-white p-4 shadow-xl dark:border-red-900/60 dark:bg-zinc-900">
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              Can't commit: mandatory changes requested
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-auto rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+            Address the feedback (reopen to re-review) or dismiss each blocking review to commit again.
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {blockers.map((b) => (
+              <div key={b.id} className="flex items-center gap-2 rounded border border-zinc-200 px-2 py-1.5 text-xs dark:border-zinc-700">
+                <span className="truncate font-medium text-zinc-800 dark:text-zinc-100">
+                  {b.reviewer.name || b.reviewer.email}
+                </span>
+                {b.summary && (
+                  <span className="truncate text-zinc-500 dark:text-zinc-400">— {b.summary}</span>
+                )}
+                <div className="ml-auto flex gap-1">
+                  <button
+                    type="button"
+                    className="rounded border border-zinc-300 px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    onClick={() => onReopen(b)}
+                  >
+                    Re-request review
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded border border-zinc-300 px-2 py-0.5 text-[11px] text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    onClick={() => onDismiss(b)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

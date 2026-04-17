@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { authFetch, fetchTemplate, fetchVersions } from '../lib/api'
@@ -18,10 +18,20 @@ import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
+  const [searchParams] = useSearchParams()
   const contextToolbarExemptRef = useRef<HTMLDivElement | null>(null)
   const shortcuts = useShortcutCheatsheet()
   useFollowMode()
   useCollab(templateId ?? null)
+
+  // Deep-link support: /editor/{id}?tab=reviews opens the Reviews panel on mount.
+  // Used by ReviewsInbox to jump from a notification straight to the review row.
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'reviews' || tab === 'comments' || tab === 'history' || tab === 'activity') {
+      useEditorStore.getState().setEditorSidebarTab(tab)
+    }
+  }, [searchParams])
   const reset = useEditorStore((s) => s.reset)
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
   const setTemplateMeta = useEditorStore((s) => s.setTemplateMeta)

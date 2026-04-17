@@ -395,7 +395,7 @@ export interface EditorState {
   /** Element ID currently highlighted from the comments panel. */
   commentHighlightId: string | null
   /** Right sidebar tab (toolbar can open Variables for table JSON). */
-  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments' | 'activity'
+  editorSidebarTab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments' | 'activity' | 'reviews'
   /** Document page (size, margins). */
   pageSpec: PageSpec
   /** Snap element moves/resizes to grid when not aligned to a smart guide. */
@@ -495,7 +495,7 @@ export interface EditorState {
   setTableCellEdit: (edit: { tableId: string; row: number; col: number } | null) => void
   setViewOnly: (v: boolean) => void
   setCommentingEnabled: (v: boolean) => void
-  setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments') => void
+  setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments' | 'activity' | 'reviews') => void
   /** Stack order: later items paint on top. Pass `pageIndex` to reorder a non-active page (e.g. page 0 bands). */
   moveLayer: (id: string, direction: 'forward' | 'backward', pageIndex?: number) => void
   bringLayerToFront: (id: string, pageIndex?: number) => void

@@ -149,7 +149,22 @@ export async function commitDraft(templateId: string): Promise<TemplateVersionDt
   const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft/commit`, {
     method: 'POST',
   })
-  return parseJson<TemplateVersionDto>(res)
+  if (!res.ok) {
+    // Surface the full JSON body on non-OK so callers can detect REVIEW_BLOCK
+    // via isReviewBlockError(). `parseJson` collapses to Error(msg) which loses
+    // the structured blockers payload — handle it ourselves here.
+    const text = await res.text()
+    let parsed: unknown = null
+    try { parsed = JSON.parse(text) } catch { /* ignore */ }
+    const err = new Error(
+      typeof parsed === 'object' && parsed !== null && 'error' in parsed
+        ? String((parsed as { error?: unknown }).error ?? res.statusText)
+        : text || res.statusText,
+    ) as Error & { payload?: unknown }
+    err.payload = parsed
+    throw err
+  }
+  return res.json() as Promise<TemplateVersionDto>
 }
 
 export async function generatePreviewPdf(
@@ -373,4 +388,113 @@ export async function duplicateTemplate(
   }
 
   return newTemplate
+}
+
+// ── Org members (for Share modal autocomplete + reviewer picker) ─────────────
+
+export interface OrgMemberDto {
+  id: string          // membership id
+  userId: string
+  name: string
+  email: string
+  avatarUrl: string | null
+  role: 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER'
+  createdAt: string
+}
+
+export async function fetchOrgMembers(orgId: string): Promise<OrgMemberDto[]> {
+  const res = await authFetch(`/api/orgs/${orgId}/members`)
+  return parseJson<OrgMemberDto[]>(res)
+}
+
+// ── Template review workflow ────────────────────────────────────────────────
+
+export type ReviewStatus = 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'DISMISSED'
+
+export interface ReviewUserInfo {
+  id: string | null
+  name: string
+  email: string
+  avatarUrl: string | null
+}
+
+export interface TemplateReviewDto {
+  id: string
+  templateId: string
+  versionId: string
+  versionNumber: number
+  requester: ReviewUserInfo
+  reviewer: ReviewUserInfo
+  status: ReviewStatus
+  message: string | null
+  summary: string | null
+  createdAt: string
+  decidedAt: string | null
+}
+
+export async function fetchTemplateReviews(templateId: string, versionId?: string): Promise<TemplateReviewDto[]> {
+  const q = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
+  const res = await authFetch(`/api/templates/${templateId}/reviews${q}`)
+  return parseJson<TemplateReviewDto[]>(res)
+}
+
+export async function requestReviews(
+  templateId: string,
+  versionId: string,
+  reviewerIds: string[],
+  message?: string,
+): Promise<TemplateReviewDto[]> {
+  const res = await authFetch(`/api/templates/${templateId}/versions/${versionId}/reviews`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reviewerIds, message: message ?? null }),
+  })
+  return parseJson<TemplateReviewDto[]>(res)
+}
+
+export async function decideReview(
+  templateId: string,
+  reviewId: string,
+  status: Extract<ReviewStatus, 'APPROVED' | 'CHANGES_REQUESTED'>,
+  summary?: string,
+): Promise<TemplateReviewDto> {
+  const res = await authFetch(`/api/templates/${templateId}/reviews/${reviewId}/decide`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, summary: summary ?? null }),
+  })
+  return parseJson<TemplateReviewDto>(res)
+}
+
+export async function reopenReview(templateId: string, reviewId: string): Promise<TemplateReviewDto> {
+  const res = await authFetch(`/api/templates/${templateId}/reviews/${reviewId}/reopen`, { method: 'POST' })
+  return parseJson<TemplateReviewDto>(res)
+}
+
+export async function dismissReview(templateId: string, reviewId: string): Promise<TemplateReviewDto> {
+  const res = await authFetch(`/api/templates/${templateId}/reviews/${reviewId}/dismiss`, { method: 'POST' })
+  return parseJson<TemplateReviewDto>(res)
+}
+
+export async function fetchReviewsAssignedToMe(limit = 50): Promise<TemplateReviewDto[]> {
+  const res = await authFetch(`/api/reviews/assigned?limit=${limit}`)
+  return parseJson<TemplateReviewDto[]>(res)
+}
+
+/**
+ * The commit endpoint returns 409 with a structured body
+ * `{ error, code: "REVIEW_BLOCK", blockers: TemplateReviewDto[] }`
+ * when mandatory changes are outstanding. Use this to detect and surface the UI.
+ */
+export interface ReviewBlockPayload {
+  error: string
+  code: 'REVIEW_BLOCK'
+  blockers: TemplateReviewDto[]
+}
+
+export function isReviewBlockError(err: unknown): err is { payload: ReviewBlockPayload } {
+  return typeof err === 'object' && err !== null &&
+    'payload' in err &&
+    typeof (err as { payload?: { code?: unknown } }).payload?.code === 'string' &&
+    (err as { payload: ReviewBlockPayload }).payload.code === 'REVIEW_BLOCK'
 }
