@@ -2338,7 +2338,10 @@ export function EditorCanvas({
               onMouseMove={onPageMouseMove}
               onMouseLeave={() => setCanvasPointerPt(null)}
             >
-              {!bandContainerEl ? (
+              {/* Print-margin guide is authoring UI — hide for VIEWER/REVIEWER,
+                  they don't move elements and the blue dashed box just clutters
+                  the read-only view. */}
+              {!bandContainerEl && !viewOnly ? (
                 <div
                   className="pointer-events-none absolute z-[2] border border-dashed border-sky-500/45 dark:border-sky-400/55"
                   style={{

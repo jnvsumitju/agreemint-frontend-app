@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { useDrag } from 'react-dnd'
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
@@ -536,6 +536,14 @@ export function LeftPalette() {
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const savedComponents = useEditorStore((s) => s.savedComponents)
 
+  // viewOnly is set asynchronously from the /access response — if the tab
+  // state was initialised while viewOnly was still false, snap it to 'pages'
+  // when the role resolves so VIEWER/REVIEWER never see the Insert & tools
+  // panel.
+  useEffect(() => {
+    if (viewOnly && tab === 'insert') setTab('pages')
+  }, [viewOnly, tab])
+
   if (collapsed) {
     return (
       <aside className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-1.5 transition-[width] duration-200 dark:border-zinc-700 dark:bg-zinc-900">
@@ -607,7 +615,7 @@ export function LeftPalette() {
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-        {tab === 'insert' ? (
+        {tab === 'insert' && !viewOnly ? (
           <div className="flex flex-col gap-3">
             <div>
               <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Tools</p>

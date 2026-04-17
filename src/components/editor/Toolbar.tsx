@@ -15,9 +15,7 @@ import { selectAllTemplateElements, useEditorStore } from '../../stores/editorSt
 import {
   IconUndo, IconRedo, IconScissors, IconEye, IconSave,
   IconSun, IconMoon, IconMonitor, IconMoreVertical,
-  IconZoomIn, IconZoomOut,
 } from './ToolbarIcons'
-import { TOOLBAR_ICON_BTN, TOOLBAR_DIVIDER } from './uiClasses'
 import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
@@ -254,8 +252,6 @@ export function Toolbar() {
       elements: s.pages[s.activePageIndex]?.elements ?? [],
     })
   )
-  const canvasZoom = useEditorStore((s) => s.canvasZoom)
-  const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const setViewOnly = useEditorStore((s) => s.setViewOnly)
 
@@ -496,30 +492,8 @@ export function Toolbar() {
           </button>
         </div>
         )}
-          <span className={TOOLBAR_DIVIDER} aria-hidden />
-          <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              className={TOOLBAR_ICON_BTN}
-              title="Zoom out"
-              aria-label="Zoom out"
-              onClick={() => setCanvasZoom(Math.max(0.25, Math.round((canvasZoom - 0.1) * 100) / 100))}
-            >
-              <IconZoomOut size={14} />
-            </button>
-            <span className="min-w-[2.5rem] select-none text-center text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">
-              {Math.round(canvasZoom * 100)}%
-            </span>
-            <button
-              type="button"
-              className={TOOLBAR_ICON_BTN}
-              title="Zoom in"
-              aria-label="Zoom in"
-              onClick={() => setCanvasZoom(Math.min(3, Math.round((canvasZoom + 0.1) * 100) / 100))}
-            >
-              <IconZoomIn size={14} />
-            </button>
-          </div>
+        {/* Zoom controls live in the EditorStatusBar (bottom bar) now — the
+            duplicate topbar pair was removed to declutter. */}
         <PresenceAvatars />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           {error && <span className="max-w-xs truncate text-xs text-red-600">{error}</span>}
