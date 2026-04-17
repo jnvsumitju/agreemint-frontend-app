@@ -31,7 +31,7 @@ import type {
 } from '../types/layout'
 import { parseLayoutJson } from '../types/layout'
 import { onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
-import { connectYDoc, disconnectYDoc, isYDocActive } from './yDocProvider'
+import { connectYDoc, disconnectYDoc } from './yDocProvider'
 import { useAuthStore } from '../stores/authStore'
 import { sendSelectionUpdate } from '../lib/websocket'
 
@@ -112,7 +112,6 @@ export function useCollab(templateId: string | null): void {
 
     // Spin up the Y.Doc transport for this template so TipTap Collaboration
     // extensions attached via yDocProvider.getYFragment(...) start syncing.
-    activeTemplateIdForDiff = templateId
     connectYDoc(templateId)
 
     // Capture the baseline at mount so the first diff is well-defined.
@@ -135,7 +134,6 @@ export function useCollab(templateId: string | null): void {
       offSnapshot()
       unsubscribe()
       disconnectYDoc()
-      activeTemplateIdForDiff = null
       resetBaseline()
       // Clear the pending selection broadcast so a re-mount starts fresh.
       if (pendingSelectionTimer != null) {
@@ -158,7 +156,6 @@ interface Baseline {
 
 let remoteOpInFlight = false
 let baseline: Baseline | null = null
-let activeTemplateIdForDiff: string | null = null
 
 // ── Selection broadcast throttle ─────────────────────────────────────────────
 const SELECTION_THROTTLE_MS = 80
@@ -316,14 +313,19 @@ function emitElementDiffs(pageIndex: number, prev: LayoutElement[], next: Layout
  */
 function computeElementPatch(a: LayoutElement, b: LayoutElement): Record<string, unknown> | null {
   const patch: Record<string, unknown> = {}
-  // When Yjs is active it owns the rich-text `content` of every text-bearing
-  // element; skipping the field here prevents double-writes racing the Yjs
-  // relay and prevents redundant ops for every keystroke.
-  const skipContent = isYDocActive(activeTemplateIdForDiff)
+  // Note on `content`: Yjs provides character-level CRDT merging for rich-text
+  // edits when both users are actively editing the same element in TipTap, but
+  // only the active editor has TipTap mounted against the Y.XmlFragment. A
+  // passive viewer renders the element via ElementPreview, which reads
+  // `el.content` from the store. So we must also emit `content` as a structural
+  // op on every keystroke — otherwise typing on A never reaches B's canvas.
+  //
+  // When both users are editing the same element, the Yjs path still merges
+  // inserts; the structural op just keeps the final serialized string in the
+  // store for non-editor views and persistence.
   const keys = new Set([...Object.keys(a), ...Object.keys(b)])
   for (const k of keys) {
     if (k === 'id') continue
-    if (skipContent && k === 'content') continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const av = (a as any)[k]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
