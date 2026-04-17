@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { usePresenceStore } from '../../stores/presenceStore'
 import type { PresenceUser } from '../../stores/presenceStore'
@@ -33,14 +34,43 @@ function Avatar({
   onToggleFollow: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
+  const [popoverPos, setPopoverPos] = useState<{ top: number; right: number } | null>(null)
+
+  // Position the portal-rendered popover relative to the trigger, flush to
+  // document.body so it isn't constrained by ancestor stacking contexts or
+  // `overflow: hidden` on the canvas area.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const update = () => {
+      const rect = triggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setPopoverPos({
+        top: rect.bottom + 6,
+        right: Math.max(8, window.innerWidth - rect.right),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+      const t = e.target as Node
+      if (
+        (triggerRef.current && triggerRef.current.contains(t)) ||
+        (popoverRef.current && popoverRef.current.contains(t))
+      ) {
+        return
       }
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -54,8 +84,9 @@ function Avatar({
   }, [open])
 
   return (
-    <div ref={containerRef} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         className="group relative flex items-center"
         title={user.name}
@@ -71,9 +102,11 @@ function Avatar({
         </div>
       </button>
 
-      {open && (
+      {open && popoverPos && createPortal(
         <div
-          className="absolute right-0 top-full z-50 mt-1.5 w-56 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          ref={popoverRef}
+          className="fixed z-[9999] w-56 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          style={{ top: popoverPos.top, right: popoverPos.right }}
           role="menu"
         >
           <div className="flex items-center gap-2 border-b border-zinc-100 px-1.5 pb-2 dark:border-zinc-800">
@@ -121,9 +154,10 @@ function Avatar({
               </svg>
             )}
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }
 

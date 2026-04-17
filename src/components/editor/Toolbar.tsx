@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { commitDraft, generatePdf, pdfFileUrl, putDraft } from '../../lib/api'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
@@ -268,6 +269,9 @@ export function Toolbar() {
   const lastLocalJson = useRef<string>('')
   const lastDraftPayload = useRef<string>('')
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const menuContentRef = useRef<HTMLDivElement | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
 
   useEffect(() => {
     lastLocalJson.current = ''
@@ -277,12 +281,35 @@ export function Toolbar() {
   useEffect(() => {
     if (!menuOpen) return
     const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
+      const t = e.target as Node
+      const inTrigger = menuRef.current?.contains(t) ?? false
+      const inContent = menuContentRef.current?.contains(t) ?? false
+      if (!inTrigger && !inContent) setMenuOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
+
+  // Position the portal-rendered menu relative to the trigger. Fixed positioning
+  // via a portal to document.body lets the menu paint above the right sidebar
+  // tabs which live in a sibling stacking context.
+  useLayoutEffect(() => {
+    if (!menuOpen || !menuTriggerRef.current) return
+    const update = () => {
+      const rect = menuTriggerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setMenuPos({
+        top: rect.bottom + 4,
+        right: Math.max(8, window.innerWidth - rect.right),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
   }, [menuOpen])
 
   useEffect(() => {
@@ -511,6 +538,7 @@ export function Toolbar() {
           )}
           <div className="relative" ref={menuRef}>
             <button
+              ref={menuTriggerRef}
               type="button"
               className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 text-base leading-none text-zinc-500 hover:bg-zinc-50 lg:h-8 lg:w-8 dark:border-zinc-600 dark:text-zinc-400 dark:hover:bg-zinc-800"
               aria-expanded={menuOpen}
@@ -521,9 +549,11 @@ export function Toolbar() {
             >
               <IconMoreVertical />
             </button>
-            {menuOpen && templateId ? (
+            {menuOpen && templateId && menuPos ? createPortal(
               <div
-                className="absolute right-0 z-[300] mt-1 min-w-[11rem] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
+                ref={menuContentRef}
+                className="fixed z-[9999] min-w-[11rem] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
+                style={{ top: menuPos.top, right: menuPos.right }}
                 role="menu"
               >
                 <button
@@ -639,7 +669,8 @@ export function Toolbar() {
                 >
                   Export as JPEG
                 </button>
-              </div>
+              </div>,
+              document.body,
             ) : null}
           </div>
         </div>
