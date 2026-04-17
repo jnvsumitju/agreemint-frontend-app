@@ -27,13 +27,14 @@ import type {
   LayoutDocumentPage,
   LayoutElement,
   LayoutJson,
+  PageSpec,
   VariableDefinition,
 } from '../types/layout'
 import { parseLayoutJson } from '../types/layout'
 import { onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
 import { connectYDoc, disconnectYDoc } from './yDocProvider'
 import { useAuthStore } from '../stores/authStore'
-import { sendSelectionUpdate } from '../lib/websocket'
+import { sendSelectionUpdate, sendViewportUpdate } from '../lib/websocket'
 
 /**
  * Mount this hook once per editor instance. It binds store observers + collab
@@ -127,6 +128,10 @@ export function useCollab(templateId: string | null): void {
       // Selection broadcast (throttled): fires when the local selectedIds
       // array changes and flushes at most every SELECTION_THROTTLE_MS.
       maybeEmitSelection(templateId, state.selectedIds)
+      // Viewport broadcast: we emit the current page + zoom whenever those
+      // change. Follow Mode on other clients applies the payload so they
+      // jump pages when the leader switches.
+      maybeEmitViewport(templateId, state.activePageIndex, state.canvasZoom)
     })
 
     return () => {
@@ -143,6 +148,13 @@ export function useCollab(templateId: string | null): void {
       pendingSelection = null
       pendingSelectionTemplateId = null
       lastSelectionJson = null
+      // Same for pending viewport broadcast.
+      if (pendingViewportTimer != null) {
+        window.clearTimeout(pendingViewportTimer)
+        pendingViewportTimer = null
+      }
+      pendingViewport = null
+      lastViewportKey = null
     }
   }, [templateId])
 }
@@ -152,6 +164,7 @@ export function useCollab(templateId: string | null): void {
 interface Baseline {
   pages: LayoutDocumentPage[]
   globalVariableDefinitions: VariableDefinition[]
+  pageSpec: PageSpec
 }
 
 let remoteOpInFlight = false
@@ -181,10 +194,47 @@ function maybeEmitSelection(templateId: string, selectedIds: string[]) {
   }, SELECTION_THROTTLE_MS)
 }
 
-function captureBaseline(state: { pages: LayoutDocumentPage[]; globalVariableDefinitions: VariableDefinition[] }) {
+// ── Viewport broadcast (for Follow Mode) ──────────────────────────────────────
+// Emits when activePageIndex or canvasZoom changes. Scroll position is read
+// from the canvas scroll container each time we flush, so scroll-only motion
+// does not spam the channel — only a page switch or zoom change triggers a send.
+const VIEWPORT_THROTTLE_MS = 80
+let lastViewportKey: string | null = null
+let pendingViewportTimer: number | null = null
+let pendingViewport: { templateId: string; activePageIndex: number; zoom: number } | null = null
+
+function maybeEmitViewport(templateId: string, activePageIndex: number, zoom: number) {
+  const key = `${activePageIndex}|${zoom}`
+  if (key === lastViewportKey) return
+  pendingViewport = { templateId, activePageIndex, zoom }
+  if (pendingViewportTimer != null) return
+  pendingViewportTimer = window.setTimeout(() => {
+    pendingViewportTimer = null
+    if (!pendingViewport) return
+    lastViewportKey = `${pendingViewport.activePageIndex}|${pendingViewport.zoom}`
+    const scroller = document.querySelector<HTMLElement>('[data-agreemint-scroll-container]')
+    const scrollX = scroller?.scrollLeft ?? 0
+    const scrollY = scroller?.scrollTop ?? 0
+    sendViewportUpdate(
+      pendingViewport.templateId,
+      pendingViewport.zoom,
+      scrollX,
+      scrollY,
+      pendingViewport.activePageIndex,
+    )
+    pendingViewport = null
+  }, VIEWPORT_THROTTLE_MS)
+}
+
+function captureBaseline(state: {
+  pages: LayoutDocumentPage[]
+  globalVariableDefinitions: VariableDefinition[]
+  pageSpec: PageSpec
+}) {
   baseline = {
     pages: state.pages,
     globalVariableDefinitions: state.globalVariableDefinitions,
+    pageSpec: state.pageSpec,
   }
 }
 
@@ -192,7 +242,11 @@ function resetBaseline() {
   baseline = null
 }
 
-function emitOpsForChange(state: { pages: LayoutDocumentPage[]; globalVariableDefinitions: VariableDefinition[] }) {
+function emitOpsForChange(state: {
+  pages: LayoutDocumentPage[]
+  globalVariableDefinitions: VariableDefinition[]
+  pageSpec: PageSpec
+}) {
   if (!baseline) {
     captureBaseline(state)
     return
@@ -205,6 +259,15 @@ function emitOpsForChange(state: { pages: LayoutDocumentPage[]; globalVariableDe
   if (prev.globalVariableDefinitions !== state.globalVariableDefinitions) {
     if (!shallowVarDefsEqual(prev.globalVariableDefinitions, state.globalVariableDefinitions)) {
       sendOp({ type: 'setGlobalVariables', variables: state.globalVariableDefinitions })
+    }
+  }
+  // Template-wide page spec (size / margins / orientation) is a root-level field
+  // on the store (s.pageSpec), not inside any page object, so the pages-diff
+  // path above doesn't see it. Compare separately and emit setPageSpec when it
+  // changes.
+  if (prev.pageSpec !== state.pageSpec) {
+    if (!pageSpecEqual(prev.pageSpec, state.pageSpec)) {
+      sendOp({ type: 'setPageSpec', pageSpec: state.pageSpec })
     }
   }
 
@@ -384,6 +447,15 @@ function shallowVarDefsEqual(a: VariableDefinition[], b: VariableDefinition[]): 
   return true
 }
 
+function pageSpecEqual(a: PageSpec, b: PageSpec): boolean {
+  // Cheap structural compare. PageSpec is small — stringify works fine here.
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return a === b
+  }
+}
+
 // ── Wire-protocol → store-op mapping ─────────────────────────────────────────
 
 function mapToStoreOp(op: CollabOp): CollabOpForStore | null {
@@ -431,6 +503,8 @@ function mapToStoreOp(op: CollabOp): CollabOpForStore | null {
         pageIndex: op.pageIndex,
         variables: op.variables as VariableDefinition[] | undefined,
       }
+    case 'setPageSpec':
+      return { type: 'setPageSpec', pageSpec: op.pageSpec as PageSpec }
     default:
       return null
   }

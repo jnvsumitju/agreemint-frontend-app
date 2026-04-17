@@ -101,11 +101,14 @@ export function connectToTemplate(templateId: string): void {
               zoom: number
               scrollX: number
               scrollY: number
+              activePageIndex?: number
             }
             usePresenceStore.getState().updateViewport(data.userId, {
               zoom: data.zoom,
               scrollX: data.scrollX,
               scrollY: data.scrollY,
+              activePageIndex:
+                typeof data.activePageIndex === 'number' ? data.activePageIndex : undefined,
             })
           } catch (err) {
             console.error('[websocket] Malformed viewport message:', err)
@@ -226,6 +229,7 @@ export function sendViewportUpdate(
   zoom: number,
   scrollX: number,
   scrollY: number,
+  activePageIndex: number,
 ): void {
   if (!stompClient?.connected) return
 
@@ -239,6 +243,7 @@ export function sendViewportUpdate(
       zoom,
       scrollX,
       scrollY,
+      activePageIndex,
     }),
   })
 }

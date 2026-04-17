@@ -567,6 +567,7 @@ export type CollabOpForStore =
   | { type: 'updatePage'; pageIndex: number; patch: Partial<LayoutDocumentPage> }
   | { type: 'setGlobalVariables'; variables: VariableDefinition[] }
   | { type: 'setPageVariables'; pageIndex: number; variables: VariableDefinition[] | undefined }
+  | { type: 'setPageSpec'; pageSpec: PageSpec }
 
 /** Primary (last-clicked) selected element id, if any. */
 export function primarySelectedId(s: Pick<EditorState, 'selectedIds'>): string | null {
@@ -2409,6 +2410,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((s) => {
       let pages = s.pages
       let globalVariableDefinitions = s.globalVariableDefinitions
+      let pageSpec = s.pageSpec
 
       switch (op.type) {
         case 'addElement': {
@@ -2492,6 +2494,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           )
           break
         }
+        case 'setPageSpec': {
+          pageSpec = op.pageSpec
+          break
+        }
       }
 
       // Clamp activePageIndex in case a page was removed.
@@ -2499,6 +2505,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return {
         pages,
         globalVariableDefinitions,
+        pageSpec,
         activePageIndex,
       }
     }),

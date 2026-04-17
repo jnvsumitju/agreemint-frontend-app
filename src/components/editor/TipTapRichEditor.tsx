@@ -128,8 +128,10 @@ export function TipTapRichEditor({
           horizontalRule: false,
           code: false,
           // Underline is included in StarterKit; do not register @tiptap/extension-underline again.
-          // Yjs owns history when Collaboration is active; otherwise use StarterKit's default.
-          ...(collabFragment ? { history: false } : {}),
+          // Yjs owns history when Collaboration is active. StarterKit 3.x renamed
+          // the history module to `undoRedo` — disabling both keys covers 2.x
+          // and 3.x StarterKit without a runtime warning.
+          ...(collabFragment ? { history: false, undoRedo: false } : {}),
         }),
         Subscript,
         Superscript,

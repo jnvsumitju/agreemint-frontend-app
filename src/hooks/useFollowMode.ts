@@ -22,6 +22,9 @@ export function useFollowMode(): {
   const users = usePresenceStore((s) => s.users)
   const setFollowing = usePresenceStore((s) => s.setFollowing)
   const setCanvasZoom = useEditorStore((s) => s.setCanvasZoom)
+  const setActivePageIndex = useEditorStore((s) => s.setActivePageIndex)
+  const localActivePageIndex = useEditorStore((s) => s.activePageIndex)
+  const pagesLength = useEditorStore((s) => s.pages.length)
 
   // Track whether the most recent scroll/zoom was triggered by follow mode
   // so we can distinguish programmatic changes from manual user input.
@@ -33,6 +36,17 @@ export function useFollowMode(): {
 
     programmaticRef.current = true
     setCanvasZoom(followedViewport.zoom)
+
+    // Jump to the same page the leader is on, if provided and valid.
+    const targetPage = followedViewport.activePageIndex
+    if (
+      typeof targetPage === 'number' &&
+      targetPage >= 0 &&
+      targetPage < pagesLength &&
+      targetPage !== localActivePageIndex
+    ) {
+      setActivePageIndex(targetPage)
+    }
 
     const scrollContainer = document.querySelector<HTMLElement>(
       '[data-agreemint-scroll-container]',
@@ -51,7 +65,14 @@ export function useFollowMode(): {
     }, 300)
 
     return () => window.clearTimeout(id)
-  }, [followingUserId, followedViewport, setCanvasZoom])
+  }, [
+    followingUserId,
+    followedViewport,
+    setCanvasZoom,
+    setActivePageIndex,
+    localActivePageIndex,
+    pagesLength,
+  ])
 
   // Break follow mode on manual scroll
   useEffect(() => {

@@ -26,6 +26,7 @@ export type CollabOp =
   | { type: 'updatePage'; pageIndex: number; patch: Record<string, unknown> }
   | { type: 'setGlobalVariables'; variables: unknown }
   | { type: 'setPageVariables'; pageIndex: number; variables: unknown }
+  | { type: 'setPageSpec'; pageSpec: unknown }
 
 export interface RemoteOpMessage {
   serverSeq: number

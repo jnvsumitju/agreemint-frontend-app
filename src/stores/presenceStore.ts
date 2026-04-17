@@ -12,6 +12,8 @@ export interface ViewportState {
   zoom: number
   scrollX: number
   scrollY: number
+  /** Page the user is currently viewing. Used by follow mode to jump pages. */
+  activePageIndex?: number
 }
 
 export interface PresenceState {
