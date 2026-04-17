@@ -677,35 +677,39 @@ export function Toolbar() {
                 >
                   Version Diff
                 </button>
-                <div className="border-t border-zinc-100 dark:border-zinc-700" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
-                    if (pageEl) {
-                      void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'png')
-                    }
-                    setMenuOpen(false)
-                  }}
-                >
-                  Export as PNG
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
-                    if (pageEl) {
-                      void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'jpeg')
-                    }
-                    setMenuOpen(false)
-                  }}
-                >
-                  Export as JPEG
-                </button>
+                {!viewOnly && (
+                  <>
+                    <div className="border-t border-zinc-100 dark:border-zinc-700" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => {
+                        const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
+                        if (pageEl) {
+                          void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'png')
+                        }
+                        setMenuOpen(false)
+                      }}
+                    >
+                      Export as PNG
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                      onClick={() => {
+                        const pageEl = document.querySelector<HTMLElement>('[data-agreemint-page-canvas]')
+                        if (pageEl) {
+                          void exportElementAsImage(pageEl, `template-${templateId!.slice(0, 8)}-page`, 'jpeg')
+                        }
+                        setMenuOpen(false)
+                      }}
+                    >
+                      Export as JPEG
+                    </button>
+                  </>
+                )}
               </div>,
               document.body,
             ) : null}

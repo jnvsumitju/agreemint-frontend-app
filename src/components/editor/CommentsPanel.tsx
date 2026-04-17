@@ -171,6 +171,7 @@ export function CommentsPanel() {
                   elementId={el.id}
                   replyingTo={replyingTo}
                   replyText={replyText}
+                  commentingEnabled={commentingEnabled}
                   onReplyTextChange={setReplyText}
                   onStartReply={(cId) => { setReplyingTo(cId); setReplyText('') }}
                   onCancelReply={() => { setReplyingTo(null); setReplyText('') }}
@@ -222,12 +223,14 @@ export function CommentsPanel() {
 /* ── Recursive thread renderer ── */
 
 function CommentThread({
-  comments, depth, elementId, replyingTo, replyText,
+  comments, depth, elementId, replyingTo, replyText, commentingEnabled,
   onReplyTextChange, onStartReply, onCancelReply, onSubmitReply,
   onResolve, onDelete, onClickComment,
 }: {
   comments: ElementComment[]; depth: number; elementId: string
   replyingTo: string | null; replyText: string
+  /** When false, Reply/Resolve/Delete actions are hidden (VIEWER role). */
+  commentingEnabled: boolean
   onReplyTextChange: (v: string) => void; onStartReply: (commentId: string) => void
   onCancelReply: () => void; onSubmitReply: (commentId: string) => void
   onResolve: (commentId: string) => void; onDelete: (commentId: string) => void
@@ -267,32 +270,34 @@ function CommentThread({
             {/* Text */}
             <p className={`mt-1 leading-relaxed ${c.resolved ? 'line-through opacity-60' : ''}`}>{c.text}</p>
 
-            {/* Actions */}
-            <div className="mt-1.5 flex items-center gap-2">
-              <button
-                type="button"
-                className="text-[9px] font-medium text-violet-500 hover:text-violet-700 dark:text-violet-400"
-                onClick={(e) => { e.stopPropagation(); onStartReply(c.id) }}
-              >
-                Reply
-              </button>
-              {!c.resolved && (
+            {/* Actions — only shown when the viewer has comment-write rights. */}
+            {commentingEnabled && (
+              <div className="mt-1.5 flex items-center gap-2">
                 <button
                   type="button"
-                  className="text-[9px] font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
-                  onClick={(e) => { e.stopPropagation(); onResolve(c.id) }}
+                  className="text-[9px] font-medium text-violet-500 hover:text-violet-700 dark:text-violet-400"
+                  onClick={(e) => { e.stopPropagation(); onStartReply(c.id) }}
                 >
-                  Resolve
+                  Reply
                 </button>
-              )}
-              <button
-                type="button"
-                className="text-[9px] font-medium text-red-500 hover:text-red-700 dark:text-red-400"
-                onClick={(e) => { e.stopPropagation(); onDelete(c.id) }}
-              >
-                Delete
-              </button>
-            </div>
+                {!c.resolved && (
+                  <button
+                    type="button"
+                    className="text-[9px] font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                    onClick={(e) => { e.stopPropagation(); onResolve(c.id) }}
+                  >
+                    Resolve
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-[9px] font-medium text-red-500 hover:text-red-700 dark:text-red-400"
+                  onClick={(e) => { e.stopPropagation(); onDelete(c.id) }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Reply input */}
@@ -325,6 +330,7 @@ function CommentThread({
                 elementId={elementId}
                 replyingTo={replyingTo}
                 replyText={replyText}
+                commentingEnabled={commentingEnabled}
                 onReplyTextChange={onReplyTextChange}
                 onStartReply={onStartReply}
                 onCancelReply={onCancelReply}

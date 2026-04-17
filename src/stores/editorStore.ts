@@ -1189,6 +1189,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addComment: (elementId, text, author) =>
     set((s) => {
+      // Defense in depth — the CommentsPanel already hides the add-comment UI
+      // when commentingEnabled is false (VIEWER role). Block at the store too
+      // so any stray call-site can't slip past.
+      if (!s.commentingEnabled) return {}
       const elements = activeElements(s)
       const idx = elements.findIndex((e) => e.id === elementId)
       if (idx === -1) return {}
@@ -1206,6 +1210,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addReply: (elementId, commentId, text, author) =>
     set((s) => {
+      if (!s.commentingEnabled) return {}
       const elements = activeElements(s)
       const idx = elements.findIndex((e) => e.id === elementId)
       if (idx === -1) return {}
@@ -1231,6 +1236,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   resolveComment: (elementId, commentId) =>
     set((s) => {
+      if (!s.commentingEnabled) return {}
       const elements = activeElements(s)
       const idx = elements.findIndex((e) => e.id === elementId)
       if (idx === -1) return {}
@@ -1250,6 +1256,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   deleteComment: (elementId, commentId) =>
     set((s) => {
+      if (!s.commentingEnabled) return {}
       const elements = activeElements(s)
       const idx = elements.findIndex((e) => e.id === elementId)
       if (idx === -1) return {}
