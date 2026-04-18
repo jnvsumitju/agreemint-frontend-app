@@ -14,6 +14,9 @@ import { useToast } from '../ui/Toast'
  * actually review (ADMIN / DESIGNER / REVIEWER). VIEWER-only members are still
  * listed so a designer can explicitly ask them, just greyed out as "view only"
  * so the designer knows that reviewer may not have edit-level suggestions.
+ *
+ * Self-review is permitted — admins (and anyone else) can assign themselves so
+ * the list intentionally includes the current user.
  */
 export function RequestReviewModal({
   open,
@@ -30,7 +33,6 @@ export function RequestReviewModal({
 }) {
   const toast = useToast()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
-  const currentUserId = useAuthStore((s) => s.user?.id ?? null)
 
   const [members, setMembers] = useState<OrgMemberDto[]>([])
   const [query, setQuery] = useState('')
@@ -48,18 +50,13 @@ export function RequestReviewModal({
     }
   }, [open, orgId])
 
-  const reviewableMembers = useMemo(() => {
-    return members.filter((m) => m.userId !== currentUserId)
-  }, [members, currentUserId])
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const base = reviewableMembers
-    if (!q) return base
-    return base.filter(
+    if (!q) return members
+    return members.filter(
       (m) => m.email.toLowerCase().includes(q) || m.name.toLowerCase().includes(q),
     )
-  }, [query, reviewableMembers])
+  }, [query, members])
 
   const toggle = (userId: string) => {
     setSelected((s) => {
@@ -117,7 +114,7 @@ export function RequestReviewModal({
       <div className="mt-3 max-h-64 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-700">
         {filtered.length === 0 ? (
           <div className="px-3 py-4 text-center text-sm text-zinc-400 dark:text-zinc-500">
-            {reviewableMembers.length === 0 ? 'No other org members yet' : 'No matches'}
+            {members.length === 0 ? 'No org members yet' : 'No matches'}
           </div>
         ) : (
           <ul role="listbox" aria-multiselectable="true">
