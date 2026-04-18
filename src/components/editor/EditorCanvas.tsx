@@ -1112,7 +1112,13 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   const hasStrokeGrad = isValidGradient(el.style?.colorGradient)
   const fillGradId = svgGradientId(el.id, 'fill')
   const strokeGradId = svgGradientId(el.id, 'stroke')
-  const shapeStroke = hasStrokeGrad ? `url(#${strokeGradId})` : (el.style?.color?.trim() || 'currentColor')
+  // If the user picked "No Color" in the stroke swatch we want the stroke
+  // to actually disappear. Previously this fell back to `currentColor` and
+  // the shape kept its border (inherited from the parent text colour); now
+  // the SVG stroke is genuinely hidden.
+  const shapeStroke = hasStrokeGrad
+    ? `url(#${strokeGradId})`
+    : (el.style?.color?.trim() || 'none')
   const shapeFill = hasFillGrad ? `url(#${fillGradId})` : el.style?.backgroundColor?.trim()
   const sw = el.strokeWidth ?? 2
   const shapeDash =
@@ -1508,6 +1514,21 @@ export function EditorCanvas({
     startY: number
     sl: number
     st: number
+  } | null>(null)
+  // Rotation-tool session. When the Rotate tool is active and an element is
+  // selected, pointer-down anywhere on the canvas starts dragging to rotate
+  // that element around its centre. We store the element id, pivot in client
+  // coords, the initial pointer angle, and the element's starting rotation.
+  const rotateSessionRef = useRef<{
+    pointerId: number
+    elementId: string
+    /** Element centre in client (screen) pixels — doesn't move during a session. */
+    cx: number
+    cy: number
+    /** Angle (deg) from element centre to pointer at drag start. */
+    startAngle: number
+    /** Element's `style.rotation` at drag start. */
+    startRotation: number
   } | null>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [imageModalOpen, setImageModalOpen] = useState(false)
@@ -2142,9 +2163,45 @@ export function EditorCanvas({
 
   const onScrollPointerDownCapture = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (canvasTool !== 'pan' || e.button !== 0) return
       const el = scrollRef.current
       if (!el) return
+
+      // ── Rotate tool ─────────────────────────────────────────────────────
+      // When the rotate tool is active and there's a single selected
+      // element, pointer-down starts a rotation session. Dragging anywhere
+      // rotates the element around its rendered centre.
+      if (canvasTool === 'rotate' && e.button === 0) {
+        const st0 = useEditorStore.getState()
+        const selId = st0.selectedIds[0]
+        if (!selId || st0.selectedIds.length !== 1) return
+        const pageEls = st0.pages[st0.activePageIndex]?.elements ?? []
+        const elemObj = pageEls.find((x) => x.id === selId)
+        const canvasNode = canvasRef.current
+        if (!elemObj || !canvasNode) return
+        const rect = canvasNode.getBoundingClientRect()
+        const z = st0.canvasZoom
+        const cx = rect.left + (elemObj.x + elemObj.width / 2) * z
+        const cy = rect.top + (elemObj.y + elemObj.height / 2) * z
+        const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI)
+        e.preventDefault()
+        e.stopPropagation()
+        rotateSessionRef.current = {
+          pointerId: e.pointerId,
+          elementId: selId,
+          cx,
+          cy,
+          startAngle,
+          startRotation: elemObj.style?.rotation ?? 0,
+        }
+        try {
+          el.setPointerCapture(e.pointerId)
+        } catch {
+          /* ignore */
+        }
+        return
+      }
+
+      if (canvasTool !== 'pan' || e.button !== 0) return
       e.preventDefault()
       e.stopPropagation()
       panSessionRef.current = {
@@ -2165,6 +2222,23 @@ export function EditorCanvas({
   )
 
   const onScrollPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Rotate session: update style.rotation live as the pointer moves.
+    // Holding Shift snaps to 15° increments so users can land on 45/90/etc.
+    const r = rotateSessionRef.current
+    if (r && r.pointerId === e.pointerId) {
+      const current = Math.atan2(e.clientY - r.cy, e.clientX - r.cx) * (180 / Math.PI)
+      let next = r.startRotation + (current - r.startAngle)
+      if (e.shiftKey) next = Math.round(next / 15) * 15
+      // Normalise to (-180, 180] so the number input doesn't spiral.
+      next = ((next % 360) + 540) % 360 - 180
+      useEditorStore.getState().updateElement(
+        r.elementId,
+        { style: { ...(useEditorStore.getState().pages[useEditorStore.getState().activePageIndex]?.elements.find((x) => x.id === r.elementId)?.style ?? {}), rotation: next } },
+        { skipHistory: true },
+      )
+      return
+    }
+
     const p = panSessionRef.current
     if (!p || p.pointerId !== e.pointerId) return
     const el = scrollRef.current
@@ -2174,6 +2248,26 @@ export function EditorCanvas({
   }, [])
 
   const onScrollPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // End rotate session — commit a history entry by calling updateElement
+    // one last time without skipHistory so the user can Ctrl+Z the whole
+    // drag as one step rather than N incremental frames.
+    const r = rotateSessionRef.current
+    if (r && r.pointerId === e.pointerId) {
+      const state = useEditorStore.getState()
+      const pageEls = state.pages[state.activePageIndex]?.elements ?? []
+      const finalEl = pageEls.find((x) => x.id === r.elementId)
+      rotateSessionRef.current = null
+      try {
+        scrollRef.current?.releasePointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+      if (finalEl) {
+        state.updateElement(r.elementId, { style: { ...(finalEl.style ?? {}) } })
+      }
+      return
+    }
+
     const p = panSessionRef.current
     if (!p || p.pointerId !== e.pointerId) return
     const el = scrollRef.current
@@ -2193,24 +2287,28 @@ export function EditorCanvas({
         : 'cursor-grab'
       : canvasTool === 'mergeShapes'
         ? 'cursor-pointer'
-        : moveGrabActive
-          ? 'cursor-grab'
-          : drawMode
-            ? 'cursor-crosshair'
-            : ''
+        : canvasTool === 'rotate'
+          ? 'cursor-crosshair'
+          : moveGrabActive
+            ? 'cursor-grab'
+            : drawMode
+              ? 'cursor-crosshair'
+              : ''
 
   const scrollTitle =
     canvasTool === 'pan'
       ? 'Drag to pan the canvas'
       : canvasTool === 'mergeShapes'
         ? 'Merge shapes — group shapes first, then click any member to merge into one outline'
-        : spaceMoveTool
-          ? 'Release Space to exit quick move'
-          : canvasTool === 'move'
-            ? 'Move tool — drag elements without a long press'
-            : drawMode
-              ? 'Click the page to place the selected block'
-              : undefined
+        : canvasTool === 'rotate'
+          ? 'Rotate tool — select an element, then drag to rotate (hold Shift to snap to 15°)'
+          : spaceMoveTool
+            ? 'Release Space to exit quick move'
+            : canvasTool === 'move'
+              ? 'Move tool — drag elements without a long press'
+              : drawMode
+                ? 'Click the page to place the selected block'
+                : undefined
 
   const selectionBounds = useMemo(() => {
     if (selectedIds.length < 2) return null

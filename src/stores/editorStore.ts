@@ -342,7 +342,7 @@ function defaultPages(): LayoutDocumentPage[] {
 const EMPTY_ELEMENTS: LayoutElement[] = []
 
 /** Left-bar / canvas interaction mode (Select, Move, Draw-to-place, Pan viewport, Merge shapes). */
-export type EditorCanvasTool = 'select' | 'move' | 'draw' | 'pan' | 'mergeShapes'
+export type EditorCanvasTool = 'select' | 'move' | 'draw' | 'pan' | 'mergeShapes' | 'rotate'
 
 /** Active canvas page element stack (Zustand selector). */
 export function selectActivePageElements(s: EditorState): LayoutElement[] {

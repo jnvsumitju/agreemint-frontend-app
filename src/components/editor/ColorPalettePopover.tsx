@@ -312,7 +312,13 @@ export function ColorToolbarSwatch({
         className="fixed z-[10050] w-[260px] rounded-lg border border-zinc-200 bg-white p-2 shadow-xl dark:border-zinc-600 dark:bg-zinc-900"
         style={{ top: panelPos.top, left: panelPos.left }}
       >
-        {/* No Color */}
+        {/* No Color. Historically this dispatched both `onClear()` and
+            `onGradientChange(undefined)` back-to-back, but each handler
+            captured the parent's `style` in a stale closure — the second
+            call (merging colorGradient:undefined into old style) re-added
+            the color the first call had just removed. All clear handlers
+            already remove the paired gradient via `omitStyleKey`, so the
+            second dispatch is redundant + buggy. Single call is enough. */}
         {onClear && (
           <button
             type="button"
@@ -320,7 +326,6 @@ export function ColorToolbarSwatch({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               onClear()
-              if (onGradientChange) onGradientChange(undefined)
               setOpen(false)
             }}
           >

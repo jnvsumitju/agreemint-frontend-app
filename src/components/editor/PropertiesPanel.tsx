@@ -51,6 +51,30 @@ import { ElementBehaviourEditor } from './ElementBehaviourEditor'
 import { DocumentPageSection } from './DocumentPageSection'
 import { MultiSelectionPanel } from './MultiSelectionPanel'
 import { TabBar } from './ui/TabBar'
+import { Tooltip } from './ui/Tooltip'
+
+/**
+ * localStorage keys — the right panel persists its collapsed-to-rail state
+ * and its user-chosen px width across sessions. Two different states so
+ * the rail click can restore the user's preferred drag-resized width.
+ */
+const RIGHT_PANEL_COLLAPSED_KEY = 'agreemint-right-panel-collapsed'
+const RIGHT_PANEL_WIDTH_KEY = 'agreemint-right-panel-width'
+
+/** Smallest the panel can be dragged to — enough for 8 icon-only tabs and
+ *  the collapse button without horizontal scroll. */
+const RIGHT_PANEL_MIN_WIDTH_PX = 300
+/** Largest it can be dragged to (leaves room for canvas + left palette). */
+const RIGHT_PANEL_MAX_WIDTH_PX = 800
+/** Below this, the TabBar hides labels and shows icons only. Chosen so
+ *  all 8 labelled tabs just fit horizontally at default font size. */
+const RIGHT_PANEL_ICON_ONLY_THRESHOLD_PX = 480
+/** Sensible starting width — matches the previous `lg:w-[34rem]`. */
+const RIGHT_PANEL_DEFAULT_WIDTH_PX = 544
+
+function clampPanelWidth(n: number): number {
+  return Math.max(RIGHT_PANEL_MIN_WIDTH_PX, Math.min(RIGHT_PANEL_MAX_WIDTH_PX, n))
+}
 
 function useVariableMentionLists() {
   const bandEditorMode = useEditorStore((s) => s.bandCanvasEditElementId != null)
@@ -1052,6 +1076,69 @@ export function PropertiesPanel() {
   const setTab = useEditorStore((s) => s.setEditorSidebarTab)
   const viewOnly = useEditorStore((s) => s.viewOnly)
 
+  // Persisted collapsed-to-rail state — a hard snap to w-10 with only icons
+  // stacked vertically. Separate from the drag width so the rail click can
+  // restore the user's preferred wide layout.
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem(RIGHT_PANEL_COLLAPSED_KEY) === '1'
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(RIGHT_PANEL_COLLAPSED_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
+
+  // Persisted drag-resized width in pixels. User can drag the left edge of
+  // the panel to narrow or widen; below ICON_ONLY_THRESHOLD the tab bar
+  // auto-hides labels and shows icons only.
+  const [panelWidthPx, setPanelWidthPx] = useState<number>(() => {
+    if (typeof window === 'undefined') return RIGHT_PANEL_DEFAULT_WIDTH_PX
+    const raw = window.localStorage.getItem(RIGHT_PANEL_WIDTH_KEY)
+    const parsed = raw == null ? NaN : Number(raw)
+    return Number.isFinite(parsed) ? clampPanelWidth(parsed) : RIGHT_PANEL_DEFAULT_WIDTH_PX
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(RIGHT_PANEL_WIDTH_KEY, String(panelWidthPx))
+  }, [panelWidthPx])
+
+  const iconOnly = panelWidthPx < RIGHT_PANEL_ICON_ONLY_THRESHOLD_PX
+
+  // Drag handle wiring. Handle is on the LEFT edge of the right panel; moving
+  // the mouse to the right narrows the panel (new width = initial − delta).
+  const dragStartRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
+  const onResizeMove = useCallback((e: PointerEvent) => {
+    const start = dragStartRef.current
+    if (!start || e.pointerId !== start.pointerId) return
+    setPanelWidthPx(clampPanelWidth(start.startWidth - (e.clientX - start.startX)))
+  }, [])
+  const onResizeEnd = useCallback((e: PointerEvent) => {
+    const start = dragStartRef.current
+    if (!start || e.pointerId !== start.pointerId) return
+    dragStartRef.current = null
+    window.removeEventListener('pointermove', onResizeMove)
+    window.removeEventListener('pointerup', onResizeEnd)
+    window.removeEventListener('pointercancel', onResizeEnd)
+    document.body.style.userSelect = ''
+    document.body.style.cursor = ''
+  }, [onResizeMove])
+  const onResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only left-mouse / primary-touch.
+    if (e.button !== 0 && e.pointerType === 'mouse') return
+    dragStartRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startWidth: panelWidthPx,
+    }
+    window.addEventListener('pointermove', onResizeMove)
+    window.addEventListener('pointerup', onResizeEnd)
+    window.addEventListener('pointercancel', onResizeEnd)
+    // Block text-selection flicker + make the cursor follow the handle.
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'col-resize'
+    e.preventDefault()
+  }
+
   // In view-only mode, redirect edit-only tabs to history
   const effectiveTab = viewOnly && (tab === 'properties' || tab === 'behaviour' || tab === 'layers' || tab === 'variables')
     ? 'history'
@@ -1075,15 +1162,100 @@ export function PropertiesPanel() {
     return tabs
   }, [viewOnly])
 
+  // Collapsed — icon rail only. Clicking any icon sets the tab AND expands.
+  if (collapsed) {
+    return (
+      <aside className="flex w-10 shrink-0 flex-col items-center border-l border-zinc-200 bg-white py-1.5 transition-[width] duration-200 dark:border-zinc-700 dark:bg-zinc-900">
+        <Tooltip content="Expand panel" position="left">
+          <button
+            type="button"
+            className="mb-1 flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            onClick={() => setCollapsed(false)}
+            aria-label="Expand panel"
+          >
+            {/* Chevrons pointing left — panel expands back to the left. */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M11 5l-7 7 7 7M19 5l-7 7 7 7" />
+            </svg>
+          </button>
+        </Tooltip>
+        <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
+        <div className="mt-1 flex flex-col gap-0.5 px-1">
+          {sidebarTabs.map((t) => {
+            const isActive = t.key === effectiveTab
+            return (
+              <Tooltip key={t.key} content={t.label} position="left">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab(t.key as Parameters<typeof setTab>[0])
+                    setCollapsed(false)
+                  }}
+                  aria-label={t.label}
+                  aria-pressed={isActive}
+                  className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                    isActive
+                      ? 'bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
+                      : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  {t.icon}
+                </button>
+              </Tooltip>
+            )
+          })}
+        </div>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="flex w-80 min-w-0 shrink-0 flex-col border-l border-zinc-200 bg-white lg:w-[34rem] dark:border-zinc-700 dark:bg-zinc-900">
-      {/* Modern tab bar with sliding indicator */}
-      <TabBar
-        tabs={sidebarTabs}
-        activeKey={effectiveTab}
-        onChange={(key) => setTab(key as Parameters<typeof setTab>[0])}
-        size="sm"
-      />
+    <aside
+      style={{ width: `${panelWidthPx}px` }}
+      className="relative flex min-w-0 shrink-0 flex-col border-l border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      {/*
+        Drag handle on the LEFT edge of the panel. Wider than the visible
+        border so it's easy to grab, but transparent so it doesn't add visual
+        weight. Hover/active give a subtle violet tint. Pointer events handle
+        both mouse + touch; the panel width is clamped so dragging stops at
+        the icons-only minimum.
+      */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize panel"
+        title="Drag to resize"
+        onPointerDown={onResizeStart}
+        className="group absolute -left-1 top-0 z-10 h-full w-2 cursor-col-resize touch-none"
+      >
+        <div className="mx-auto h-full w-0.5 bg-transparent transition-colors group-hover:bg-violet-400/60 group-active:bg-violet-500" />
+      </div>
+
+      {/* Tab bar + collapse toggle on the right end. */}
+      <div className="relative flex shrink-0 items-stretch">
+        <div className="min-w-0 flex-1">
+          <TabBar
+            tabs={sidebarTabs}
+            activeKey={effectiveTab}
+            onChange={(key) => setTab(key as Parameters<typeof setTab>[0])}
+            size="sm"
+            iconOnly={iconOnly}
+          />
+        </div>
+        <button
+          type="button"
+          title="Collapse panel — show icons only"
+          className="flex shrink-0 items-center border-b border-zinc-100 px-1.5 text-zinc-400 hover:text-zinc-700 dark:border-zinc-800 dark:hover:text-zinc-200"
+          onClick={() => setCollapsed(true)}
+          aria-label="Collapse panel"
+        >
+          {/* Chevrons pointing right — panel collapses off to the right. */}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto">
         {effectiveTab === 'properties' ? (
           <PropertiesBody />

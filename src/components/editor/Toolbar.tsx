@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
@@ -6,15 +6,12 @@ import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData
 import { editorDraftSyncIntervalMs, editorLocalSaveIntervalMs } from '../../lib/editorEnv'
 import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/editorLocalDraft'
 import { findElementByIdInDocument } from '../../lib/documentPageMerge'
-import { canSubtractPunchHoleSelection } from '../../lib/shapeGeometry'
-import { cycleDarkMode, getDarkModePreference, subscribeDarkMode, type DarkModeValue } from '../../lib/darkMode'
 import { exportTemplateJson, importTemplateJson } from '../../lib/templateExport'
 import { exportElementAsImage } from '../../lib/canvasExport'
 import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import {
-  IconUndo, IconRedo, IconScissors, IconEye, IconSave,
-  IconSun, IconMoon, IconMonitor, IconMoreVertical,
+  IconUndo, IconRedo, IconEye, IconSave, IconMoreVertical,
 } from './ToolbarIcons'
 import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
@@ -205,37 +202,6 @@ function VersionBadge({
   )
 }
 
-const DARK_MODE_ICONS: Record<DarkModeValue, { icon: React.ReactNode; label: string }> = {
-  light: {
-    label: 'Light mode — click to switch to dark',
-    icon: <IconSun />,
-  },
-  dark: {
-    label: 'Dark mode — click to switch to system',
-    icon: <IconMoon />,
-  },
-  system: {
-    label: 'System theme — click to switch to light',
-    icon: <IconMonitor />,
-  },
-}
-
-function DarkModeToggle() {
-  const pref = useSyncExternalStore(subscribeDarkMode, getDarkModePreference)
-  const { icon, label } = DARK_MODE_ICONS[pref]
-  return (
-    <button
-      type="button"
-      className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 lg:h-8 lg:w-8 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
-      title={label}
-      aria-label={label}
-      onClick={() => cycleDarkMode()}
-    >
-      {icon}
-    </button>
-  )
-}
-
 export function Toolbar() {
   const navigate = useNavigate()
   const templateId = useEditorStore((s) => s.templateId)
@@ -244,15 +210,8 @@ export function Toolbar() {
   const setVersionInfo = useEditorStore((s) => s.setVersionInfo)
   const undo = useEditorStore((s) => s.undo)
   const redo = useEditorStore((s) => s.redo)
-  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
   const canUndo = useEditorStore((s) => s.undoPast.length > 0)
   const canRedo = useEditorStore((s) => s.undoFuture.length > 0)
-  const canPunchHole = useEditorStore((s) =>
-    canSubtractPunchHoleSelection({
-      selectedIds: s.selectedIds,
-      elements: s.pages[s.activePageIndex]?.elements ?? [],
-    })
-  )
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const setViewOnly = useEditorStore((s) => s.setViewOnly)
 
@@ -480,17 +439,8 @@ export function Toolbar() {
           >
             <IconRedo size={18} />
           </button>
-          <button
-            type="button"
-            className="ml-0.5 flex h-8 items-center gap-1 rounded-md border border-transparent px-2 text-xs font-medium text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
-            title="Subtract smaller shape from larger (two mergeable shapes, or a group of two)"
-            aria-label="Punch hole"
-            disabled={!canPunchHole}
-            onClick={() => subtractSelectionToMergedShape()}
-          >
-            <IconScissors />
-            <span className="hidden lg:inline">Punch hole</span>
-          </button>
+          {/* "Punch hole" lives in the left palette's ACTIONS section —
+              the duplicate toolbar button was removed to declutter. */}
         </div>
         )}
         {/* Zoom controls live in the EditorStatusBar (bottom bar) now — the
@@ -534,7 +484,8 @@ export function Toolbar() {
               <span className="hidden lg:inline">{saving ? 'Saving…' : 'Commit'}</span>
             </button>
           )}
-          <DarkModeToggle />
+          {/* Dark-mode toggle lives in Settings → Preferences — the
+              duplicate toolbar button was removed to declutter. */}
           {!viewOnly && (
             <button
               type="button"

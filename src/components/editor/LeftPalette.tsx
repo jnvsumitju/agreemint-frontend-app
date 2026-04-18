@@ -60,6 +60,11 @@ const TOOLS: {
     title: 'Merge shapes — group shapes first, then click any member to union into one outline',
     Icon: IconMergeShapes,
   },
+  {
+    id: 'rotate',
+    title: 'Rotate — select an element, then drag on the canvas to rotate it',
+    Icon: IconRotate,
+  },
 ]
 
 function IconSelect() {
@@ -102,6 +107,16 @@ function IconMergeShapes() {
       <rect x="3" y="5" width="8" height="8" rx="1" />
       <rect x="10" y="10" width="9" height="9" rx="1" />
       <path d="M8 13h5M13 8v5" strokeDasharray="2 1" />
+    </svg>
+  )
+}
+
+function IconRotate() {
+  // Circular-arrow — commonly read as "rotate" in design tools.
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 12a9 9 0 11-3.1-6.8L21 8" />
+      <path d="M21 3v5h-5" />
     </svg>
   )
 }
