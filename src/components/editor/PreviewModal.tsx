@@ -29,7 +29,17 @@ export function PreviewModal({ open, onClose, templateId }: PreviewModalProps) {
   const pages = useEditorStore((s) => s.pages)
   const pageSpec = useEditorStore((s) => s.pageSpec)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
-  const keys = useMemo(() => extractVariableKeys(elements), [elements])
+  // Union of (a) keys referenced by any element's text/behaviour bindings and
+  // (b) keys declared in the Vars tab. Previously only (a) was considered, so
+  // a declared-but-not-yet-bound variable showed "No variables detected" in
+  // the preview even though the author clearly wanted a form field for it.
+  const keys = useMemo(() => {
+    const fromElements = extractVariableKeys(elements)
+    const fromDefs = (globalVariableDefinitions ?? [])
+      .map((d) => d.key)
+      .filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+    return Array.from(new Set([...fromElements, ...fromDefs]))
+  }, [elements, globalVariableDefinitions])
   const tableKeys = useMemo(() => uniqueTableDataKeys(elements), [elements])
   const scalarKeys = useMemo(() => scalarVariableKeys(keys, tableKeys), [keys, tableKeys])
 

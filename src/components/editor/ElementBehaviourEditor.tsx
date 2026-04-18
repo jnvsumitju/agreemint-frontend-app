@@ -58,6 +58,165 @@ function emptyCondition() {
   return { left: '', op: 'eq' as BehaviourConditionOp, right: '' }
 }
 
+// ── Dynamic size builder ─────────────────────────────────────────────────────
+
+/**
+ * The stored value for Width/Height is still a free-form expression string so
+ * advanced users can drop in clamp()/arithmetic. For everyone else we expose
+ * three modes and round-trip the common "scale with a variable" case through a
+ * simple dropdown + number input.
+ *
+ * Detection rules for loading an existing expression:
+ *   (empty)                     → fixed
+ *   {{var}}*N                   → scale  (parsed)
+ *   anything else               → custom (shows raw textbox)
+ */
+type SizeMode = 'fixed' | 'scale' | 'custom'
+
+function detectSizeMode(expr: string | undefined | null): SizeMode {
+  const s = (expr ?? '').trim()
+  if (!s) return 'fixed'
+  if (/^\{\{[\w.]+\}\}\s*\*\s*\d+(\.\d+)?$/.test(s)) return 'scale'
+  return 'custom'
+}
+
+function parseScaleExpr(
+  expr: string | undefined | null
+): { varKey: string; multiplier: number } | null {
+  if (!expr) return null
+  const m = /^\{\{([\w.]+)\}\}\s*\*\s*(\d+(?:\.\d+)?)$/.exec(expr.trim())
+  if (!m) return null
+  return { varKey: m[1], multiplier: Number(m[2]) }
+}
+
+function buildScaleExpr(varKey: string, multiplier: number): string {
+  return `{{${varKey}}}*${multiplier}`
+}
+
+function SizeDimensionBuilder({
+  label,
+  value,
+  onChange,
+  keys,
+  idPrefix,
+}: {
+  label: 'Width' | 'Height'
+  value: string | undefined
+  onChange: (next: string | undefined) => void
+  keys: string[]
+  idPrefix: string
+}) {
+  const mode = detectSizeMode(value)
+  const scaleParsed = mode === 'scale' ? parseScaleExpr(value) : null
+  const [draftVar, setDraftVar] = (function useDraftVar() {
+    // Intentionally not useState — we derive from the expression so load/save
+    // round-trips through the stored string. The parent drives the value.
+    return [scaleParsed?.varKey ?? keys[0] ?? '', () => {}] as const
+  })()
+  void setDraftVar // keep lint quiet — placeholder for future local caret/caret-less state
+
+  const updateMode = (next: SizeMode) => {
+    if (next === 'fixed') return onChange(undefined)
+    if (next === 'scale') {
+      const k = scaleParsed?.varKey ?? draftVar ?? keys[0] ?? ''
+      const mult = scaleParsed?.multiplier ?? 1
+      if (k) onChange(buildScaleExpr(k, mult))
+      return
+    }
+    // custom: keep the current expression if it isn't empty, otherwise
+    // seed with an example so users have something to edit.
+    if (!value || !value.trim()) {
+      onChange('clamp({{var}}*200,20,200)')
+    }
+  }
+
+  const setScale = (partial: { varKey?: string; multiplier?: number }) => {
+    const varKey = partial.varKey ?? scaleParsed?.varKey ?? keys[0] ?? ''
+    const multiplier = partial.multiplier ?? scaleParsed?.multiplier ?? 1
+    if (!varKey) return
+    onChange(buildScaleExpr(varKey, multiplier))
+  }
+
+  return (
+    <div className="flex flex-col gap-1 text-[10px]">
+      <div className="flex items-center gap-2">
+        <span className="font-medium">{label}</span>
+        <select
+          id={`${idPrefix}-mode`}
+          name={`${idPrefix}-mode`}
+          className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[10px] dark:border-zinc-600 dark:bg-zinc-800"
+          value={mode}
+          onChange={(e) => updateMode(e.target.value as SizeMode)}
+          aria-label={`${label} sizing mode`}
+        >
+          <option value="fixed">Fixed</option>
+          <option value="scale" disabled={keys.length === 0}>
+            Scale with variable{keys.length === 0 ? ' (declare one first)' : ''}
+          </option>
+          <option value="custom">Custom formula…</option>
+        </select>
+      </div>
+
+      {mode === 'fixed' && (
+        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+          Uses the element's base {label.toLowerCase()} as-is.
+        </p>
+      )}
+
+      {mode === 'scale' && (
+        <div className="flex items-center gap-1">
+          <select
+            id={`${idPrefix}-scale-var`}
+            name={`${idPrefix}-scale-var`}
+            className="min-w-0 flex-1 rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+            value={scaleParsed?.varKey ?? ''}
+            onChange={(e) => setScale({ varKey: e.target.value })}
+          >
+            <option value="" disabled>Pick a variable…</option>
+            {keys.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+          <span className="shrink-0 text-[10px] text-zinc-500">×</span>
+          <input
+            id={`${idPrefix}-scale-mult`}
+            name={`${idPrefix}-scale-mult`}
+            type="number"
+            step="any"
+            className="w-16 shrink-0 rounded border border-zinc-300 px-1 py-0.5 text-right text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+            value={scaleParsed?.multiplier ?? 1}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              if (Number.isFinite(n)) setScale({ multiplier: n })
+            }}
+          />
+          <span className="shrink-0 text-[10px] text-zinc-500">pt</span>
+        </div>
+      )}
+
+      {mode === 'custom' && (
+        <div className="flex gap-1">
+          <input
+            id={`${idPrefix}-custom`}
+            name={`${idPrefix}-custom`}
+            className="min-w-0 flex-1 rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
+            placeholder="clamp({{barPct}}*200,20,200)"
+            value={value ?? ''}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          />
+          <VarKeyInsertSelect
+            id={`${idPrefix}-custom-ins`}
+            keys={keys}
+            onInsert={(token) => onChange(appendVarToken(value ?? '', token) || undefined)}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ElementBehaviourEditor({
   el,
   onPatch,
@@ -343,63 +502,21 @@ export function ElementBehaviourEditor({
 
       {el.type !== 'TABLE' && <div className="rounded border border-zinc-200 bg-white/90 p-2 dark:border-zinc-600 dark:bg-zinc-900/60">
         <p className="mb-1 text-[11px] font-medium text-zinc-700 dark:text-zinc-200">Dynamic size</p>
-        <label className="flex flex-col gap-0.5 text-[10px]">
-          Width expression
-          <div className="flex gap-1">
-            <input
-              id={fid('size', 'widthExpr')}
-              name={fid('size', 'widthExpr')}
-              className="min-w-0 flex-1 rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
-              placeholder="clamp({{barPct}}*200,20,200)"
-              value={b.size?.widthExpr ?? ''}
-              onChange={(e) =>
-                patchB({
-                  size: { ...b.size, widthExpr: e.target.value || undefined },
-                })
-              }
-            />
-            <VarKeyInsertSelect
-              id={fid('size', 'ins-width')}
-              keys={variableKeyOptions}
-              onInsert={(token) =>
-                patchB({
-                  size: {
-                    ...b.size,
-                    widthExpr: appendVarToken(b.size?.widthExpr ?? '', token) || undefined,
-                  },
-                })
-              }
-            />
-          </div>
-        </label>
-        <label className="mt-1 flex flex-col gap-0.5 text-[10px]">
-          Height expression
-          <div className="flex gap-1">
-            <input
-              id={fid('size', 'heightExpr')}
-              name={fid('size', 'heightExpr')}
-              className="min-w-0 flex-1 rounded border border-zinc-300 px-1 py-0.5 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-800"
-              value={b.size?.heightExpr ?? ''}
-              onChange={(e) =>
-                patchB({
-                  size: { ...b.size, heightExpr: e.target.value || undefined },
-                })
-              }
-            />
-            <VarKeyInsertSelect
-              id={fid('size', 'ins-height')}
-              keys={variableKeyOptions}
-              onInsert={(token) =>
-                patchB({
-                  size: {
-                    ...b.size,
-                    heightExpr: appendVarToken(b.size?.heightExpr ?? '', token) || undefined,
-                  },
-                })
-              }
-            />
-          </div>
-        </label>
+        <SizeDimensionBuilder
+          label="Width"
+          value={b.size?.widthExpr}
+          keys={variableKeyOptions}
+          idPrefix={fid('size', 'widthExpr')}
+          onChange={(next) => patchB({ size: { ...b.size, widthExpr: next } })}
+        />
+        <div className="mt-1" />
+        <SizeDimensionBuilder
+          label="Height"
+          value={b.size?.heightExpr}
+          keys={variableKeyOptions}
+          idPrefix={fid('size', 'heightExpr')}
+          onChange={(next) => patchB({ size: { ...b.size, heightExpr: next } })}
+        />
         <div className="mt-1 grid grid-cols-2 gap-1">
           {(['minWidth', 'maxWidth', 'minHeight', 'maxHeight'] as const).map((k) => (
             <label key={k} className="flex flex-col gap-0.5 text-[10px]">

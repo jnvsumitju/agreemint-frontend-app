@@ -99,11 +99,34 @@ function operandValue(
   return substituteTemplate(raw, globalData, row)
 }
 
+/**
+ * True once the user has filled in enough of the condition for it to be
+ * meaningfully evaluated. Previously a rule with no left/right (i.e. the user
+ * just clicked "Add rule" and didn't configure it) would evaluate as
+ * {@code String(undefined) === String(undefined)} → true and silently apply
+ * itself to every element — the "empty color rule still fires" UX bug.
+ */
+function isConditionConfigured(c: BehaviourCondition | undefined | null): boolean {
+  if (!c) return false
+  const left = c.left
+  if (left === undefined || left === null || (typeof left === 'string' && left.trim() === '')) {
+    return false
+  }
+  // "defined" needs only a left-hand side; everything else needs a right too.
+  if (c.op === 'defined') return true
+  const right = c.right
+  if (right === undefined || right === null || (typeof right === 'string' && right.trim() === '')) {
+    return false
+  }
+  return true
+}
+
 function evalCondition(
   c: BehaviourCondition,
   globalData: Record<string, unknown>,
   row: Record<string, unknown> | null
 ): boolean {
+  if (!isConditionConfigured(c)) return false
   const leftRaw = operandValue(c.left, globalData, row)
   const op = c.op
 
