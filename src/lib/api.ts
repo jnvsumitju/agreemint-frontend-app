@@ -67,6 +67,50 @@ export interface TemplateDto {
   name: string
   createdBy: string | null
   createdAt: string
+  productId: string | null
+  productName: string | null
+}
+
+/** An org's product catalog entry (see Settings → Products). */
+export interface ProductDto {
+  id: string
+  orgId: string
+  name: string
+  description: string | null
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchProducts(orgId: string): Promise<ProductDto[]> {
+  const res = await authFetch(`${API_BASE}/api/orgs/${orgId}/products`)
+  return parseJson<ProductDto[]>(res)
+}
+
+export async function createProduct(
+  orgId: string,
+  name: string,
+  description?: string,
+): Promise<ProductDto> {
+  const res = await authFetch(`${API_BASE}/api/orgs/${orgId}/products`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description: description ?? null }),
+  })
+  return parseJson<ProductDto>(res)
+}
+
+export async function updateProduct(
+  orgId: string,
+  productId: string,
+  patch: { name?: string; description?: string | null },
+): Promise<ProductDto> {
+  const res = await authFetch(`${API_BASE}/api/orgs/${orgId}/products/${productId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  return parseJson<ProductDto>(res)
 }
 
 export interface TemplateVersionDto {
@@ -83,8 +127,9 @@ export interface GenerateResultDto {
   fileUrl: string
 }
 
-export async function fetchTemplates(): Promise<TemplateDto[]> {
-  const res = await authFetch(`${API_BASE}/api/templates`)
+export async function fetchTemplates(productId?: string | null): Promise<TemplateDto[]> {
+  const qs = productId ? `?productId=${encodeURIComponent(productId)}` : ''
+  const res = await authFetch(`${API_BASE}/api/templates${qs}`)
   return parseJson<TemplateDto[]>(res)
 }
 
@@ -93,11 +138,15 @@ export async function fetchTemplate(id: string): Promise<TemplateDto> {
   return parseJson<TemplateDto>(res)
 }
 
-export async function createTemplate(name: string, createdBy?: string): Promise<TemplateDto> {
+export async function createTemplate(
+  name: string,
+  productId: string,
+  createdBy?: string,
+): Promise<TemplateDto> {
   const res = await authFetch(`${API_BASE}/api/templates`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, createdBy: createdBy ?? null }),
+    body: JSON.stringify({ name, createdBy: createdBy ?? null, productId }),
   })
   return parseJson<TemplateDto>(res)
 }
@@ -228,6 +277,9 @@ export type DocumentSource = 'UI_GENERATED' | 'API_GENERATED'
 export interface DocumentLifecycleDto {
   id: string
   templateId: string
+  templateName: string | null
+  productId: string | null
+  productName: string | null
   versionId: string
   title: string | null
   description: string | null
@@ -420,13 +472,15 @@ export async function fetchDocumentFileBlob(fileUrl: string): Promise<Blob> {
 /**
  * Duplicate a template by creating a new one and copying the latest version's layout.
  * This is a frontend-only composition — no dedicated backend endpoint needed.
+ * The copy inherits the source's {@code productId} so it lands in the same bucket.
  */
 export async function duplicateTemplate(
   sourceTemplateId: string,
-  sourceName: string
+  sourceName: string,
+  productId: string,
 ): Promise<TemplateDto> {
   // Create the new template
-  const newTemplate = await createTemplate(`Copy of ${sourceName}`)
+  const newTemplate = await createTemplate(`Copy of ${sourceName}`, productId)
 
   // Try to copy the latest committed version
   try {

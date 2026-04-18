@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
-import { createTemplate, duplicateTemplate, fetchTemplates, type TemplateDto } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
+import {
+  createProduct,
+  createTemplate,
+  duplicateTemplate,
+  fetchProducts,
+  fetchTemplates,
+  type ProductDto,
+  type TemplateDto,
+} from '../lib/api'
 import {
   addTemplateTag,
   allUsedTags,
@@ -167,6 +176,11 @@ function TemplateCard({
         <Link to={`/editor/${template.id}`} className="text-sm font-semibold text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400 line-clamp-1">
           {template.name}
         </Link>
+        {template.productName && (
+          <span className="inline-flex w-fit items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+            {template.productName}
+          </span>
+        )}
         <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
           {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
@@ -224,6 +238,11 @@ function TemplateRow({
       </div>
       <Link to={`/editor/${template.id}`} className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-zinc-900 hover:text-violet-600 dark:text-zinc-100 dark:hover:text-violet-400">{template.name}</span>
+        {template.productName && (
+          <span className="text-[11px] text-violet-600 dark:text-violet-400">
+            {template.productName}
+          </span>
+        )}
       </Link>
       <Badge variant="warning" size="sm" className="hidden sm:inline-flex">Draft</Badge>
       <div className="hidden shrink-0 md:block">
@@ -300,13 +319,24 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
 export function TemplateList() {
   const navigate = useNavigate()
   const toast = useToast()
-  const { canCreateTemplates } = usePermissions()
+  const { canCreateTemplates, isAdmin } = usePermissions()
+  const orgId = useAuthStore((s) => s.org?.id ?? null)
   const [templates, setTemplates] = useState<TemplateDto[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  // Products loaded once per org — used by the filter dropdown above the
+  // grid and by the create-modal product picker.
+  const [products, setProducts] = useState<ProductDto[]>([])
+  const [filterProductId, setFilterProductId] = useState<string | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<string>('')
+  // Inline-new-product UX inside the create modal: admins can key in a new
+  // product without leaving the flow.
+  const [showNewProduct, setShowNewProduct] = useState(false)
+  const [newProductName, setNewProductName] = useState('')
+  const [creatingProduct, setCreatingProduct] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     (localStorage.getItem('agreemint-gallery-view') as ViewMode) ?? 'grid'
   )
@@ -329,7 +359,15 @@ export function TemplateList() {
       .finally(() => setLoading(false))
   }
 
+  const loadProducts = useCallback(() => {
+    if (!orgId) return
+    fetchProducts(orgId)
+      .then(setProducts)
+      .catch(() => setProducts([]))
+  }, [orgId])
+
   useEffect(() => { load() }, [])
+  useEffect(() => { loadProducts() }, [loadProducts])
 
   const onViewChange = (m: ViewMode) => {
     setViewMode(m)
@@ -338,11 +376,12 @@ export function TemplateList() {
 
   const onCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || !selectedProductId) return
     setCreating(true)
     try {
-      const t = await createTemplate(name.trim())
+      const t = await createTemplate(name.trim(), selectedProductId)
       setName('')
+      setSelectedProductId('')
       setShowCreateModal(false)
       toast.success(`Template "${t.name}" created`)
       navigate(`/editor/${t.id}`)
@@ -353,10 +392,34 @@ export function TemplateList() {
     }
   }
 
+  /** Inline-create a product from the template modal (ADMIN only). The new
+   *  product is immediately selected so the admin can finish the template
+   *  flow without closing the modal. */
+  const onCreateInlineProduct = async () => {
+    if (!orgId || !newProductName.trim()) return
+    setCreatingProduct(true)
+    try {
+      const p = await createProduct(orgId, newProductName.trim())
+      setProducts((prev) => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)))
+      setSelectedProductId(p.id)
+      setNewProductName('')
+      setShowNewProduct(false)
+      toast.success(`Product "${p.name}" created`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Product create failed')
+    } finally {
+      setCreatingProduct(false)
+    }
+  }
+
   const onDuplicate = async (t: TemplateDto) => {
+    if (!t.productId) {
+      toast.error('Legacy template with no product — assign one first')
+      return
+    }
     setDuplicatingId(t.id)
     try {
-      const newT = await duplicateTemplate(t.id, t.name)
+      const newT = await duplicateTemplate(t.id, t.name, t.productId)
       toast.success(`Duplicated as "${newT.name}"`)
       load()
     } catch (err) {
@@ -376,8 +439,11 @@ export function TemplateList() {
     if (filterTag) {
       list = list.filter((t) => (tagMap[t.id] ?? []).includes(filterTag))
     }
+    if (filterProductId) {
+      list = list.filter((t) => t.productId === filterProductId)
+    }
     return sortTemplates(list, sort)
-  }, [templates, search, filterTag, tagMap, sort])
+  }, [templates, search, filterTag, filterProductId, tagMap, sort])
 
   return (
     <div className="page-enter mx-auto max-w-6xl px-4 py-8">
@@ -427,6 +493,20 @@ export function TemplateList() {
         >
           {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
+
+        {/* Product filter — shown only once there's at least one product to
+            avoid an empty dropdown on fresh orgs. */}
+        {products.length > 0 && (
+          <select
+            value={filterProductId ?? ''}
+            onChange={(e) => setFilterProductId(e.target.value || null)}
+            aria-label="Filter by product"
+            className="h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-violet-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+          >
+            <option value="">All products</option>
+            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        )}
 
         {/* Tag filters */}
         {usedTags.length > 0 && (
@@ -518,12 +598,78 @@ export function TemplateList() {
       {/* Create Modal */}
       <Modal
         open={showCreateModal}
-        onClose={() => { setShowCreateModal(false); setName('') }}
+        onClose={() => {
+          setShowCreateModal(false); setName(''); setSelectedProductId('')
+          setShowNewProduct(false); setNewProductName('')
+        }}
         title="Create new template"
-        description="Give your template a name to get started"
+        description="Pick the product this template belongs to, then give it a name"
         size="sm"
       >
-        <form onSubmit={(e) => void onCreate(e)}>
+        <form onSubmit={(e) => void onCreate(e)} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              Product <span className="text-red-500">*</span>
+            </label>
+            {products.length === 0 ? (
+              isAdmin ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200">
+                  You don't have any products yet. Create one below to continue.
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200">
+                  Your admin hasn't created any products yet. Ask them to add one from
+                  Settings → Products before creating a template.
+                </div>
+              )
+            ) : (
+              <div className="flex gap-2">
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  required
+                  className="h-9 flex-1 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  <option value="" disabled>Select a product…</option>
+                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewProduct((v) => !v)}
+                    className="rounded-md border border-zinc-300 bg-white px-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  >
+                    + New
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Inline product-create — admin-only, appears either when
+                toggled or when there are zero products. */}
+            {isAdmin && (showNewProduct || products.length === 0) && (
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  placeholder="New product name (e.g. Home Loans)"
+                  className="h-9 flex-1 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                />
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  type="button"
+                  loading={creatingProduct}
+                  disabled={!newProductName.trim()}
+                  onClick={() => void onCreateInlineProduct()}
+                >
+                  Create product
+                </Button>
+              </div>
+            )}
+          </div>
+
           <Input
             ref={createInputRef}
             label="Template name"
@@ -532,13 +678,12 @@ export function TemplateList() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Invoice, NDA, Proposal…"
-            autoFocus
           />
           <ModalFooter>
-            <Button variant="secondary" size="sm" type="button" onClick={() => { setShowCreateModal(false); setName('') }}>
+            <Button variant="secondary" size="sm" type="button" onClick={() => { setShowCreateModal(false); setName(''); setSelectedProductId('') }}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" type="submit" loading={creating} disabled={!name.trim()}>
+            <Button variant="primary" size="sm" type="submit" loading={creating} disabled={!name.trim() || !selectedProductId}>
               Create
             </Button>
           </ModalFooter>

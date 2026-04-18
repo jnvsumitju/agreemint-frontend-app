@@ -159,8 +159,10 @@ export function Documents() {
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
                 <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Title</th>
+                <th className="hidden px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400 md:table-cell">Template</th>
+                <th className="hidden px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400 md:table-cell">Product</th>
                 <th className="px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400">Status</th>
-                <th className="hidden px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400 md:table-cell">Created</th>
+                <th className="hidden px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400 lg:table-cell">Created</th>
                 <th className="hidden px-4 py-3 font-medium text-zinc-600 dark:text-zinc-400 lg:table-cell">Expires</th>
               </tr>
             </thead>
@@ -185,6 +187,18 @@ export function Documents() {
                         </p>
                       )}
                     </td>
+                    <td className="hidden px-4 py-3 text-zinc-600 dark:text-zinc-300 md:table-cell">
+                      {doc.templateName ?? '\u2014'}
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      {doc.productName ? (
+                        <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                          {doc.productName}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400">&mdash;</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {isApi || !doc.lifecycleStatus ? (
                         <ApiSourceBadge />
@@ -192,7 +206,7 @@ export function Documents() {
                         <LifecycleStatusBadge status={doc.lifecycleStatus} size="sm" />
                       )}
                     </td>
-                    <td className="hidden px-4 py-3 text-zinc-500 dark:text-zinc-400 md:table-cell">
+                    <td className="hidden px-4 py-3 text-zinc-500 dark:text-zinc-400 lg:table-cell">
                       {formatDate(doc.createdAt)}
                     </td>
                     <td className="hidden px-4 py-3 text-zinc-500 dark:text-zinc-400 lg:table-cell">

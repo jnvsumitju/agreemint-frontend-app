@@ -5,11 +5,13 @@ import { OrgSettingsTab } from '../components/settings/OrgSettingsTab'
 import { MembersTab } from '../components/settings/MembersTab'
 import { PreferencesTab } from '../components/settings/PreferencesTab'
 import { DeveloperTab } from '../components/settings/DeveloperTab'
+import { ProductsTab } from '../components/settings/ProductsTab'
 
-type TabId = 'org' | 'members' | 'preferences' | 'developer'
+type TabId = 'org' | 'members' | 'preferences' | 'products' | 'developer'
 
 function isValidTab(v: string | null): v is TabId {
-  return v === 'org' || v === 'members' || v === 'preferences' || v === 'developer'
+  return v === 'org' || v === 'members' || v === 'preferences'
+      || v === 'products' || v === 'developer'
 }
 
 export function Settings() {
@@ -26,14 +28,17 @@ export function Settings() {
     { id: 'org', label: 'Organization' },
     { id: 'members', label: 'Members' },
     { id: 'preferences', label: 'Preferences' },
-    // Developer tab is ADMIN-only (manages org-wide API credentials).
-    ...(isAdmin ? [{ id: 'developer' as const, label: 'Developer' }] : []),
+    // Products + Developer tabs are ADMIN-only (catalog + API credentials).
+    ...(isAdmin ? [
+      { id: 'products' as const, label: 'Products' },
+      { id: 'developer' as const, label: 'Developer' },
+    ] : []),
   ]
 
   const rawTab = params.get('tab')
   let activeTab: TabId = isValidTab(rawTab) ? rawTab : 'org'
-  // Hide the developer tab for non-admins even if they direct-link to ?tab=developer
-  if (activeTab === 'developer' && !isAdmin) activeTab = 'org'
+  // Hide admin-only tabs for non-admins even if they direct-link via ?tab=...
+  if ((activeTab === 'developer' || activeTab === 'products') && !isAdmin) activeTab = 'org'
 
   function selectTab(id: TabId) {
     setParams({ tab: id }, { replace: true })
@@ -65,6 +70,7 @@ export function Settings() {
       {activeTab === 'org' && <OrgSettingsTab />}
       {activeTab === 'members' && <MembersTab />}
       {activeTab === 'preferences' && <PreferencesTab />}
+      {activeTab === 'products' && <ProductsTab />}
       {activeTab === 'developer' && <DeveloperTab />}
     </div>
   )
