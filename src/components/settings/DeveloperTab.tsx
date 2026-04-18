@@ -15,7 +15,6 @@ import { CreateApiKeyModal } from './CreateApiKeyModal'
 import { RotateApiKeyModal } from './RotateApiKeyModal'
 import { CreateWebhookModal } from './CreateWebhookModal'
 import { WebhookDeliveriesDrawer } from './WebhookDeliveriesDrawer'
-import { SdkSnippets } from './SdkSnippets'
 
 /**
  * Settings → Developer tab. Lists org API keys with per-row actions
@@ -206,8 +205,6 @@ export function DeveloperTab() {
           </table>
         </div>
       </section>
-
-      <SdkSnippets />
 
       <CreateApiKeyModal
         open={createOpen}
