@@ -164,20 +164,25 @@ export function Profile() {
           <div>
             <p className="text-lg font-medium text-zinc-900 dark:text-zinc-100">{user.name}</p>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">{user.email}</p>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={avatarUploading}
-              className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            {/*
+              Use a <label htmlFor> rather than a button that calls
+              fileInput.click() — some browsers (and deployed hardened
+              configurations) block programmatic clicks on file inputs
+              regardless of whether the input is display:none or sr-only.
+              Label-to-input is the browser-native pattern and works
+              universally. The input is kept sr-only for a11y.
+            */}
+            <label
+              htmlFor="profile-avatar-input"
+              aria-disabled={avatarUploading}
+              className={`mt-2 inline-block cursor-pointer rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 ${
+                avatarUploading ? 'pointer-events-none opacity-60' : ''
+              }`}
             >
               {avatarUploading ? 'Uploading…' : 'Change avatar'}
-            </button>
-            {/*
-              sr-only instead of `hidden` (display:none) — some Chrome builds
-              block programmatic .click() on a display:none file input, which
-              made the "Change avatar" button silently do nothing.
-            */}
+            </label>
             <input
+              id="profile-avatar-input"
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"

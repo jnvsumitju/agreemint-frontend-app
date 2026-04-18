@@ -123,21 +123,23 @@ export function OrgSettingsTab() {
           )}
           {isAdmin && (
             <div>
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={logoUploading}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              {/*
+                Use <label htmlFor> rather than a button that calls
+                fileInput.click() — browser-native label-to-input click
+                forwarding works regardless of hardened browser settings
+                that block programmatic clicks on hidden file inputs.
+              */}
+              <label
+                htmlFor="org-logo-input"
+                aria-disabled={logoUploading}
+                className={`inline-block cursor-pointer rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 ${
+                  logoUploading ? 'pointer-events-none opacity-60' : ''
+                }`}
               >
                 {logoUploading ? 'Uploading…' : 'Change logo'}
-              </button>
-              {/*
-                sr-only instead of `hidden` (display:none) — some Chrome
-                builds block programmatic .click() on a display:none file
-                input, which made the "Change logo" button silently do
-                nothing.
-              */}
+              </label>
               <input
+                id="org-logo-input"
                 ref={fileRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
