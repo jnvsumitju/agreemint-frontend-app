@@ -2,16 +2,9 @@ import { useState, useEffect } from 'react'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
-import { authFetch } from '../../lib/api'
-import { createApprovalWorkflow } from '../../lib/api'
+import { createApprovalWorkflow, fetchOrgMembers, type OrgMemberDto } from '../../lib/api'
+import { useAuthStore } from '../../stores/authStore'
 import { useDocumentStore } from '../../stores/documentStore'
-
-interface OrgMember {
-  id: string
-  userId: string
-  role: string
-  userName: string
-}
 
 interface StepInput {
   assigneeId: string
@@ -28,18 +21,22 @@ export function CreateWorkflowModal({
   documentId: string
 }) {
   const fetchDocumentDetail = useDocumentStore((s) => s.fetchDocumentDetail)
-  const [members, setMembers] = useState<OrgMember[]>([])
+  const orgId = useAuthStore((s) => s.org?.id ?? null)
+  const [members, setMembers] = useState<OrgMemberDto[]>([])
   const [steps, setSteps] = useState<StepInput[]>([{ assigneeId: '', roleLabel: '' }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open) return
-    authFetch('/api/org/members')
-      .then((res) => res.json())
-      .then((data: OrgMember[]) => setMembers(data))
-      .catch(() => {})
-  }, [open])
+    if (!open || !orgId) return
+    // Previously hit the wrong path (`/api/org/members`) with no shape guard;
+    // the 404 body ({"error": "Not found"}) got stored in `members`, and the
+    // subsequent `.map()` blew up the page. Route through the shared
+    // `fetchOrgMembers` helper (correct URL, normalised shape, array-or-throw).
+    fetchOrgMembers(orgId)
+      .then((list) => setMembers(Array.isArray(list) ? list : []))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load members'))
+  }, [open, orgId])
 
   function addStep() {
     setSteps([...steps, { assigneeId: '', roleLabel: '' }])
@@ -101,7 +98,7 @@ export function CreateWorkflowModal({
                 <option value="">Select reviewer</option>
                 {members.map((m) => (
                   <option key={m.userId} value={m.userId}>
-                    {m.userName} ({m.role})
+                    {m.name || m.email} ({m.role})
                   </option>
                 ))}
               </select>
