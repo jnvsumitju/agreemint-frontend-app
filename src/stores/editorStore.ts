@@ -402,6 +402,9 @@ export interface EditorState {
   snapToGrid: boolean
   /** Show the grid lines on the canvas. */
   showGrid: boolean
+  /** Show the horizontal + vertical rulers around the page. Defaults to true for
+   *  editors; TemplateEditor flips it to false for VIEWER/REVIEWER on load. */
+  showRulers: boolean
   /** Grid spacing in pt (default 10). */
   gridSize: number
   /** Show alignment guides to margins, page center, and sibling elements while dragging. */
@@ -442,6 +445,7 @@ export interface EditorState {
   setPageSize: (size: string, orientation?: 'portrait' | 'landscape') => void
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
+  setShowRulers: (v: boolean) => void
   setGridSize: (v: number) => void
   setSmartGuidesEnabled: (v: boolean) => void
   setDragGuides: (guides: DragGuideState) => void
@@ -642,6 +646,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   pageSpec: defaultPageSpec(),
   snapToGrid: true,
   showGrid: true,
+  showRulers: true,
   gridSize: 10,
   smartGuidesEnabled: true,
   dragGuides: { vertical: [], horizontal: [] },
@@ -686,6 +691,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         pageSpec: defaultPageSpec(),
         snapToGrid: true,
         showGrid: true,
+        showRulers: true,
         gridSize: 10,
         smartGuidesEnabled: true,
         dragGuides: { vertical: [], horizontal: [] },
@@ -1677,6 +1683,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setSnapToGrid: (v) => set({ snapToGrid: v }),
   setShowGrid: (v) => set({ showGrid: v }),
+  setShowRulers: (v) => set({ showRulers: v }),
   setGridSize: (v) => set({ gridSize: Math.max(2, Math.round(v)) }),
   setSmartGuidesEnabled: (v) => set({ smartGuidesEnabled: v }),
 

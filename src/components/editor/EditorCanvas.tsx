@@ -1474,6 +1474,7 @@ export function EditorCanvas({
   const select = useEditorStore((s) => s.select)
   const pageSpec = useEditorStore((s) => s.pageSpec)
   const showGrid = useEditorStore((s) => s.showGrid)
+  const showRulers = useEditorStore((s) => s.showRulers)
   const gridSize = useEditorStore((s) => s.gridSize)
   const bandEditBox = useMemo(() => {
     if (!bandContainerEl) return null
@@ -2298,25 +2299,31 @@ export function EditorCanvas({
           className="inline-block min-w-0 origin-top-left"
           style={{
             transform: `scale(${canvasZoom})`,
-            width: 22 + PAGE_W,
-            height: 22 + PAGE_H,
+            // Ruler gutter is 22pt on each axis — drop it when rulers are hidden
+            // so the page hugs the canvas scroll area without empty padding.
+            width: (showRulers ? 22 : 0) + PAGE_W,
+            height: (showRulers ? 22 : 0) + PAGE_H,
           }}
         >
           <div className="flex flex-col">
+          {showRulers && (
+            <div className="flex">
+              <RulerCorner elRef={rulerCornerBoundRef} />
+              <HorizontalRuler
+                widthPt={PAGE_W}
+                elRef={horizontalRulerBoundRef}
+                onPointerDownGuide={onRulerGuidePointerDown('horizontal')}
+              />
+            </div>
+          )}
           <div className="flex">
-            <RulerCorner elRef={rulerCornerBoundRef} />
-            <HorizontalRuler
-              widthPt={PAGE_W}
-              elRef={horizontalRulerBoundRef}
-              onPointerDownGuide={onRulerGuidePointerDown('horizontal')}
-            />
-          </div>
-          <div className="flex">
-            <VerticalRuler
-              heightPt={PAGE_H}
-              elRef={verticalRulerBoundRef}
-              onPointerDownGuide={onRulerGuidePointerDown('vertical')}
-            />
+            {showRulers && (
+              <VerticalRuler
+                heightPt={PAGE_H}
+                elRef={verticalRulerBoundRef}
+                onPointerDownGuide={onRulerGuidePointerDown('vertical')}
+              />
+            )}
             <div
               ref={connectDropRef}
               data-agreemint-page-canvas

@@ -1,24 +1,39 @@
+import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '../stores/authStore'
 import { OrgSettingsTab } from '../components/settings/OrgSettingsTab'
 import { MembersTab } from '../components/settings/MembersTab'
 import { PreferencesTab } from '../components/settings/PreferencesTab'
+import { DeveloperTab } from '../components/settings/DeveloperTab'
 
-type TabId = 'org' | 'members' | 'preferences'
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'org', label: 'Organization' },
-  { id: 'members', label: 'Members' },
-  { id: 'preferences', label: 'Preferences' },
-]
+type TabId = 'org' | 'members' | 'preferences' | 'developer'
 
 function isValidTab(v: string | null): v is TabId {
-  return v === 'org' || v === 'members' || v === 'preferences'
+  return v === 'org' || v === 'members' || v === 'preferences' || v === 'developer'
 }
 
 export function Settings() {
   const [params, setParams] = useSearchParams()
+  const orgId = useAuthStore((s) => s.org?.id ?? null)
+  const orgs = useAuthStore((s) => s.orgs)
+  const isAdmin = useMemo(() => {
+    if (!orgId) return false
+    const entry = orgs.find((o) => o.org.id === orgId)
+    return entry?.role === 'ADMIN'
+  }, [orgId, orgs])
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'org', label: 'Organization' },
+    { id: 'members', label: 'Members' },
+    { id: 'preferences', label: 'Preferences' },
+    // Developer tab is ADMIN-only (manages org-wide API credentials).
+    ...(isAdmin ? [{ id: 'developer' as const, label: 'Developer' }] : []),
+  ]
+
   const rawTab = params.get('tab')
-  const activeTab: TabId = isValidTab(rawTab) ? rawTab : 'org'
+  let activeTab: TabId = isValidTab(rawTab) ? rawTab : 'org'
+  // Hide the developer tab for non-admins even if they direct-link to ?tab=developer
+  if (activeTab === 'developer' && !isAdmin) activeTab = 'org'
 
   function selectTab(id: TabId) {
     setParams({ tab: id }, { replace: true })
@@ -30,7 +45,7 @@ export function Settings() {
 
       {/* Tab bar */}
       <div className="mb-8 flex gap-1 border-b border-zinc-200 dark:border-zinc-700">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -50,6 +65,7 @@ export function Settings() {
       {activeTab === 'org' && <OrgSettingsTab />}
       {activeTab === 'members' && <MembersTab />}
       {activeTab === 'preferences' && <PreferencesTab />}
+      {activeTab === 'developer' && <DeveloperTab />}
     </div>
   )
 }

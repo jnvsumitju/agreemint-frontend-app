@@ -21,6 +21,7 @@ import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
 import { ShareModal } from './ShareModal'
 import { RequestReviewModal } from './RequestReviewModal'
+import { DeveloperModal } from './DeveloperModal'
 
 function EditorSurfaceSwitcher() {
   const pages = useEditorStore((s) => s.pages)
@@ -263,6 +264,7 @@ export function Toolbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [developerOpen, setDeveloperOpen] = useState(false)
   const [reviewModalVersion, setReviewModalVersion] = useState<{ id: string; number: number } | null>(null)
   /** Server-returned blockers when a commit hits 409 REVIEW_BLOCK. */
   const [commitBlockers, setCommitBlockers] = useState<TemplateReviewDto[] | null>(null)
@@ -651,6 +653,17 @@ export function Toolbar() {
                 >
                   Version Diff
                 </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                  onClick={() => {
+                    setDeveloperOpen(true)
+                    setMenuOpen(false)
+                  }}
+                >
+                  Developer
+                </button>
                 {!viewOnly && (
                   <>
                     <div className="border-t border-zinc-100 dark:border-zinc-700" />
@@ -720,6 +733,7 @@ export function Toolbar() {
           versionNumber={reviewModalVersion?.number ?? null}
         />
       )}
+      <DeveloperModal open={developerOpen} onClose={() => setDeveloperOpen(false)} />
       {commitBlockers && commitBlockers.length > 0 && (
         <CommitBlockerBanner
           blockers={commitBlockers}

@@ -141,9 +141,11 @@ export function EditorStatusBar() {
   const setPageMargins = useEditorStore((s) => s.setPageMargins)
   const canvasPointerPt = useEditorStore((s) => s.canvasPointerPt)
   const showGrid = useEditorStore((s) => s.showGrid)
+  const showRulers = useEditorStore((s) => s.showRulers)
   const gridSize = useEditorStore((s) => s.gridSize)
   const smartGuidesEnabled = useEditorStore((s) => s.smartGuidesEnabled)
   const setShowGrid = useEditorStore((s) => s.setShowGrid)
+  const setShowRulers = useEditorStore((s) => s.setShowRulers)
   const setGridSize = useEditorStore((s) => s.setGridSize)
   const setSmartGuidesEnabled = useEditorStore((s) => s.setSmartGuidesEnabled)
   const canvasZoom = useEditorStore((s) => s.canvasZoom)
@@ -207,6 +209,7 @@ export function EditorStatusBar() {
 
         {/* Grid + Guides toggles */}
         <div className="flex items-center gap-3" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <ToggleSwitch checked={showRulers} onChange={setShowRulers} label="Rulers" />
           <ToggleSwitch checked={showGrid} onChange={setShowGrid} label="Grid" />
           {showGrid && (
             <select

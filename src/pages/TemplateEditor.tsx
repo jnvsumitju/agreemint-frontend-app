@@ -61,7 +61,10 @@ export function TemplateEditor() {
             setViewOnly(!access.canEdit)
             setCommentingEnabled(access.canComment)
             if (!access.canEdit) {
+              // Read-only defaults — VIEWER/REVIEWER don't need authoring chrome.
+              // Toggles in the status bar still let them opt back in.
               useEditorStore.getState().setShowGrid(false)
+              useEditorStore.getState().setShowRulers(false)
             }
           }
         } catch {

@@ -514,6 +514,117 @@ export interface ReviewBlockPayload {
   blockers: TemplateReviewDto[]
 }
 
+// ── API keys ─────────────────────────────────────────────────────────────────
+
+export interface ApiKeyDto {
+  id: string
+  orgId: string
+  name: string
+  keyPrefix: string
+  keyLast4: string
+  scopes: string[]
+  allowedIps: string | null
+  rateLimitRpm: number
+  createdAt: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+  lastUsedIp: string | null
+  revokedAt: string | null
+  rotatedToId: string | null
+}
+
+export interface ApiKeyCreatedDto {
+  key: ApiKeyDto
+  rawKey: string    // shown exactly once
+}
+
+export interface CreateApiKeyRequestDto {
+  name: string
+  scopes: string[]
+  expiresInDays?: number | null
+  allowedIps?: string | null
+  rateLimitRpm?: number | null
+}
+
+export async function listApiKeys(orgId: string): Promise<ApiKeyDto[]> {
+  const res = await authFetch(`/api/orgs/${orgId}/api-keys`)
+  return parseJson<ApiKeyDto[]>(res)
+}
+
+export async function createApiKey(orgId: string, req: CreateApiKeyRequestDto): Promise<ApiKeyCreatedDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/api-keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  return parseJson<ApiKeyCreatedDto>(res)
+}
+
+export async function revokeApiKey(orgId: string, keyId: string): Promise<void> {
+  await authFetch(`/api/orgs/${orgId}/api-keys/${keyId}`, { method: 'DELETE' })
+}
+
+export async function rotateApiKey(orgId: string, keyId: string, graceDays = 7): Promise<ApiKeyCreatedDto> {
+  const res = await authFetch(
+    `/api/orgs/${orgId}/api-keys/${keyId}/rotate?graceDays=${graceDays}`,
+    { method: 'POST' },
+  )
+  return parseJson<ApiKeyCreatedDto>(res)
+}
+
+// ── Webhooks ─────────────────────────────────────────────────────────────────
+
+export interface WebhookDto {
+  id: string
+  orgId: string
+  url: string
+  secretLast4: string
+  events: string[]
+  active: boolean
+  createdAt: string
+  revokedAt: string | null
+}
+
+export interface WebhookCreatedDto { webhook: WebhookDto; secret: string }
+
+export interface WebhookDeliveryDto {
+  id: string
+  webhookId: string
+  event: string
+  attempt: number
+  maxAttempts: number
+  status: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'ABANDONED'
+  responseCode: number | null
+  responseBody: string | null
+  error: string | null
+  nextRetryAt: string | null
+  createdAt: string
+  deliveredAt: string | null
+}
+
+export async function listWebhooks(orgId: string): Promise<WebhookDto[]> {
+  const res = await authFetch(`/api/orgs/${orgId}/webhooks`)
+  return parseJson<WebhookDto[]>(res)
+}
+
+export async function createWebhook(orgId: string, url: string, events: string[]): Promise<WebhookCreatedDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/webhooks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, events }),
+  })
+  return parseJson<WebhookCreatedDto>(res)
+}
+
+export async function revokeWebhook(orgId: string, webhookId: string): Promise<void> {
+  await authFetch(`/api/orgs/${orgId}/webhooks/${webhookId}`, { method: 'DELETE' })
+}
+
+export async function listWebhookDeliveries(orgId: string, webhookId: string, limit = 50): Promise<WebhookDeliveryDto[]> {
+  const res = await authFetch(`/api/orgs/${orgId}/webhooks/${webhookId}/deliveries?limit=${limit}`)
+  return parseJson<WebhookDeliveryDto[]>(res)
+}
+
 export function isReviewBlockError(err: unknown): err is { payload: ReviewBlockPayload } {
   return typeof err === 'object' && err !== null &&
     'payload' in err &&
