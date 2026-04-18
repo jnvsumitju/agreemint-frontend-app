@@ -172,12 +172,17 @@ export function Profile() {
             >
               {avatarUploading ? 'Uploading…' : 'Change avatar'}
             </button>
+            {/*
+              sr-only instead of `hidden` (display:none) — some Chrome builds
+              block programmatic .click() on a display:none file input, which
+              made the "Change avatar" button silently do nothing.
+            */}
             <input
               ref={fileRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={(e) => void handleAvatarChange(e)}
-              className="hidden"
+              className="sr-only"
             />
           </div>
         </div>

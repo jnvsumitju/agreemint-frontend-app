@@ -131,12 +131,18 @@ export function OrgSettingsTab() {
               >
                 {logoUploading ? 'Uploading…' : 'Change logo'}
               </button>
+              {/*
+                sr-only instead of `hidden` (display:none) — some Chrome
+                builds block programmatic .click() on a display:none file
+                input, which made the "Change logo" button silently do
+                nothing.
+              */}
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 onChange={(e) => void handleLogoChange(e)}
-                className="hidden"
+                className="sr-only"
               />
             </div>
           )}
