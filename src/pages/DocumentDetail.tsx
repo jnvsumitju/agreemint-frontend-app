@@ -21,8 +21,9 @@ function formatDate(iso: string) {
   })
 }
 
-/** Map lifecycle status to the actions a user can take. */
-function getActions(status: LifecycleStatus): { label: string; target: LifecycleStatus; variant: 'primary' | 'secondary' | 'danger' | 'ghost' }[] {
+/** Map lifecycle status to the actions a user can take. API-sourced docs
+ *  have `status === null` and fall through to the empty default. */
+function getActions(status: LifecycleStatus | null): { label: string; target: LifecycleStatus; variant: 'primary' | 'secondary' | 'danger' | 'ghost' }[] {
   switch (status) {
     case 'DRAFT':
       return [
@@ -119,7 +120,10 @@ export function DocumentDetail() {
   }
 
   const { document: doc, timeline, workflow } = currentDocument
-  const actions = getActions(doc.lifecycleStatus)
+  const isApi = doc.source === 'API_GENERATED'
+  // API docs skip the lifecycle workflow — no transitions, no approval
+  // workflow, no timeline worth showing.
+  const actions = isApi ? [] : getActions(doc.lifecycleStatus)
 
   async function handleTransition(target: LifecycleStatus) {
     if (!documentId) return
@@ -148,9 +152,18 @@ export function DocumentDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              {doc.title || 'Untitled document'}
+              {doc.title || (isApi ? `API doc ${doc.id.slice(0, 8)}` : 'Untitled document')}
             </h1>
-            <LifecycleStatusBadge status={doc.lifecycleStatus} />
+            {isApi || !doc.lifecycleStatus ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path d="M10 2a1 1 0 011 1v1.09a6.003 6.003 0 014.91 4.91H17a1 1 0 110 2h-1.09a6.003 6.003 0 01-4.91 4.91V17a1 1 0 11-2 0v-1.09A6.003 6.003 0 014.09 11H3a1 1 0 110-2h1.09A6.003 6.003 0 019 4.09V3a1 1 0 011-1z" />
+                </svg>
+                API
+              </span>
+            ) : (
+              <LifecycleStatusBadge status={doc.lifecycleStatus} />
+            )}
           </div>
           {doc.description && (
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{doc.description}</p>
@@ -225,63 +238,82 @@ export function DocumentDetail() {
           </Card>
         </div>
 
-        {/* Right: Actions + Workflow + Timeline */}
+        {/* Right: Actions + Workflow + Timeline — hidden for API-generated
+            documents since they don't participate in our lifecycle. */}
         <div className="space-y-6">
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {/* Submit for Review (special — opens modal) */}
-              {doc.lifecycleStatus === 'DRAFT' && !workflow && (
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  onClick={() => setShowWorkflowModal(true)}
-                >
-                  Submit for Review
-                </Button>
-              )}
-
-              {actions.map((action) => (
-                <Button
-                  key={action.target}
-                  variant={action.variant}
-                  className="w-full"
-                  loading={transitioning}
-                  onClick={() => handleTransition(action.target)}
-                >
-                  {action.label}
-                </Button>
-              ))}
-
-              {actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
-                <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-                  This document is archived
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Approval Workflow */}
-          {workflow && (
+          {isApi ? (
             <Card>
+              <CardHeader>
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                  Source
+                </h3>
+              </CardHeader>
               <CardContent>
-                <ApprovalWorkflowPanel workflow={workflow} documentId={doc.id} />
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                  Generated via the developer API. Review and approval are handled by the
+                  consuming system — the in-app lifecycle workflow does not apply here.
+                </p>
               </CardContent>
             </Card>
-          )}
+          ) : (
+            <>
+              {/* Actions */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {/* Submit for Review (special — opens modal) */}
+                  {doc.lifecycleStatus === 'DRAFT' && !workflow && (
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={() => setShowWorkflowModal(true)}
+                    >
+                      Submit for Review
+                    </Button>
+                  )}
 
-          {/* Timeline */}
-          <Card>
-            <CardHeader>
-              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Timeline</h3>
-            </CardHeader>
-            <CardContent>
-              <DocumentTimeline events={timeline} />
-            </CardContent>
-          </Card>
+                  {actions.map((action) => (
+                    <Button
+                      key={action.target}
+                      variant={action.variant}
+                      className="w-full"
+                      loading={transitioning}
+                      onClick={() => handleTransition(action.target)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+
+                  {actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
+                    <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+                      This document is archived
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Approval Workflow */}
+              {workflow && (
+                <Card>
+                  <CardContent>
+                    <ApprovalWorkflowPanel workflow={workflow} documentId={doc.id} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Timeline */}
+              <Card>
+                <CardHeader>
+                  <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Timeline</h3>
+                </CardHeader>
+                <CardContent>
+                  <DocumentTimeline events={timeline} />
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
 

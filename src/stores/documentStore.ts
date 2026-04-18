@@ -7,6 +7,7 @@ import {
   fetchPendingApprovals,
   type DocumentLifecycleDto,
   type DocumentDetailDto,
+  type DocumentSource,
   type LifecycleStatsDto,
   type PendingApprovalDto,
   type LifecycleStatus,
@@ -18,15 +19,22 @@ interface DocumentState {
   stats: LifecycleStatsDto | null
   pendingApprovals: PendingApprovalDto[]
   filterStatus: LifecycleStatus | null
+  /**
+   * UI-vs-API tab selector. `null` means "both"; this stays null for users
+   * who don't hit the Documents page, so nothing regresses for existing
+   * flows.
+   */
+  filterSource: DocumentSource | null
   isLoading: boolean
   error: string | null
 
-  fetchDocuments: (status?: LifecycleStatus) => Promise<void>
+  fetchDocuments: (status?: LifecycleStatus, source?: DocumentSource | null) => Promise<void>
   fetchDocumentDetail: (id: string) => Promise<void>
   fetchStats: () => Promise<void>
   fetchPendingApprovals: () => Promise<void>
   transitionStatus: (id: string, target: LifecycleStatus, comment?: string) => Promise<void>
   setFilterStatus: (status: LifecycleStatus | null) => void
+  setFilterSource: (source: DocumentSource | null) => void
   clearCurrentDocument: () => void
 }
 
@@ -36,13 +44,23 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   stats: null,
   pendingApprovals: [],
   filterStatus: null,
+  filterSource: null,
   isLoading: false,
   error: null,
 
-  fetchDocuments: async (status?: LifecycleStatus) => {
+  fetchDocuments: async (status?: LifecycleStatus, source?: DocumentSource | null) => {
     set({ isLoading: true, error: null })
     try {
-      const docs = await fetchDocuments(status ?? get().filterStatus ?? undefined)
+      // API-source docs have a null lifecycleStatus, so ignoring the status
+      // filter when the user's on the API tab keeps the list non-empty.
+      const effectiveSource = source === undefined ? get().filterSource : source
+      const effectiveStatus = effectiveSource === 'API_GENERATED'
+        ? undefined
+        : (status ?? get().filterStatus ?? undefined)
+      const docs = await fetchDocuments(
+        effectiveStatus,
+        effectiveSource ?? undefined,
+      )
       set({ documents: docs, isLoading: false })
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false })
@@ -93,6 +111,17 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   setFilterStatus: (status: LifecycleStatus | null) => {
     set({ filterStatus: status })
     get().fetchDocuments(status ?? undefined)
+  },
+
+  setFilterSource: (source: DocumentSource | null) => {
+    // Clear the status sub-filter when switching away from the UI tab so the
+    // API list shows all rows instead of filtering by a status that doesn't
+    // exist for API docs.
+    set({
+      filterSource: source,
+      filterStatus: source === 'API_GENERATED' ? null : get().filterStatus,
+    })
+    get().fetchDocuments(undefined, source)
   },
 
   clearCurrentDocument: () => set({ currentDocument: null }),

@@ -216,6 +216,15 @@ export type LifecycleStatus =
   | 'EXPIRED'
   | 'ARCHIVED'
 
+/**
+ * Where a generated document came from.
+ *  - {@code UI_GENERATED}: produced via the in-app editor; carries a lifecycle.
+ *  - {@code API_GENERATED}: produced via the public developer API
+ *    ({@code POST /api/v1/templates/.../generate}); has {@code lifecycleStatus === null}
+ *    and is not managed by our review/lifecycle UI.
+ */
+export type DocumentSource = 'UI_GENERATED' | 'API_GENERATED'
+
 export interface DocumentLifecycleDto {
   id: string
   templateId: string
@@ -224,7 +233,8 @@ export interface DocumentLifecycleDto {
   description: string | null
   fileUrl: string | null
   generationStatus: 'PENDING' | 'COMPLETED' | 'FAILED'
-  lifecycleStatus: LifecycleStatus
+  lifecycleStatus: LifecycleStatus | null
+  source: DocumentSource
   createdBy: string | null
   orgId: string | null
   expiresAt: string | null
@@ -283,11 +293,13 @@ export interface PendingApprovalDto {
 
 export async function fetchDocuments(
   status?: LifecycleStatus,
+  source?: DocumentSource,
   page = 0,
   size = 20,
 ): Promise<DocumentLifecycleDto[]> {
   const params = new URLSearchParams({ page: String(page), size: String(size) })
   if (status) params.set('status', status)
+  if (source) params.set('source', source)
   const res = await authFetch(`${API_BASE}/api/documents?${params}`)
   return parseJson<DocumentLifecycleDto[]>(res)
 }
