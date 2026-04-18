@@ -361,6 +361,51 @@ export function pdfFileUrl(fileUrl: string): string {
 }
 
 /**
+ * Upload a new avatar for the current user. The backend writes to R2's public
+ * bucket and returns the permanent public URL, which is also written to
+ * {@code users.avatar_url}. Caller should refresh the auth store's `user`
+ * so navbar avatars reflect the new image.
+ */
+export async function uploadUserAvatar(file: File): Promise<string> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await authFetch(`${API_BASE}/api/users/me/avatar`, {
+    method: 'POST',
+    body: form,
+  })
+  const body = await parseJson<{ avatarUrl: string }>(res)
+  return body.avatarUrl
+}
+
+/** Upload a new logo for an org. ADMIN only. Returns the new public URL. */
+export async function uploadOrgLogo(orgId: string, file: File): Promise<string> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await authFetch(`${API_BASE}/api/orgs/${orgId}/avatar`, {
+    method: 'POST',
+    body: form,
+  })
+  const body = await parseJson<{ logoUrl: string }>(res)
+  return body.logoUrl
+}
+
+/**
+ * Fetch a generated-document PDF as a Blob with the Bearer token attached.
+ * Callers should turn the blob into an object URL via {@link URL.createObjectURL}
+ * and {@link URL.revokeObjectURL} when done. Embedding the backend URL
+ * directly in an {@code <iframe src>} doesn't work — the iframe request
+ * carries no Authorization header and the backend responds with
+ * {@code X-Frame-Options: DENY} anyway, so the browser shows a
+ * {@code chrome-error://} frame.
+ */
+export async function fetchDocumentFileBlob(fileUrl: string): Promise<Blob> {
+  const url = fileUrl.startsWith('http') ? fileUrl : `${API_BASE}${fileUrl}`
+  const res = await authFetch(url)
+  if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`)
+  return res.blob()
+}
+
+/**
  * Duplicate a template by creating a new one and copying the latest version's layout.
  * This is a frontend-only composition — no dedicated backend endpoint needed.
  */

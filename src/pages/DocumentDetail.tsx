@@ -5,10 +5,11 @@ import { LifecycleStatusBadge } from '../components/documents/LifecycleStatusBad
 import { DocumentTimeline } from '../components/documents/DocumentTimeline'
 import { ApprovalWorkflowPanel } from '../components/documents/ApprovalWorkflowPanel'
 import { CreateWorkflowModal } from '../components/documents/CreateWorkflowModal'
+import { PdfCustomViewer } from '../components/editor/PdfCustomViewer'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Skeleton } from '../components/ui/Skeleton'
-import { pdfFileUrl, type LifecycleStatus } from '../lib/api'
+import { fetchDocumentFileBlob, type LifecycleStatus } from '../lib/api'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -67,11 +68,39 @@ export function DocumentDetail() {
     useDocumentStore()
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (documentId) fetchDocumentDetail(documentId)
     return () => clearCurrentDocument()
   }, [documentId, fetchDocumentDetail, clearCurrentDocument])
+
+  // Load the PDF as an authenticated blob so the preview iframe can render it
+  // same-origin (the backend `/file` endpoint requires Authorization and sets
+  // `X-Frame-Options: DENY`, so a raw cross-origin iframe src fails).
+  const fileUrl = currentDocument?.document.fileUrl
+  const generationStatus = currentDocument?.document.generationStatus
+  useEffect(() => {
+    if (!fileUrl || generationStatus !== 'COMPLETED') {
+      setPdfBlobUrl(null)
+      return
+    }
+    let cancelled = false
+    let created: string | null = null
+    fetchDocumentFileBlob(fileUrl)
+      .then((blob) => {
+        if (cancelled) return
+        created = URL.createObjectURL(blob)
+        setPdfBlobUrl(created)
+      })
+      .catch(() => {
+        if (!cancelled) setPdfBlobUrl(null)
+      })
+    return () => {
+      cancelled = true
+      if (created) URL.revokeObjectURL(created)
+    }
+  }, [fileUrl, generationStatus])
 
   if (isLoading || !currentDocument) {
     return (
@@ -127,11 +156,10 @@ export function DocumentDetail() {
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{doc.description}</p>
           )}
         </div>
-        {doc.fileUrl && (
+        {pdfBlobUrl && (
           <a
-            href={pdfFileUrl(doc.fileUrl)}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={pdfBlobUrl}
+            download={`${doc.title || 'document'}.pdf`}
             className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -145,15 +173,24 @@ export function DocumentDetail() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left: Document info */}
         <div className="space-y-6 lg:col-span-2">
-          {/* PDF preview embed */}
+          {/* PDF preview — rendered from a same-origin blob URL that
+              `fetchDocumentFileBlob` loaded with the Bearer token. Raw
+              `src={backendUrl}` would 401 + trip X-Frame-Options: DENY. */}
           {doc.fileUrl && doc.generationStatus === 'COMPLETED' && (
             <Card>
               <CardContent className="p-0">
-                <iframe
-                  src={pdfFileUrl(doc.fileUrl)}
-                  title="PDF Preview"
-                  className="h-[600px] w-full rounded-xl"
-                />
+                <div className="h-[600px] w-full overflow-hidden rounded-xl">
+                  {pdfBlobUrl ? (
+                    <PdfCustomViewer
+                      blobUrl={pdfBlobUrl}
+                      downloadFileName={`${doc.title || 'document'}.pdf`}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Skeleton className="h-[560px] w-[90%]" />
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}

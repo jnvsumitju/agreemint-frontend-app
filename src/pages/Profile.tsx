@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useAuthStore } from '../stores/authStore'
-import { authFetch } from '../lib/api'
+import { authFetch, uploadUserAvatar } from '../lib/api'
 
 export function Profile() {
   const user = useAuthStore((s) => s.user)
@@ -8,6 +8,7 @@ export function Profile() {
 
   const [name, setName] = useState(user?.name ?? '')
   const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl ?? '')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
@@ -35,21 +36,33 @@ export function Profile() {
       .slice(0, 2)
   }
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  // The avatar is uploaded immediately on pick — it goes to R2 via our
+  // backend, which returns the permanent public URL and writes it back to
+  // the user row. "Save changes" is now just for name edits.
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
     const MAX_SIZE = 2 * 1024 * 1024 // 2MB
     if (file.size > MAX_SIZE) {
       showToast('error', 'Image must be under 2MB')
-      e.target.value = ''
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result as string
-      setAvatarPreview(base64)
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      showToast('error', 'Use PNG, JPEG, or WebP')
+      return
     }
-    reader.readAsDataURL(file)
+    setAvatarUploading(true)
+    try {
+      const url = await uploadUserAvatar(file)
+      setAvatarPreview(url)
+      setUser({ avatarUrl: url })
+      showToast('success', 'Avatar updated')
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setAvatarUploading(false)
+    }
   }
 
   async function saveProfile() {
@@ -58,13 +71,13 @@ export function Profile() {
       const res = await authFetch('/api/auth/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, avatarUrl: avatarPreview || null }),
+        body: JSON.stringify({ name }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Update failed' }))
         throw new Error(err.message || 'Update failed')
       }
-      setUser({ name, avatarUrl: avatarPreview || null })
+      setUser({ name })
       showToast('success', 'Profile updated')
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : 'Update failed')
@@ -154,15 +167,16 @@ export function Profile() {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              disabled={avatarUploading}
+              className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
-              Change avatar
+              {avatarUploading ? 'Uploading…' : 'Change avatar'}
             </button>
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => void handleAvatarChange(e)}
               className="hidden"
             />
           </div>
@@ -213,7 +227,7 @@ export function Profile() {
             <button
               type="button"
               onClick={() => void saveProfile()}
-              disabled={saving || name === user.name && avatarPreview === (user.avatarUrl ?? '')}
+              disabled={saving || name === user.name}
               className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save changes'}

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useAuthStore, type OrgDto } from '../../stores/authStore'
-import { authFetch } from '../../lib/api'
+import { authFetch, uploadOrgLogo } from '../../lib/api'
 
 export function OrgSettingsTab() {
   const org = useAuthStore((s) => s.org)
@@ -12,6 +12,7 @@ export function OrgSettingsTab() {
 
   const [name, setName] = useState(org?.name ?? '')
   const [logoPreview, setLogoPreview] = useState(org?.logoUrl ?? '')
+  const [logoUploading, setLogoUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
@@ -22,20 +23,32 @@ export function OrgSettingsTab() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  // Logo is uploaded immediately — the backend persists the public R2 URL
+  // and returns it; the "Save changes" button only covers name edits now.
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file || !org) return
+    e.target.value = ''
     const MAX_SIZE = 2 * 1024 * 1024 // 2MB
     if (file.size > MAX_SIZE) {
       showToast('error', 'Logo image must be under 2MB')
-      e.target.value = ''
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setLogoPreview(reader.result as string)
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      showToast('error', 'Use PNG, JPEG, or WebP')
+      return
     }
-    reader.readAsDataURL(file)
+    setLogoUploading(true)
+    try {
+      const url = await uploadOrgLogo(org.id, file)
+      setLogoPreview(url)
+      setOrg({ ...org, logoUrl: url })
+      showToast('success', 'Logo updated')
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   async function saveOrg() {
@@ -45,13 +58,13 @@ export function OrgSettingsTab() {
       const res = await authFetch(`/api/orgs/${org.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, logoUrl: logoPreview || null }),
+        body: JSON.stringify({ name }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Update failed' }))
         throw new Error(err.message || 'Update failed')
       }
-      const updated: OrgDto = { ...org, name, logoUrl: logoPreview || null }
+      const updated: OrgDto = { ...org, name }
       setOrg(updated)
       showToast('success', 'Organization updated')
     } catch (err) {
@@ -113,15 +126,16 @@ export function OrgSettingsTab() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                disabled={logoUploading}
+                className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
               >
-                Change logo
+                {logoUploading ? 'Uploading…' : 'Change logo'}
               </button>
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
-                onChange={handleLogoChange}
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => void handleLogoChange(e)}
                 className="hidden"
               />
             </div>
@@ -172,7 +186,7 @@ export function OrgSettingsTab() {
               <button
                 type="button"
                 onClick={() => void saveOrg()}
-                disabled={saving || (name === org.name && logoPreview === (org.logoUrl ?? ''))}
+                disabled={saving || name === org.name}
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save changes'}
