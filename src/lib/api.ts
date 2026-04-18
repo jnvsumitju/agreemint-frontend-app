@@ -87,6 +87,25 @@ export async function fetchProducts(orgId: string): Promise<ProductDto[]> {
   return parseJson<ProductDto[]>(res)
 }
 
+/** Per-product metrics rendered on the Products page. All counts are
+ *  org-scoped and computed live server-side (no caching yet). */
+export interface ProductMetricsDto {
+  id: string
+  name: string
+  description: string | null
+  templateCount: number
+  documentCount: number
+  uiDocumentCount: number
+  apiDocumentCount: number
+  lastDocumentAt: string | null
+  createdAt: string
+}
+
+export async function fetchProductMetrics(orgId: string): Promise<ProductMetricsDto[]> {
+  const res = await authFetch(`${API_BASE}/api/orgs/${orgId}/products/metrics`)
+  return parseJson<ProductMetricsDto[]>(res)
+}
+
 export async function createProduct(
   orgId: string,
   name: string,

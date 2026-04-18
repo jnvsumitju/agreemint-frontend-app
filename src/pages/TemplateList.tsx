@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
 import { useAuthStore } from '../stores/authStore'
 import {
@@ -321,6 +321,10 @@ export function TemplateList() {
   const toast = useToast()
   const { canCreateTemplates, isAdmin } = usePermissions()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
+  // Deep-link support: `/?productId=...` (used by the Products page) preloads
+  // the filter to that product.
+  const [searchParams] = useSearchParams()
+  const initialProductId = searchParams.get('productId')
   const [templates, setTemplates] = useState<TemplateDto[]>([])
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
@@ -330,7 +334,7 @@ export function TemplateList() {
   // Products loaded once per org — used by the filter dropdown above the
   // grid and by the create-modal product picker.
   const [products, setProducts] = useState<ProductDto[]>([])
-  const [filterProductId, setFilterProductId] = useState<string | null>(null)
+  const [filterProductId, setFilterProductId] = useState<string | null>(initialProductId)
   const [selectedProductId, setSelectedProductId] = useState<string>('')
   // Inline-new-product UX inside the create modal: admins can key in a new
   // product without leaving the flow.

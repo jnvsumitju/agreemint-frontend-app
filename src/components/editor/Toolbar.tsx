@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { commitDraft, dismissReview, generatePdf, isReviewBlockError, pdfFileUrl, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
 import { editorDraftSyncIntervalMs, editorLocalSaveIntervalMs } from '../../lib/editorEnv'
 import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/editorLocalDraft'
@@ -424,10 +424,9 @@ export function Toolbar() {
       const elements = selectAllTemplateElements(s)
       const data = buildGenerationDataFromVariableValues(elements, s.variableValues)
       const result = await generatePdf(templateId, currentVersionId, data)
-      const url = pdfFileUrl(result.fileUrl)
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(await res.text())
-      const blob = await res.blob()
+      // authFetch under the hood — raw fetch would drop the Bearer token and
+      // the backend 401s (the `/file` endpoint streams R2 bytes behind JWT).
+      const blob = await fetchDocumentFileBlob(result.fileUrl)
       const href = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = href
