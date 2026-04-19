@@ -85,10 +85,16 @@
           }
         }
       }
+    },
+    "rules": {
+      "description": "Unified rules list (v2). When present, takes precedence over legacy visibilityRules / colorRules / size / imageSrcExpr. Each rule is a sentence: [optional WHEN condition] + [action: hide | show | set target to value]. Rules evaluate top-to-bottom; order = precedence.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
     }
   },
   "$defs": {
     "condition": {
+      "description": "Legacy leaf comparison used by visibilityRules / colorRules / table rules.",
       "type": "object",
       "required": ["left", "op"],
       "additionalProperties": false,
@@ -99,6 +105,162 @@
           "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "defined"]
         },
         "right": { "type": ["string", "number", "boolean"] }
+      }
+    },
+    "ruleCondition": {
+      "description": "Tree-shaped condition used by the unified rules list. A leaf compares a variable/literal to a right-hand value; 'all' (AND) and 'any' (OR) branches nest arbitrarily.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "left", "op"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "compare" },
+            "left": { "type": "string" },
+            "op": {
+              "type": "string",
+              "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "defined"]
+            },
+            "right": { "type": ["string", "number", "boolean"] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "of"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "all" },
+            "of": { "type": "array", "items": { "$ref": "#/$defs/ruleCondition" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "of"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "any" },
+            "of": { "type": "array", "items": { "$ref": "#/$defs/ruleCondition" } }
+          }
+        }
+      ]
+    },
+    "bindingTarget": {
+      "description": "Element field a 'set' rule writes to. Grouped: layout, stroke, fill, visual, border, shadow (split into four), text-only, image-only.",
+      "type": "string",
+      "enum": [
+        "x", "y", "width", "height",
+        "strokeWidth", "strokeColor", "lineStyle",
+        "fillColor",
+        "opacity", "rotation",
+        "borderRadius", "borderWidth",
+        "shadowX", "shadowY", "shadowBlur", "shadowColor",
+        "textColor", "fontSize", "fontFamily", "lineHeight", "textAlign",
+        "imageSrc"
+      ]
+    },
+    "ruleValue": {
+      "description": "How a 'set' action produces its value. Five modes in ease-of-use order; 'expression' is the escape hatch.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["mode", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "fixed" },
+            "value": { "type": ["string", "number"] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["mode", "var"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "variable" },
+            "var": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["mode", "var", "multiplier"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "scaled" },
+            "var": { "type": "string" },
+            "multiplier": { "type": "number" },
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["mode", "var", "cases"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "mapping" },
+            "var": { "type": "string" },
+            "cases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["match", "value"],
+                "additionalProperties": false,
+                "properties": {
+                  "match": { "type": ["string", "number"] },
+                  "value": { "type": ["string", "number"] }
+                }
+              }
+            },
+            "fallback": { "type": ["string", "number"] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["mode", "expression"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": { "const": "expression" },
+            "expression": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "ruleAction": {
+      "description": "The 'then' half of a rule.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "hide" } }
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "show" } }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "target", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "set" },
+            "target": { "$ref": "#/$defs/bindingTarget" },
+            "value": { "$ref": "#/$defs/ruleValue" }
+          }
+        }
+      ]
+    },
+    "rule": {
+      "description": "One unified rule. Omit 'when' for 'always applies'. Disabled rules are preserved in JSON but skipped at evaluate time.",
+      "type": "object",
+      "required": ["id", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "when": { "$ref": "#/$defs/ruleCondition" },
+        "action": { "$ref": "#/$defs/ruleAction" }
       }
     }
   }

@@ -7,6 +7,7 @@ import { normalizeCatalogVariableKey } from '../types/layout'
 import { extractVariableKeys } from './variables'
 import type { BehaviourCondition, ElementBehaviour } from '../types/layoutBehaviour'
 import { substituteWithPipes } from './variablePipes'
+import { applyRuleSets, evaluateRules, legacyToRules } from './unifiedRules'
 
 export type ResolveWarning = { code: string; message: string }
 
@@ -59,7 +60,12 @@ function resolvePath(root: Record<string, unknown> | null | undefined, path: str
   return cur
 }
 
-function lookup(path: string, globalData: Record<string, unknown>, row: Record<string, unknown> | null): unknown {
+/**
+ * Resolve a dotted variable path against the current data scope, falling
+ * back to row-local data. Exported so the unified-rules evaluator can
+ * share the same substitution semantics as the legacy resolvers.
+ */
+export function lookup(path: string, globalData: Record<string, unknown>, row: Record<string, unknown> | null): unknown {
   let n = resolvePath(globalData, path)
   if (n === undefined && row) {
     n = resolvePath(row, path)
@@ -76,7 +82,8 @@ export function substituteTemplate(
   return substituteWithPipes(template, (key) => lookup(key, globalData, row))
 }
 
-function coerceNumber(v: unknown): number | null {
+/** Shared number coercion — exported for the unified-rules evaluator. */
+export function coerceNumber(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v
   if (typeof v === 'string' && v.trim() !== '') {
     const n = Number(v)
@@ -121,7 +128,12 @@ function isConditionConfigured(c: BehaviourCondition | undefined | null): boolea
   return true
 }
 
-function evalCondition(
+/**
+ * Evaluate a single flat comparison. Exported for the unified-rules
+ * {@link evaluateRules} function, which decomposes its AND/OR condition
+ * tree down to comparisons and delegates each leaf to this.
+ */
+export function evalCondition(
   c: BehaviourCondition,
   globalData: Record<string, unknown>,
   row: Record<string, unknown> | null
@@ -163,7 +175,8 @@ function evalCondition(
   }
 }
 
-function clamp(n: number, lo: number, hi: number): number {
+/** Number clamp — exported for the unified-rules evaluator. */
+export function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))
 }
 
@@ -258,62 +271,11 @@ export function evalSizeExpression(expr: string, fallback: number): number {
   }
 }
 
-function resolveVisibility(b: ElementBehaviour | undefined, data: Record<string, unknown>, row: unknown): boolean {
-  if (!b?.visibilityRules?.length) return b?.visibilityDefaultShow !== false
-  for (const r of b.visibilityRules) {
-    if (evalCondition(r.when, data, row as Record<string, unknown> | null)) {
-      return r.show
-    }
-  }
-  return b.visibilityDefaultShow !== false
-}
-
-function resolveColors(
-  b: ElementBehaviour | undefined,
-  style: ElementStyle | undefined,
-  data: Record<string, unknown>,
-  row: unknown
-): ElementStyle | undefined {
-  if (!b?.colorRules?.length) return style
-  const s: ElementStyle = style ? { ...style } : {}
-  for (const r of b.colorRules) {
-    if (evalCondition(r.when, data, row as Record<string, unknown> | null)) {
-      if (r.strokeColor != null) s.color = r.strokeColor
-      if (r.fillColor != null) s.backgroundColor = r.fillColor
-      break
-    }
-  }
-  return Object.keys(s).length ? s : undefined
-}
-
-function resolveSize(
-  b: ElementBehaviour | undefined,
-  el: LayoutElement,
-  data: Record<string, unknown>,
-  row: unknown
-): Pick<LayoutElement, 'width' | 'height'> {
-  const rowObj = row as Record<string, unknown> | null
-  let w = el.width
-  let h = el.height
-  if (!b?.size) return { width: w, height: h }
-  const { size } = b
-  if (size.widthExpr) {
-    const sub = substituteTemplate(size.widthExpr, data, rowObj)
-    w = evalSizeExpression(sub, w)
-  }
-  if (size.heightExpr) {
-    const sub = substituteTemplate(size.heightExpr, data, rowObj)
-    h = evalSizeExpression(sub, h)
-  }
-  const minW = size.minWidth ?? 1
-  const maxW = size.maxWidth ?? 100000
-  const minH = size.minHeight ?? 1
-  const maxH = size.maxHeight ?? 100000
-  return {
-    width: clamp(w, minW, maxW),
-    height: clamp(h, minH, maxH),
-  }
-}
+// The legacy `resolveVisibility` / `resolveColors` / `resolveSize` /
+// `applyImageSrc` direct-on-behaviour helpers used to live here. They were
+// retired when `resolveLayoutElement` rerouted through the unified
+// {@link evaluateRules} pipeline — legacy templates now flow through the
+// same path via `legacyToRules`, so there's a single source of truth.
 
 function applyTextOverflow(el: LayoutElement, b: ElementBehaviour | undefined): LayoutElement {
   const mode = b?.textOverflow?.mode
@@ -339,12 +301,6 @@ function isRichTextLike(el: LayoutElement): boolean {
   return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
 }
 
-function applyImageSrc(el: LayoutElement, b: ElementBehaviour | undefined, data: Record<string, unknown>): LayoutElement {
-  if (el.type !== 'IMAGE' || !b?.imageSrcExpr) return el
-  const src = substituteTemplate(b.imageSrcExpr, data, null).trim()
-  return src ? { ...el, src } : el
-}
-
 export function resolveLayoutElement(
   el: LayoutElement,
   data: Record<string, unknown>,
@@ -352,22 +308,25 @@ export function resolveLayoutElement(
 ): { element: LayoutElement; visible: boolean; warnings: ResolveWarning[] } {
   const warnings: ResolveWarning[] = []
   const b = el.behaviour
-  const visible = resolveVisibility(b, data, row)
+
+  // New unified path: every rule (visibility / color / size / image / future
+  // property bindings) goes through evaluateRules. Legacy templates are
+  // converted on the fly via legacyToRules so they render identically
+  // until the next save flips them to the new schema.
+  const rules = b?.rules && b.rules.length > 0 ? b.rules : legacyToRules(b)
+  const defaultShow = b?.visibilityDefaultShow !== false
+  const { visible, sets } = evaluateRules(rules, defaultShow, data, row)
+
   if (!visible) {
     return { element: el, visible: false, warnings }
   }
 
-  let next: LayoutElement = { ...el }
-  const sizePart = resolveSize(b, el, data, row)
-  next = { ...next, ...sizePart }
+  let next: LayoutElement = applyRuleSets(el, sets)
 
-  const colorStyle = resolveColors(b, el.style, data, row)
-  if (colorStyle) {
-    next = { ...next, style: colorStyle }
-  }
-
+  // Text overflow is not yet a rule action — special flow, bespoke math.
+  // Keep it as a post-step so a rule that sets `fontSize` still gets
+  // clipped/ellipsed correctly.
   next = applyTextOverflow(next, b)
-  next = applyImageSrc(next, b, data)
 
   contrastHint(next.style, warnings)
 

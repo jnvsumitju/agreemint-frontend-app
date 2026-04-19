@@ -59,10 +59,27 @@ import {
   splitContentIntoParagraphs,
 } from '../lib/textReflow'
 import {
+  divideLayoutShapeElements,
   isMergeableShapeType,
   mergeLayoutShapeElements,
-  subtractLayoutShapeElements,
 } from '../lib/shapeGeometry'
+import {
+  convertElementToMergedShape,
+  insertPointInPolys,
+  normalisePolysToLocal,
+  removePointFromPolys,
+  type PathVertexRef,
+} from '../lib/pathEditing'
+import {
+  cloneBezierPath,
+  flattenBezierPath,
+  normaliseBezierToLocal,
+  polyToBezier,
+  setBezierHandle,
+  splitBezierAtT,
+  toggleBezierSmooth,
+} from '../lib/bezierGeometry'
+import type { BezierVertex, ShapeBezierMultiPath, ShapeMultiPolygon } from '../types/layout'
 import {
   MAX_UNDO_STEPS,
   captureEditorUndoSnapshot,
@@ -342,7 +359,7 @@ function defaultPages(): LayoutDocumentPage[] {
 const EMPTY_ELEMENTS: LayoutElement[] = []
 
 /** Left-bar / canvas interaction mode (Select, Move, Draw-to-place, Pan viewport, Merge shapes). */
-export type EditorCanvasTool = 'select' | 'move' | 'draw' | 'pan' | 'mergeShapes' | 'rotate'
+export type EditorCanvasTool = 'select' | 'move' | 'draw' | 'pan' | 'rotate'
 
 /** Active canvas page element stack (Zustand selector). */
 export function selectActivePageElements(s: EditorState): LayoutElement[] {
@@ -487,6 +504,12 @@ export interface EditorState {
   /** Set the element highlighted from the comments panel. */
   setCommentHighlightId: (id: string | null) => void
   select: (id: string | null, options?: { additive?: boolean }) => void
+  /**
+   * Bulk select — used by the marquee / rubber-band gesture in the
+   * Select tool. `additive` keeps the existing selection and ORs in the
+   * new ids (deduped); default replaces.
+   */
+  selectMany: (ids: string[], options?: { additive?: boolean }) => void
   groupSelection: () => void
   ungroupSelection: () => void
   setCanvasInlineEdit: (id: string | null) => void
@@ -513,14 +536,108 @@ export interface EditorState {
   ) => void
   moveElement: (id: string, x: number, y: number) => void
   resizeElement: (id: string, width: number, height: number) => void
-  /** Union a grouped set of shapes into one MERGED_SHAPE (all group members must be mergeable). */
-  mergeGroupedShapesContaining: (elId: string) => void
   /**
-   * Punch hole: subtract the smaller-bbox shape from the larger (two selected, or a group of two mergeable shapes).
+   * MERGED_SHAPE-specific resize — see implementation for the contract.
+   * Drag handler calls this every frame with snapshot-scaled geometry so
+   * rounding errors don't compound across frames.
    */
-  subtractSelectionToMergedShape: () => void
-  /** Reverse a merge: replace the selected MERGED_SHAPE with its original elements. */
+  setMergedShapeGeometry: (
+    id: string,
+    width: number,
+    height: number,
+    shapePolys: ShapeMultiPolygon | undefined,
+    bezierPath: ShapeBezierMultiPath | undefined,
+    options?: { skipHistory?: boolean },
+  ) => void
+  /**
+   * Boolean union: replace the ≥2 selected mergeable shapes with a single
+   * MERGED_SHAPE covering their combined outline. No-op if fewer than two
+   * mergeable unlocked shapes are selected.
+   */
+  unionSelectionIntoMergedShape: () => void
+  /**
+   * Boolean divide / fragment: split the ≥2 selected overlapping shapes
+   * into every distinct boolean region their outlines define (3 circles in
+   * a Venn diagram → 7 pieces). Each piece is a fresh MERGED_SHAPE that
+   * inherits style from the topmost (highest z-order) contributing shape.
+   * No-op if fewer than two mergeable unlocked shapes are selected.
+   */
+  divideSelectionIntoRegions: () => void
+  /** Reverse a union: replace the selected MERGED_SHAPE with its original elements. */
   unmergeSelection: () => void
+
+  /** ── Path-edit mode (vertex editor) ──
+   * When non-null, the UI renders vertex handles on the named element
+   * and captures pointer + keyboard gestures so the user can distort the
+   * outline. Parametric shapes polygonalise into MERGED_SHAPE on entry.
+   * Null = not editing. The vertex selection is a separate field so the
+   * Delete key can target a specific handle. Transient smart-guide lines
+   * are rendered from `pathEditingSmartGuides` during drags. */
+  pathEditingElementId: string | null
+  pathEditingSelectedVertex: PathVertexRef | null
+  pathEditingSmartGuides: { vertical: number[]; horizontal: number[] }
+  enterPathEditMode: (elId: string) => void
+  exitPathEditMode: () => void
+  selectPathVertex: (ref: PathVertexRef | null) => void
+  /** Replace the editing element's shapePolys, re-normalise its bbox,
+   *  translate x/y accordingly. `options.skipHistory` is meant for the
+   *  mid-drag calls; a surrounding begin/end history batch makes the
+   *  whole drag one undo step. Polygon-only path — bezier edits go
+   *  through {@link updatePathBezier}. */
+  updatePathShape: (polys: ShapeMultiPolygon, options?: { skipHistory?: boolean }) => void
+  /** Bezier-aware counterpart of {@link updatePathShape}. Replaces the
+   *  editing element's `bezierPath`, re-normalises its bbox, and keeps
+   *  `shapePolys` in sync with the flattened version so the PDF
+   *  renderer + boolean ops continue to work unchanged. */
+  updatePathBezier: (path: ShapeBezierMultiPath, options?: { skipHistory?: boolean }) => void
+  /** Convert the current editing element's polygon outline into a
+   *  corner-only bezier path. The first call pays the "upgrade" cost so
+   *  subsequent control-handle gestures can proceed in bezier-world.
+   *  No-op when bezierPath already exists. */
+  upgradePathToBezier: () => void
+  /** Insert a new vertex at the given local-space position and select
+   *  it. Polygon-only path — bezier inserts use
+   *  {@link insertPathBezierVertex}. Takes its own undo barrier. */
+  insertPathVertex: (
+    polyIndex: number,
+    ringIndex: number,
+    afterPointIndex: number,
+    localX: number,
+    localY: number,
+  ) => void
+  /** Bezier insert: split the segment {@code ring[segmentIndex] →
+   *  ring[segmentIndex + 1]} at parameter {@code t ∈ (0, 1)} (De
+   *  Casteljau), landing a smooth vertex there. Takes its own undo
+   *  barrier. */
+  insertPathBezierVertex: (
+    polyIndex: number,
+    ringIndex: number,
+    segmentIndex: number,
+    t: number,
+  ) => void
+  /** Remove the referenced vertex (no-op when the ring is already at
+   *  the MIN_RING_POINTS minimum). Handles either the bezier path or
+   *  the polygon, whichever the editing element currently uses. Takes
+   *  its own undo barrier. */
+  removePathVertex: (ref: PathVertexRef) => void
+  /** Patch the control handles on a specific bezier vertex. Used
+   *  during the control-handle drag. `mirrorWhenSmooth` (default true)
+   *  keeps the opposite handle mirrored when the vertex is smooth. */
+  setBezierVertexHandles: (
+    ref: PathVertexRef,
+    patch: {
+      cpIn?: [number, number] | null
+      cpOut?: [number, number] | null
+      smooth?: boolean
+      mirrorWhenSmooth?: boolean
+    },
+    options?: { skipHistory?: boolean },
+  ) => void
+  /** Flip a vertex between sharp corner and smooth. Triggered by a
+   *  double-click on the vertex handle. Takes its own undo barrier. */
+  toggleBezierVertexSmooth: (ref: PathVertexRef) => void
+  setPathEditingSmartGuides: (guides: { vertical: number[]; horizontal: number[] }) => void
+
   /** User-saved snippets (localStorage); drag from left palette onto the page. */
   savedComponents: SavedLayoutComponent[]
   saveSelectionAsLayoutComponent: (name: string) => void
@@ -597,6 +714,9 @@ const clearEditorUi = {
   commentHighlightId: null as string | null,
   editorSidebarTab: 'properties' as const,
   dragGuides: { vertical: [] as number[], horizontal: [] as number[] },
+  pathEditingElementId: null as string | null,
+  pathEditingSelectedVertex: null as PathVertexRef | null,
+  pathEditingSmartGuides: { vertical: [] as number[], horizontal: [] as number[] },
   canvasPointerPt: null,
   canvasZoom: 1,
   spaceMoveTool: false,
@@ -655,6 +775,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   spaceMoveTool: false,
   canvasTool: 'select',
   placementElementType: 'TEXT',
+  pathEditingElementId: null,
+  pathEditingSelectedVertex: null,
+  pathEditingSmartGuides: { vertical: [], horizontal: [] },
   historyBatchDepth: 0,
   undoPast: [],
   undoFuture: [],
@@ -700,6 +823,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         spaceMoveTool: false,
         canvasTool: 'select',
         placementElementType: 'TEXT',
+        pathEditingElementId: null,
+        pathEditingSelectedVertex: null,
+        pathEditingSmartGuides: { vertical: [], horizontal: [] },
         historyBatchDepth: 0,
         undoPast: [],
         undoFuture: [],
@@ -1446,6 +1572,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           ? s.bandCanvasEditElementId
           : null
 
+      // Clicking anywhere that routes through `select` also exits
+      // path-edit mode. Vertex handles + SVG edges in the overlay
+      // stopPropagation before this runs, so dragging a handle or
+      // clicking an edge won't accidentally exit.
+      const exitPathEdit =
+        s.pathEditingElementId != null && nextIds[0] !== s.pathEditingElementId
+
       return {
         ...(flushed ?? {}),
         selectedIds: nextIds,
@@ -1460,6 +1593,77 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         focusedTextRunIndex: keepRunFocus ? s.focusedTextRunIndex : null,
         tableSelection: nextTable,
         tableCellEdit: nextCellEdit,
+        ...(exitPathEdit
+          ? {
+              pathEditingElementId: null,
+              pathEditingSelectedVertex: null,
+              pathEditingSmartGuides: { vertical: [], horizontal: [] },
+            }
+          : {}),
+      }
+    }),
+
+  /**
+   * Replace or extend the selection in one shot. The marquee gesture
+   * needs an atomic "select these N elements" call — looping `select`
+   * with `{additive: true}` would fire N store updates and churn every
+   * subscriber.
+   *
+   * Mirrors {@link select}'s side effects: drops inline edit + table
+   * selection when the primary selection changes, and exits path-edit
+   * mode when the editing element is no longer the sole selected one.
+   */
+  selectMany: (ids, options) =>
+    set((s) => {
+      if (s.bandCanvasEditElementId != null) {
+        // Multi-select in band edit gets awkward (different coord
+        // systems). Skip — fall back to no-op; the normal single-click
+        // `select` still works for picking individual band children.
+        return {}
+      }
+      const additive = options?.additive ?? false
+      const seen = new Set<string>()
+      const merged: string[] = []
+      if (additive) {
+        for (const x of s.selectedIds) {
+          if (!seen.has(x)) {
+            seen.add(x)
+            merged.push(x)
+          }
+        }
+      }
+      for (const x of ids) {
+        if (!seen.has(x)) {
+          seen.add(x)
+          merged.push(x)
+        }
+      }
+      const primary = merged.length === 1 ? merged[0] : null
+      const nextEdit = primary && primary === s.canvasInlineEditId ? primary : null
+      const flushed =
+        s.canvasInlineEditId && s.inlineTipTapEditor && nextEdit !== s.canvasInlineEditId
+          ? tryFlushCanvasInlineEdit(s)
+          : null
+      const exitPathEdit =
+        s.pathEditingElementId != null &&
+        !(merged.length === 1 && merged[0] === s.pathEditingElementId)
+      return {
+        ...(flushed ?? {}),
+        selectedIds: merged,
+        canvasInlineEditId: nextEdit,
+        inlineTipTapEditor: nextEdit != null ? s.inlineTipTapEditor : null,
+        focusedTextRunIndex: nextEdit != null ? s.focusedTextRunIndex : null,
+        tableSelection:
+          primary && s.tableSelection?.tableId === primary ? s.tableSelection : null,
+        tableCellEdit:
+          primary && s.tableCellEdit?.tableId === primary ? s.tableCellEdit : null,
+        ...(exitPathEdit
+          ? {
+              pathEditingElementId: null,
+              pathEditingSelectedVertex: null,
+              pathEditingSmartGuides: { vertical: [], horizontal: [] },
+            }
+          : {}),
       }
     }),
 
@@ -1945,7 +2149,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         const { dx: cdx, dy: cdy } = clampBandGroupTranslationDelta(elements, moveIds, dx, dy, bw, bh)
         const next = elements.map((e) => {
           if (!moveIds.has(e.id)) return e
-          return clampBandNestedElement({ ...e, x: e.x + cdx, y: e.y + cdy }, bw, bh)
+          // gridSize=0 → free (sub-grid) move inside the band. The
+          // drag caller handles Shift-to-snap before calling us.
+          return clampBandNestedElement({ ...e, x: e.x + cdx, y: e.y + cdy }, bw, bh, 0)
         })
         return {
           ...takeUndoBarrier(s),
@@ -1981,7 +2187,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const next = elements.map((e) => {
         if (!moveIds.has(e.id)) return e
         const cand = { ...e, x: e.x + cdx, y: e.y + cdy }
-        return clampElementLayoutToPrintMargins(cand, s.pageSpec, s.gridSize)
+        // gridSize=0 → margin clamp still runs but skips the final
+        // grid snap. Callers of moveElement (currently only the drag
+        // flow) run their own snap logic up-front, honouring Shift.
+        return clampElementLayoutToPrintMargins(cand, s.pageSpec, 0)
       })
       return { ...takeUndoBarrier(s), ...replacePageElements(s, loc.pageIndex, next) }
     }),
@@ -1993,6 +2202,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       if (hit) {
         const el = hit.child
         if (el.locked) return {}
+        // MERGED_SHAPE is driven separately by {@link setMergedShapeGeometry}
+        // from the drag handler — routing through this axis-aligned path
+        // would compound scaling errors across frames. Non-MERGED_SHAPE
+        // still uses the standard bbox overwrite.
         if (el.type === 'MERGED_SHAPE') return {}
         const { w: bw, h: bh } = bandViewportDims(s, hit.container)
         const clamped = clampBandNestedElement({ ...el, width, height }, bw, bh)
@@ -2021,19 +2234,65 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }),
 
-  mergeGroupedShapesContaining: (elId) =>
+  /**
+   * Dedicated MERGED_SHAPE resize path driven by the canvas drag handler.
+   * The caller is expected to:
+   *   1. Snapshot the original `shapePolys` + `bezierPath` at mousedown.
+   *   2. Compute `targetWidth/Height` via the shared `computeResizeSnap`
+   *      helper (which already applies margin + grid-snap clamping).
+   *   3. Scale the snapshot geometry by `(targetW/startW, targetH/startH)`
+   *      and hand the pre-scaled result here.
+   *
+   * This keeps the outline in lock-step with the bbox even across many
+   * frames: scaling is always anchored to the drag-start snapshot, so
+   * rounding / clamp errors never compound. Margin clamping is trusted
+   * to have happened at the caller — we pass `gridSize=0` to the
+   * clamp so it doesn't re-snap the already-snapped width and introduce
+   * a width-vs-polys mismatch.
+   */
+  setMergedShapeGeometry: (id, width, height, shapePolys, bezierPath, options) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const loc = findElementLocation(s, id)
+      if (!loc) return {}
+      const el = loc.el
+      if (el.locked) return {}
+      if (el.type !== 'MERGED_SHAPE') return {}
+      const patch: Partial<LayoutElement> = { width, height }
+      if (shapePolys !== undefined) patch.shapePolys = shapePolys
+      if (bezierPath !== undefined) patch.bezierPath = bezierPath
+      // gridSize=0 → margin clamp runs but skips the final grid snap.
+      // Caller supplies width/height that already went through
+      // computeResizeSnap with the intended snapToGrid flag.
+      const next = clampElementLayoutToPrintMargins({ ...el, ...patch }, s.pageSpec, 0)
+      return {
+        ...(options?.skipHistory ? {} : takeUndoBarrier(s)),
+        ...replacePageElements(
+          s,
+          loc.pageIndex,
+          loc.elements.map((e) => (e.id === id ? next : e))
+        ),
+      }
+    }),
+
+  /**
+   * Collapse the selected ≥2 mergeable shapes into a single MERGED_SHAPE
+   * covering their union. Element list order drives z-order for the
+   * style-inheritance fallback: later-in-list = topmost.
+   */
+  unionSelectionIntoMergedShape: () =>
     set((s) => {
       if (s.viewOnly) return {}
       const elements = activeElements(s)
-      const el = elements.find((e) => e.id === elId)
-      if (!el?.groupId) return {}
-      const gid = el.groupId
-      const groupEls = elements.filter((e) => e.groupId === gid && !e.locked)
-      if (groupEls.length < 2) return {}
-      if (!groupEls.every((e) => isMergeableShapeType(e.type))) return {}
-      const merged = mergeLayoutShapeElements(groupEls)
+      const picked = s.selectedIds
+        .map((id) => elements.find((e) => e.id === id))
+        .filter((e): e is LayoutElement => e != null && !e.locked && isMergeableShapeType(e.type))
+      if (picked.length < 2) return {}
+      // Walk `elements` in z-order so style inheritance prefers the topmost.
+      const pickedSet = new Set(picked.map((e) => e.id))
+      const orderedPicks = elements.filter((e) => pickedSet.has(e.id))
+      const merged = mergeLayoutShapeElements(orderedPicks)
       if (!merged) return {}
-      const bg = groupEls.find((e) => e.style?.backgroundColor?.trim())?.style?.backgroundColor?.trim()
       const newEl: LayoutElement = {
         id: newElementId(),
         type: 'MERGED_SHAPE',
@@ -2043,13 +2302,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         height: merged.height,
         shapePolys: merged.shapePolys,
         strokeWidth: merged.strokeWidth,
-        mergedFromElements: groupEls.map((e) => ({ ...e })),
+        mergedFromElements: orderedPicks.map((e) => ({ ...e })),
         style: {
           ...(merged.color ? { color: merged.color } : { color: '#374151' }),
-          ...(bg ? { backgroundColor: bg } : {}),
+          ...(merged.backgroundColor ? { backgroundColor: merged.backgroundColor } : {}),
         },
       }
-      const removeIds = new Set(groupEls.map((e) => e.id))
+      const removeIds = new Set(orderedPicks.map((e) => e.id))
       const next = elements.filter((e) => !removeIds.has(e.id)).concat(newEl)
       return {
         ...takeUndoBarrier(s),
@@ -2064,53 +2323,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }),
 
-  subtractSelectionToMergedShape: () =>
+  /**
+   * Fragment the ≥2 selected shapes into every distinct boolean region
+   * their outlines define. Replaces all selected shapes with N new
+   * MERGED_SHAPE elements — one per non-empty region — each inheriting
+   * style from the topmost contributor over that region.
+   *
+   * Divide outputs intentionally carry no {@code mergedFromElements} — a
+   * fragment isn't a conceptual composite. Use undo to reverse.
+   */
+  divideSelectionIntoRegions: () =>
     set((s) => {
       if (s.viewOnly) return {}
       const elements = activeElements(s)
-      let a: LayoutElement | undefined
-      let b: LayoutElement | undefined
-      if (s.selectedIds.length === 2) {
-        a = elements.find((e) => e.id === s.selectedIds[0])
-        b = elements.find((e) => e.id === s.selectedIds[1])
-      } else if (s.selectedIds.length === 1) {
-        const el = elements.find((e) => e.id === s.selectedIds[0])
-        if (!el?.groupId) return {}
-        const grp = elements.filter((e) => e.groupId === el.groupId && !e.locked)
-        if (grp.length !== 2) return {}
-        a = grp[0]
-        b = grp[1]
-      } else {
-        return {}
-      }
-      if (!a || !b || a.locked || b.locked) return {}
-      if (!isMergeableShapeType(a.type) || !isMergeableShapeType(b.type)) return {}
-      const areaA = a.width * a.height
-      const areaB = b.width * b.height
-      const [outer, inner] = areaA >= areaB ? [a, b] : [b, a]
-      const merged = subtractLayoutShapeElements(outer, inner)
-      if (!merged) return {}
-      const newEl: LayoutElement = {
+      const picked = s.selectedIds
+        .map((id) => elements.find((e) => e.id === id))
+        .filter((e): e is LayoutElement => e != null && !e.locked && isMergeableShapeType(e.type))
+      if (picked.length < 2) return {}
+      // Walk `elements` in z-order so style inheritance prefers the topmost
+      // contributor (divideLayoutShapeElements expects bottom→top input).
+      const pickedSet = new Set(picked.map((e) => e.id))
+      const orderedPicks = elements.filter((e) => pickedSet.has(e.id))
+      const regions = divideLayoutShapeElements(orderedPicks)
+      if (!regions || regions.length === 0) return {}
+
+      const newEls: LayoutElement[] = regions.map((r) => ({
         id: newElementId(),
         type: 'MERGED_SHAPE',
-        x: snap(merged.x),
-        y: snap(merged.y),
-        width: merged.width,
-        height: merged.height,
-        shapePolys: merged.shapePolys,
-        strokeWidth: merged.strokeWidth,
-        mergedFromElements: [{ ...outer }, { ...inner }],
+        x: snap(r.x),
+        y: snap(r.y),
+        width: r.width,
+        height: r.height,
+        shapePolys: r.shapePolys,
+        strokeWidth: r.strokeWidth,
         style: {
-          ...(merged.color ? { color: merged.color } : { color: '#374151' }),
-          ...(merged.backgroundColor ? { backgroundColor: merged.backgroundColor } : {}),
+          ...(r.color ? { color: r.color } : { color: '#374151' }),
+          ...(r.backgroundColor ? { backgroundColor: r.backgroundColor } : {}),
         },
-      }
-      const removeIds = new Set([a.id, b.id])
-      const next = elements.filter((e) => !removeIds.has(e.id)).concat(newEl)
+      }))
+
+      const removeIds = new Set(orderedPicks.map((e) => e.id))
+      const next = elements.filter((e) => !removeIds.has(e.id)).concat(newEls)
       return {
         ...takeUndoBarrier(s),
         ...replaceActiveElements(s, next),
-        selectedIds: [newEl.id],
+        selectedIds: newEls.map((e) => e.id),
         canvasTool: 'select',
         canvasInlineEditId: null,
         bandCanvasEditElementId: null,
@@ -2144,6 +2401,356 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         inlineTipTapEditor: null,
         tableSelection: null,
         tableCellEdit: null,
+      }
+    }),
+
+  // ── Path-edit mode ─────────────────────────────────────────────────
+
+  /**
+   * Enter per-vertex edit mode on the named element. If the element is
+   * parametric (ellipse, ring, arrow, …), we polygonalise it in place —
+   * the element keeps its id, style, and locked/behaviour fields but is
+   * rewritten to MERGED_SHAPE with its outline in `shapePolys`. This is
+   * a one-way door (covered by the tooltip / entry UX).
+   *
+   * Pushes a single undo barrier so Ctrl+Z undoes the "enter edit +
+   * possibly polygonalise" operation as a unit.
+   */
+  enterPathEditMode: (elId) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.locked) return {}
+      if (!isMergeableShapeType(el.type)) return {}
+      const converted = convertElementToMergedShape(el)
+      if (!converted) return {}
+      // Replace the element in-place so its id + neighbours stay put.
+      const next = elements.map((e) => (e.id === elId ? converted : e))
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
+        pathEditingElementId: elId,
+        pathEditingSelectedVertex: null,
+        pathEditingSmartGuides: { vertical: [], horizontal: [] },
+        // Don't change `selectedIds` — the element stays selected so
+        // the Properties panel keeps showing its info.
+        selectedIds: [elId],
+        canvasInlineEditId: null,
+      }
+    }),
+
+  exitPathEditMode: () =>
+    set({
+      pathEditingElementId: null,
+      pathEditingSelectedVertex: null,
+      pathEditingSmartGuides: { vertical: [], horizontal: [] },
+    }),
+
+  selectPathVertex: (ref) => set({ pathEditingSelectedVertex: ref }),
+
+  setPathEditingSmartGuides: (guides) => set({ pathEditingSmartGuides: guides }),
+
+  /**
+   * Replace the editing element's `shapePolys` with a new tree and
+   * re-normalise its bbox so coordinates stay local-relative. The
+   * element's world-space (x, y) shifts by the same delta every vertex
+   * shifts, so the on-page position is conserved visually.
+   *
+   * Polygon-only — bezier edits must go through {@link updatePathBezier}.
+   */
+  updatePathShape: (polys, options) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE') return {}
+      const norm = normalisePolysToLocal(polys)
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        shapePolys: norm.polys,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      const base = options?.skipHistory ? s : { ...s, ...takeUndoBarrier(s) }
+      return {
+        ...base,
+        ...replaceActiveElements(base as EditorState, next),
+      }
+    }),
+
+  /**
+   * Apply a new bezier path to the editing element, re-normalise the
+   * bbox, and keep `shapePolys` in sync with the flattened polygon
+   * view so PDF rendering + boolean ops keep working without a
+   * dedicated backend curve renderer.
+   */
+  updatePathBezier: (path, options) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE') return {}
+      const norm = normaliseBezierToLocal(path)
+      const flattened = flattenBezierPath(norm.path) as ShapeMultiPolygon
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        bezierPath: norm.path,
+        shapePolys: flattened,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      const base = options?.skipHistory ? s : { ...s, ...takeUndoBarrier(s) }
+      return {
+        ...base,
+        ...replaceActiveElements(base as EditorState, next),
+      }
+    }),
+
+  upgradePathToBezier: () =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE') return {}
+      if (el.bezierPath?.length) return {} // already upgraded
+      if (!el.shapePolys?.length) return {}
+      const bezier = polyToBezier(el.shapePolys)
+      const flattened = flattenBezierPath(bezier) as ShapeMultiPolygon
+      const next = elements.map((e) =>
+        e.id === elId ? { ...e, bezierPath: bezier, shapePolys: flattened } : e,
+      )
+      // No history barrier — pairs with the Alt-drag that triggers the
+      // upgrade, which opens its own batch immediately afterwards.
+      return { ...replaceActiveElements(s, next) }
+    }),
+
+  insertPathVertex: (polyIndex, ringIndex, afterPointIndex, localX, localY) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE' || !el.shapePolys) return {}
+      const inserted = insertPointInPolys(
+        el.shapePolys,
+        polyIndex,
+        ringIndex,
+        afterPointIndex,
+        localX,
+        localY,
+      )
+      if (!inserted) return {}
+      const norm = normalisePolysToLocal(inserted.polys)
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        shapePolys: norm.polys,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
+        pathEditingSelectedVertex: inserted.ref,
+      }
+    }),
+
+  insertPathBezierVertex: (polyIndex, ringIndex, segmentIndex, t) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE' || !el.bezierPath?.length) return {}
+      const ring = el.bezierPath[polyIndex]?.[ringIndex]
+      if (!ring) return {}
+      const aIdx = segmentIndex
+      const bIdx = (segmentIndex + 1) % ring.length
+      const split = splitBezierAtT(ring[aIdx]!, ring[bIdx]!, t)
+      // Splice: replace a with the shortened a, insert mid, replace b with
+      // the shortened b. Insertion lands at aIdx + 1.
+      const newPath = cloneBezierPath(el.bezierPath)
+      const newRing = newPath[polyIndex]![ringIndex]!
+      newRing[aIdx] = split.a
+      newRing[bIdx] = split.b
+      newRing.splice(aIdx + 1, 0, split.mid)
+      const norm = normaliseBezierToLocal(newPath)
+      const flattened = flattenBezierPath(norm.path) as ShapeMultiPolygon
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        bezierPath: norm.path,
+        shapePolys: flattened,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
+        pathEditingSelectedVertex: {
+          polyIndex,
+          ringIndex,
+          pointIndex: aIdx + 1,
+        },
+      }
+    }),
+
+  removePathVertex: (ref) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE') return {}
+
+      // Bezier-first: if the element has a bezier path, remove from that.
+      if (el.bezierPath?.length) {
+        const ring = el.bezierPath[ref.polyIndex]?.[ref.ringIndex]
+        if (!ring) return {}
+        if (ring.length <= 3) return {} // MIN_RING_POINTS guard
+        const newPath = cloneBezierPath(el.bezierPath)
+        newPath[ref.polyIndex]![ref.ringIndex]!.splice(ref.pointIndex, 1)
+        const norm = normaliseBezierToLocal(newPath)
+        const flattened = flattenBezierPath(norm.path) as ShapeMultiPolygon
+        const patch: Partial<LayoutElement> = {
+          x: snap(el.x + norm.offsetX),
+          y: snap(el.y + norm.offsetY),
+          width: norm.width,
+          height: norm.height,
+          bezierPath: norm.path,
+          shapePolys: flattened,
+        }
+        const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+        return {
+          ...takeUndoBarrier(s),
+          ...replaceActiveElements(s, next),
+          pathEditingSelectedVertex: null,
+        }
+      }
+
+      // Polygon fallback.
+      if (!el.shapePolys) return {}
+      const nextPolys = removePointFromPolys(el.shapePolys, ref)
+      if (!nextPolys) return {}
+      const norm = normalisePolysToLocal(nextPolys)
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        shapePolys: norm.polys,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
+        pathEditingSelectedVertex: null,
+      }
+    }),
+
+  setBezierVertexHandles: (ref, patch, options) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE' || !el.bezierPath?.length) return {}
+      const newPath = cloneBezierPath(el.bezierPath)
+      const ring = newPath[ref.polyIndex]?.[ref.ringIndex]
+      if (!ring) return {}
+      const vertex = ring[ref.pointIndex]
+      if (!vertex) return {}
+      let nextVertex: BezierVertex = vertex
+      if ('smooth' in patch && patch.smooth !== undefined) {
+        nextVertex = { ...nextVertex, smooth: patch.smooth }
+      }
+      const mirror = patch.mirrorWhenSmooth !== false
+      if ('cpIn' in patch) {
+        nextVertex = setBezierHandle(
+          nextVertex,
+          'in',
+          patch.cpIn ?? undefined,
+          mirror,
+        )
+      }
+      if ('cpOut' in patch) {
+        nextVertex = setBezierHandle(
+          nextVertex,
+          'out',
+          patch.cpOut ?? undefined,
+          mirror,
+        )
+      }
+      ring[ref.pointIndex] = nextVertex
+      const norm = normaliseBezierToLocal(newPath)
+      const flattened = flattenBezierPath(norm.path) as ShapeMultiPolygon
+      const elPatch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        bezierPath: norm.path,
+        shapePolys: flattened,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...elPatch } : e))
+      const base = options?.skipHistory ? s : { ...s, ...takeUndoBarrier(s) }
+      return {
+        ...base,
+        ...replaceActiveElements(base as EditorState, next),
+      }
+    }),
+
+  toggleBezierVertexSmooth: (ref) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const elId = s.pathEditingElementId
+      if (!elId) return {}
+      const elements = activeElements(s)
+      const el = elements.find((e) => e.id === elId)
+      if (!el || el.type !== 'MERGED_SHAPE') return {}
+      // Auto-upgrade polygon → bezier so the gesture works uniformly on
+      // a polygon shape that hasn't been curved yet.
+      let bezierPath = el.bezierPath?.length ? cloneBezierPath(el.bezierPath) : null
+      if (!bezierPath && el.shapePolys?.length) {
+        bezierPath = polyToBezier(el.shapePolys)
+      }
+      if (!bezierPath) return {}
+      const ring = bezierPath[ref.polyIndex]?.[ref.ringIndex]
+      if (!ring) return {}
+      const vertex = ring[ref.pointIndex]
+      if (!vertex) return {}
+      ring[ref.pointIndex] = toggleBezierSmooth(vertex)
+      const norm = normaliseBezierToLocal(bezierPath)
+      const flattened = flattenBezierPath(norm.path) as ShapeMultiPolygon
+      const patch: Partial<LayoutElement> = {
+        x: snap(el.x + norm.offsetX),
+        y: snap(el.y + norm.offsetY),
+        width: norm.width,
+        height: norm.height,
+        bezierPath: norm.path,
+        shapePolys: flattened,
+      }
+      const next = elements.map((e) => (e.id === elId ? { ...e, ...patch } : e))
+      return {
+        ...takeUndoBarrier(s),
+        ...replaceActiveElements(s, next),
       }
     }),
 

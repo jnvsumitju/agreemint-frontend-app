@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { API_BASE } from '../../lib/api'
+import { stripSystemVariableKeysFromData } from '../../lib/systemTemplateVariables'
 
 /**
  * Editor's 3-dot menu → "Developer". Shows a ready-to-run cURL snippet for the
@@ -37,7 +38,12 @@ export function DeveloperModal({
 
   const curl = useMemo(() => {
     if (!templateId) return ''
-    const jsonData = JSON.stringify({ data: variableValues ?? {} }, null, 2)
+    // Strip system-computed keys (pageNumber / totalPages / currentDate /
+    // …). The backend overrides whatever the API caller sends for these
+    // anyway, and including them in the sample cURL misleads authors
+    // into thinking they need to supply a value.
+    const cleanedData = stripSystemVariableKeysFromData(variableValues ?? {})
+    const jsonData = JSON.stringify({ data: cleanedData }, null, 2)
       .split('\n')
       .map((line, i) => (i === 0 ? line : '    ' + line))
       .join('\n')

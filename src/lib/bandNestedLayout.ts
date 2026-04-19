@@ -45,7 +45,11 @@ export function isBandChildOf(pages: LayoutDocumentPage[], containerId: string, 
 export function clampBandNestedElement(
   el: LayoutElement,
   bandWidth: number,
-  bandHeight: number
+  bandHeight: number,
+  /** Pass 0 to skip the grid snap (e.g. mid-drag when the user isn't
+   *  holding Shift). Defaults to the editor's standard grid so existing
+   *  callers keep snapping. */
+  gridSize?: number
 ): LayoutElement {
   const minW = 20
   const minH = 16
@@ -53,10 +57,10 @@ export function clampBandNestedElement(
   const ey = coerceLayoutScalar(el.y, 0)
   const ew = coerceLayoutScalar(el.width, minW)
   const eh = coerceLayoutScalar(el.height, minH)
-  const x = snap(Math.max(0, Math.min(Math.max(0, bandWidth - minW), ex)))
-  const y = snap(Math.max(0, Math.min(Math.max(0, bandHeight - minH), ey)))
-  const w = snap(Math.max(minW, Math.min(bandWidth - x, ew)))
-  const h = snap(Math.max(minH, Math.min(bandHeight - y, eh)))
+  const x = snap(Math.max(0, Math.min(Math.max(0, bandWidth - minW), ex)), gridSize)
+  const y = snap(Math.max(0, Math.min(Math.max(0, bandHeight - minH), ey)), gridSize)
+  const w = snap(Math.max(minW, Math.min(bandWidth - x, ew)), gridSize)
+  const h = snap(Math.max(minH, Math.min(bandHeight - y, eh)), gridSize)
   return { ...el, x, y, width: w, height: h }
 }
 

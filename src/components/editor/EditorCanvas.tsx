@@ -24,6 +24,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { getYFragment } from '../../collab/yDocProvider'
 import { computeDragSnap, computeResizeSnap } from '../../lib/canvasGuides'
+import { CANVAS_ZOOM_MAX, CANVAS_ZOOM_MIN } from '../../lib/editorConstants'
 import { isHeaderOrFooterType } from '../../lib/layoutMargins'
 import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
 import { findBandNestedChild, findElementByIdInDocumentDeep } from '../../lib/bandNestedLayout'
@@ -51,10 +52,12 @@ import { TableElementCanvas, type LayoutTableElement } from './TableElementCanva
 import { ListElementCanvas } from './ListElementCanvas'
 import { AddImageModal } from './AddImageModal'
 import {
-  canSubtractPunchHoleSelection,
+  canDivideSelection,
   isMergeableShapeType,
   shapePolygonToSvgPathD,
 } from '../../lib/shapeGeometry'
+import { bezierPathToSvgPathD } from '../../lib/bezierGeometry'
+import { PathEditOverlay } from './PathEditOverlay'
 import {
   resolveLayoutElement,
   variableValuesToDataTree,
@@ -402,17 +405,8 @@ function CanvasElement({
         bandNested != null && bandCanvasEditElementId === bandNested.container.id
     }
     const st0 = useEditorStore.getState()
-    if (st0.canvasTool === 'mergeShapes' && !st0.spaceMoveTool && e.button === 0) {
-      e.preventDefault()
-      e.stopPropagation()
-      const additive = e.metaKey || e.ctrlKey || e.shiftKey
-      if (isMergeableShapeType(el.type)) {
-        st0.mergeGroupedShapesContaining(el.id)
-      } else {
-        select(el.id, additive ? { additive: true } : undefined)
-      }
-      return
-    }
+    // The former `mergeShapes` canvas tool has been retired — shift-select
+    // + the Union / Divide buttons in the Actions panel replace its job.
     if (st0.canvasTool === 'pan') return
     if (st0.bandCanvasEditElementId === el.id) return
     if (e.button !== 0) return
@@ -554,7 +548,7 @@ function CanvasElement({
 
   const onDoubleClick = (e: React.MouseEvent) => {
     if (viewOnly) return
-    if (!canInlineEdit || locked) return
+    if (locked) return
     const t = e.target as HTMLElement
     if (
       isInlineEditing &&
@@ -568,6 +562,17 @@ function CanvasElement({
     e.stopPropagation()
     e.preventDefault()
     select(el.id)
+
+    // Double-click on a mergeable shape → enter per-vertex path-edit mode.
+    // Matches the Excalidraw / Figma convention. Parametric shapes
+    // (ellipse, ring, arrow, …) polygonalise to MERGED_SHAPE on entry —
+    // see {@link enterPathEditMode} in the store.
+    if (isMergeableShapeType(el.type)) {
+      useEditorStore.getState().enterPathEditMode(el.id)
+      return
+    }
+
+    if (!canInlineEdit) return
     if (el.type === 'HEADER' || el.type === 'FOOTER') {
       enterBandCanvasEdit(el.id)
       return
@@ -608,6 +613,28 @@ function CanvasElement({
     const startY = e.clientY
     const startW = Math.max(1, coerceLayoutScalar(el.width, 20))
     const startH = Math.max(1, coerceLayoutScalar(el.height, 16))
+    // MERGED_SHAPE's outline lives in per-vertex data. Snapshot it at
+    // drag start so each frame can scale from the ORIGINAL (snapshot →
+    // target) rather than from whatever the store holds after the
+    // previous frame — cumulative scaling compounds rounding errors and
+    // every margin-clamp truncation, eventually pushing the outline
+    // outside the bbox.
+    const isMergedShape = el.type === 'MERGED_SHAPE'
+    const startShapePolys = isMergedShape && el.shapePolys
+      ? el.shapePolys.map((poly) => poly.map((ring) => ring.map((pt) => [pt[0], pt[1]] as [number, number])))
+      : undefined
+    const startBezierPath = isMergedShape && el.bezierPath
+      ? el.bezierPath.map((poly) =>
+          poly.map((ring) =>
+            ring.map((v) => ({
+              p: [v.p[0], v.p[1]] as [number, number],
+              ...(v.cpIn ? { cpIn: [v.cpIn[0], v.cpIn[1]] as [number, number] } : {}),
+              ...(v.cpOut ? { cpOut: [v.cpOut[0], v.cpOut[1]] as [number, number] } : {}),
+              ...(v.smooth ? { smooth: true } : {}),
+            })),
+          ),
+        )
+      : undefined
 
     const onMove = (ev: MouseEvent) => {
       const st = useEditorStore.getState()
@@ -646,7 +673,33 @@ function CanvasElement({
       )
       setMarginClampHighlight(violatesMargins)
       st.setDragGuides(guides)
-      st.resizeElement(el.id, width, height)
+      if (isMergedShape) {
+        // Snapshot-anchored scaling: the per-frame result is always
+        // (snapshot × clamped target / start). Scaling anew each frame
+        // means rounding / clamp truncation never accumulates.
+        const sx = width / startW
+        const sy = height / startH
+        const scaledPolys = startShapePolys
+          ? startShapePolys.map((poly) =>
+              poly.map((ring) => ring.map((pt) => [pt[0] * sx, pt[1] * sy] as [number, number])),
+            )
+          : undefined
+        const scaledBezier = startBezierPath
+          ? startBezierPath.map((poly) =>
+              poly.map((ring) =>
+                ring.map((v) => ({
+                  p: [v.p[0] * sx, v.p[1] * sy] as [number, number],
+                  ...(v.cpIn ? { cpIn: [v.cpIn[0] * sx, v.cpIn[1] * sy] as [number, number] } : {}),
+                  ...(v.cpOut ? { cpOut: [v.cpOut[0] * sx, v.cpOut[1] * sy] as [number, number] } : {}),
+                  ...(v.smooth ? { smooth: true } : {}),
+                })),
+              ),
+            )
+          : undefined
+        st.setMergedShapeGeometry(el.id, width, height, scaledPolys, scaledBezier, { skipHistory: true })
+      } else {
+        st.resizeElement(el.id, width, height)
+      }
     }
     const onUp = () => {
       setMarginClampHighlight(false)
@@ -719,9 +772,9 @@ function CanvasElement({
               ? locked
                 ? 'ring-2 ring-amber-500 ring-offset-1'
                 : hideTableOuterSelectionRing
-                  ? 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
+                  ? 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
                   : 'ring-2 ring-violet-500 ring-offset-1'
-              : 'ring-0 ring-offset-1 hover:ring-1 hover:ring-zinc-300 dark:hover:ring-zinc-600'
+              : 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
       } ${isDragging ? 'z-10' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
       style={
         remoteSelector
@@ -848,7 +901,6 @@ function CanvasElement({
       {soleSelected &&
         !locked &&
         !viewOnly &&
-        el.type !== 'MERGED_SHAPE' &&
         (!isInlineEditing ||
           (bandNested != null && bandCanvasEditElementId === bandNested.container.id)) && (
         <button
@@ -1242,22 +1294,26 @@ function ElementPreview({ el }: { el: LayoutElement }) {
       </svg>
     )
   }
-  if (el.type === 'MERGED_SHAPE' && el.shapePolys?.length) {
+  if (el.type === 'MERGED_SHAPE' && (el.bezierPath?.length || el.shapePolys?.length)) {
+    // Prefer the bezier path when present so curves render true-to-the-
+    // editor. `shapePolys` is still kept in sync on every edit for the
+    // PDF renderer; here we only reach the polygon branch for shapes
+    // that haven't been curved yet.
+    const d = el.bezierPath?.length
+      ? bezierPathToSvgPathD(el.bezierPath)
+      : el.shapePolys!.map(shapePolygonToSvgPathD).join(' ')
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${el.width} ${el.height}`} aria-hidden>
         {svgDefs.length > 0 && <defs>{svgDefs}</defs>}
-        {el.shapePolys.map((poly, pi) => (
-          <path
-            key={pi}
-            d={shapePolygonToSvgPathD(poly)}
-            fill={shapeFill || 'none'}
-            fillRule="evenodd"
-            stroke={shapeStroke}
-            strokeWidth={sw}
-            strokeDasharray={shapeDash}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
+        <path
+          d={d}
+          fill={shapeFill || 'none'}
+          fillRule="evenodd"
+          stroke={shapeStroke}
+          strokeWidth={sw}
+          strokeDasharray={shapeDash}
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
     )
   }
@@ -1305,10 +1361,24 @@ function HorizontalRuler({
   widthPt,
   elRef,
   onPointerDownGuide,
+  leftMarginPt,
+  rightMarginPt,
+  onMarginPointerDown,
 }: {
   widthPt: number
   elRef?: RefObject<HTMLDivElement | null>
   onPointerDownGuide?: (e: ReactPointerEvent<HTMLDivElement>) => void
+  /** Current left margin in pt — renders a draggable triangle at that x. */
+  leftMarginPt?: number
+  /** Current right margin in pt — renders a draggable triangle at
+   *  `widthPt - rightMarginPt`. */
+  rightMarginPt?: number
+  /** Parent-provided pointerdown handler for each margin marker. Runs
+   *  after marker's own stopPropagation so the ruler's guide-drag
+   *  doesn't fire in parallel. */
+  onMarginPointerDown?: (
+    side: 'left' | 'right',
+  ) => (e: ReactPointerEvent<HTMLDivElement>) => void
 }) {
   const marks: ReactNode[] = []
   for (let x = 0; x <= widthPt; x += 10) {
@@ -1334,6 +1404,26 @@ function HorizontalRuler({
       )
     }
   }
+  const renderMarker = (side: 'left' | 'right', pt: number, tipX: number) =>
+    onMarginPointerDown ? (
+      <div
+        key={`mm-${side}`}
+        role="button"
+        tabIndex={-1}
+        aria-label={`Drag to set ${side} margin (${Math.round(pt)}pt)`}
+        title={`Drag to change ${side} margin · ${Math.round(pt)}pt`}
+        className="absolute bottom-0 flex h-full w-4 cursor-ew-resize items-end justify-center text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
+        style={{ left: tipX - 8 }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          onMarginPointerDown(side)(e)
+        }}
+      >
+        <svg width="10" height="8" viewBox="0 0 10 8" className="block">
+          <path d="M0 0 L10 0 L5 8 Z" fill="currentColor" />
+        </svg>
+      </div>
+    ) : null
   return (
     <div
       ref={(node) => {
@@ -1344,6 +1434,9 @@ function HorizontalRuler({
       onPointerDown={onPointerDownGuide}
     >
       {marks}
+      {leftMarginPt != null && renderMarker('left', leftMarginPt, leftMarginPt)}
+      {rightMarginPt != null &&
+        renderMarker('right', rightMarginPt, widthPt - rightMarginPt)}
     </div>
   )
 }
@@ -1352,10 +1445,18 @@ function VerticalRuler({
   heightPt,
   elRef,
   onPointerDownGuide,
+  topMarginPt,
+  bottomMarginPt,
+  onMarginPointerDown,
 }: {
   heightPt: number
   elRef?: RefObject<HTMLDivElement | null>
   onPointerDownGuide?: (e: ReactPointerEvent<HTMLDivElement>) => void
+  topMarginPt?: number
+  bottomMarginPt?: number
+  onMarginPointerDown?: (
+    side: 'top' | 'bottom',
+  ) => (e: ReactPointerEvent<HTMLDivElement>) => void
 }) {
   const marks: ReactNode[] = []
   for (let y = 0; y <= heightPt; y += 10) {
@@ -1381,6 +1482,26 @@ function VerticalRuler({
       )
     }
   }
+  const renderMarker = (side: 'top' | 'bottom', pt: number, tipY: number) =>
+    onMarginPointerDown ? (
+      <div
+        key={`mm-${side}`}
+        role="button"
+        tabIndex={-1}
+        aria-label={`Drag to set ${side} margin (${Math.round(pt)}pt)`}
+        title={`Drag to change ${side} margin · ${Math.round(pt)}pt`}
+        className="absolute right-0 flex h-4 w-full cursor-ns-resize items-center justify-end text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300"
+        style={{ top: tipY - 8 }}
+        onPointerDown={(e) => {
+          e.stopPropagation()
+          onMarginPointerDown(side)(e)
+        }}
+      >
+        <svg width="8" height="10" viewBox="0 0 8 10" className="block">
+          <path d="M0 0 L0 10 L8 5 Z" fill="currentColor" />
+        </svg>
+      </div>
+    ) : null
   return (
     <div
       ref={(node) => {
@@ -1391,6 +1512,9 @@ function VerticalRuler({
       onPointerDown={onPointerDownGuide}
     >
       {marks}
+      {topMarginPt != null && renderMarker('top', topMarginPt, topMarginPt)}
+      {bottomMarginPt != null &&
+        renderMarker('bottom', bottomMarginPt, heightPt - bottomMarginPt)}
     </div>
   )
 }
@@ -1463,20 +1587,20 @@ export function EditorCanvas({
     })
   }, [mergedElements, previewData])
   const selectedIds = useEditorStore((s) => s.selectedIds)
-  const punchHoleElements = useMemo(() => {
+  const divideSourceElements = useMemo(() => {
     if (bandContainerEl) return bandContainerEl.bandElements ?? []
     return pages[activePageIndex]?.elements ?? []
   }, [bandContainerEl, pages, activePageIndex])
-  const canPunchHole = useEditorStore((s) =>
-    canSubtractPunchHoleSelection({
+  const canDivide = useEditorStore((s) =>
+    canDivideSelection({
       selectedIds: s.selectedIds,
-      elements: punchHoleElements,
+      elements: divideSourceElements,
     })
   )
   const addElement = useEditorStore((s) => s.addElement)
   const insertLayoutComponentAt = useEditorStore((s) => s.insertLayoutComponentAt)
   const saveSelectionAsLayoutComponent = useEditorStore((s) => s.saveSelectionAsLayoutComponent)
-  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
+  const divideSelectionIntoRegions = useEditorStore((s) => s.divideSelectionIntoRegions)
   const select = useEditorStore((s) => s.select)
   const pageSpec = useEditorStore((s) => s.pageSpec)
   const showGrid = useEditorStore((s) => s.showGrid)
@@ -1499,6 +1623,7 @@ export function EditorCanvas({
   const m = pageSpec.margins
   const dragGuides = useEditorStore((s) => s.dragGuides)
   const setCanvasPointerPt = useEditorStore((s) => s.setCanvasPointerPt)
+  const setPageMargins = useEditorStore((s) => s.setPageMargins)
   const setSpaceMoveTool = useEditorStore((s) => s.setSpaceMoveTool)
   const spaceMoveTool = useEditorStore((s) => s.spaceMoveTool)
   const canvasTool = useEditorStore((s) => s.canvasTool)
@@ -1529,6 +1654,20 @@ export function EditorCanvas({
     startAngle: number
     /** Element's `style.rotation` at drag start. */
     startRotation: number
+  } | null>(null)
+
+  /**
+   * Page-margin drag (ruler triangle markers → live update page-spec
+   * margins). Stashed per-pointer so the parent's pointermove can
+   * reconstruct the new margin from the initial value + CSS delta.
+   * Wrapped in a history batch so the whole drag commits as one undo
+   * step instead of pushing a barrier per frame.
+   */
+  const marginDragSessionRef = useRef<{
+    pointerId: number
+    side: 'left' | 'right' | 'top' | 'bottom'
+    startClient: number
+    startMargin: number
   } | null>(null)
   const [isPanning, setIsPanning] = useState(false)
   const [imageModalOpen, setImageModalOpen] = useState(false)
@@ -1727,6 +1866,26 @@ export function EditorCanvas({
       const st = useEditorStore.getState()
       const key = e.key
 
+      // Path-edit mode takes priority on Escape / Delete so the normal
+      // Delete = "remove the selected element" path doesn't fire while
+      // the user is inside the vertex editor.
+      if (st.pathEditingElementId) {
+        if (key === 'Escape') {
+          e.preventDefault()
+          st.exitPathEditMode()
+          return
+        }
+        if (key === 'Delete' || key === 'Backspace') {
+          e.preventDefault()
+          if (st.pathEditingSelectedVertex) {
+            st.removePathVertex(st.pathEditingSelectedVertex)
+          }
+          // With no selected vertex, swallow the key so we don't kill
+          // the shape the user is currently editing.
+          return
+        }
+      }
+
       // Arrow keys: nudge selected elements (Shift = snap to grid step)
       if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
         if (st.selectedIds.length === 0) return
@@ -1853,6 +2012,77 @@ export function EditorCanvas({
       return { x, y }
     },
     [bandEditBox]
+  )
+
+  /**
+   * Start dragging a margin triangle on one of the rulers. Opens a
+   * history batch so the N pointermove-driven {@link setPageMargins}
+   * calls collapse into a single undo step. Attaches window listeners
+   * (rather than relying on the ruler's own handlers) so the drag keeps
+   * tracking even when the cursor leaves the ruler — same pattern as
+   * the element drag flow.
+   */
+  const onMarginMarkerPointerDown = useCallback(
+    (side: 'left' | 'right' | 'top' | 'bottom') =>
+      (e: ReactPointerEvent<HTMLDivElement>) => {
+        if (e.button !== 0) return
+        if (useEditorStore.getState().viewOnly) return
+        e.preventDefault()
+        const st0 = useEditorStore.getState()
+        const startMargin = st0.pageSpec.margins[side] ?? 0
+        const startClient = side === 'left' || side === 'right' ? e.clientX : e.clientY
+        marginDragSessionRef.current = {
+          pointerId: e.pointerId,
+          side,
+          startClient,
+          startMargin,
+        }
+        st0.beginHistoryBatch()
+
+        const onMove = (ev: PointerEvent) => {
+          const drag = marginDragSessionRef.current
+          if (!drag || drag.pointerId !== ev.pointerId) return
+          ev.preventDefault()
+          const st = useEditorStore.getState()
+          const z = st.canvasZoom
+          const curClient = side === 'left' || side === 'right' ? ev.clientX : ev.clientY
+          // Margin coordinate grows INTO the page — for the right/bottom
+          // sides, dragging "outward" (increasing clientX/Y) shrinks the
+          // margin, so flip the sign.
+          const signed = (curClient - drag.startClient) / z
+          const dir = side === 'left' || side === 'top' ? 1 : -1
+          const raw = drag.startMargin + dir * signed
+          // Clamp: don't collapse margins onto each other. Leave at
+          // least 20pt of content space between the two opposing margins.
+          const { width: pw, height: ph } = pageDimensionsPt(st.pageSpec)
+          const axisLen = side === 'left' || side === 'right' ? pw : ph
+          const other = side === 'left'
+            ? st.pageSpec.margins.right
+            : side === 'right'
+              ? st.pageSpec.margins.left
+              : side === 'top'
+                ? st.pageSpec.margins.bottom
+                : st.pageSpec.margins.top
+          const maxMargin = Math.max(0, axisLen - other - 20)
+          const clamped = Math.max(0, Math.min(maxMargin, raw))
+          st.setPageMargins({ [side]: clamped })
+        }
+
+        const onUp = (ev: PointerEvent) => {
+          const drag = marginDragSessionRef.current
+          if (!drag || drag.pointerId !== ev.pointerId) return
+          marginDragSessionRef.current = null
+          useEditorStore.getState().endHistoryBatch()
+          window.removeEventListener('pointermove', onMove)
+          window.removeEventListener('pointerup', onUp)
+          window.removeEventListener('pointercancel', onUp)
+        }
+
+        window.addEventListener('pointermove', onMove)
+        window.addEventListener('pointerup', onUp)
+        window.addEventListener('pointercancel', onUp)
+      },
+    [],
   )
 
   const onRulerGuidePointerDown = useCallback(
@@ -2161,10 +2391,91 @@ export function EditorCanvas({
     [setCanvasPointerPt]
   )
 
+  /**
+   * Adjust `canvasZoom` around a fixed client point so the spot under
+   * the user's cursor / pinch midpoint stays visually pinned while the
+   * rest of the canvas grows or shrinks. Used by both the trackpad /
+   * Ctrl-wheel gesture and the two-finger touch pinch below.
+   *
+   * Technique: stash the document-space point under the cursor,
+   * update the store's zoom, then on the next frame re-measure the
+   * canvas rect and nudge `scrollLeft/Top` by the delta so that doc
+   * point lands at the same client coord again.
+   */
+  const zoomAtCursor = useCallback((factor: number, clientX: number, clientY: number) => {
+    const canvasNode = canvasRef.current
+    const scrollNode = scrollRef.current
+    if (!canvasNode || !scrollNode) return
+    const st = useEditorStore.getState()
+    const z0 = st.canvasZoom
+    const raw = z0 * factor
+    const z1 = Math.min(CANVAS_ZOOM_MAX, Math.max(CANVAS_ZOOM_MIN, Math.round(raw * 100) / 100))
+    if (z1 === z0) return
+    const before = canvasNode.getBoundingClientRect()
+    const docX = (clientX - before.left) / z0
+    const docY = (clientY - before.top) / z0
+    st.setCanvasZoom(z1)
+    // After React commits the zoom, the canvas rect has moved — re-measure
+    // and adjust the scroll offset to keep the doc point under the cursor.
+    requestAnimationFrame(() => {
+      const after = canvasNode.getBoundingClientRect()
+      const desiredLeft = clientX - docX * z1
+      const desiredTop = clientY - docY * z1
+      scrollNode.scrollLeft += after.left - desiredLeft
+      scrollNode.scrollTop += after.top - desiredTop
+    })
+  }, [])
+
+  /** Ctrl/Cmd + wheel zooms on desktop; trackpad pinch on macOS also
+   *  arrives as a wheel event with `ctrlKey = true`. preventDefault has
+   *  to fire for the browser to let us own the gesture, which means we
+   *  can't use React's synthetic wheel (its listeners are passive in
+   *  modern React). Attached via native addEventListener below. */
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) return
+    const onWheel = (e: WheelEvent) => {
+      // Only hijack the event when the user is clearly asking for zoom
+      // (modifier held or trackpad pinch). Plain two-finger scroll falls
+      // through untouched so vertical / horizontal scroll still works.
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      // Treat deltaY as pixels moved — exp() maps linearly into a geometric
+      // zoom step. 0.01 keeps pinch gestures smooth, no per-tick jumps.
+      const factor = Math.exp(-e.deltaY * 0.01)
+      zoomAtCursor(factor, e.clientX, e.clientY)
+    }
+    node.addEventListener('wheel', onWheel, { passive: false })
+    return () => node.removeEventListener('wheel', onWheel)
+  }, [zoomAtCursor])
+
+  /** Two-finger touch pinch. Desktop trackpad pinch is covered above by
+   *  the wheel handler; this path wires up native pinch on touchscreens.
+   *  We track touch-type pointers in a Map and, whenever two are down,
+   *  derive zoom from the ratio of the current distance to the distance
+   *  at the last move. */
+  const pinchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinchSessionRef = useRef<{ lastDistance: number } | null>(null)
+
   const onScrollPointerDownCapture = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const el = scrollRef.current
       if (!el) return
+
+      // Two-finger pinch bookkeeping — only for 'touch' pointers so the
+      // mouse path below isn't disturbed.
+      if (e.pointerType === 'touch') {
+        pinchPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        if (pinchPointersRef.current.size === 2) {
+          const pts = Array.from(pinchPointersRef.current.values())
+          pinchSessionRef.current = {
+            lastDistance: Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y),
+          }
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+      }
 
       // ── Rotate tool ─────────────────────────────────────────────────────
       // When the rotate tool is active and there's a single selected
@@ -2222,6 +2533,26 @@ export function EditorCanvas({
   )
 
   const onScrollPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Pinch tracking: refresh the pointer's position and, when two
+    // touches are active, derive a zoom factor from the ratio of the
+    // current pair distance to the last one.
+    if (e.pointerType === 'touch' && pinchPointersRef.current.has(e.pointerId)) {
+      pinchPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const session = pinchSessionRef.current
+      if (session && pinchPointersRef.current.size === 2) {
+        const pts = Array.from(pinchPointersRef.current.values())
+        const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y)
+        if (dist > 0 && session.lastDistance > 0) {
+          const factor = dist / session.lastDistance
+          const midX = (pts[0]!.x + pts[1]!.x) / 2
+          const midY = (pts[0]!.y + pts[1]!.y) / 2
+          zoomAtCursor(factor, midX, midY)
+          session.lastDistance = dist
+        }
+        return
+      }
+    }
+
     // Rotate session: update style.rotation live as the pointer moves.
     // Holding Shift snaps to 15° increments so users can land on 45/90/etc.
     const r = rotateSessionRef.current
@@ -2248,6 +2579,14 @@ export function EditorCanvas({
   }, [])
 
   const onScrollPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // End pinch: drop this pointer from the map. When we're back to
+    // fewer than 2 active touches the session ends.
+    if (e.pointerType === 'touch' && pinchPointersRef.current.has(e.pointerId)) {
+      pinchPointersRef.current.delete(e.pointerId)
+      if (pinchPointersRef.current.size < 2) pinchSessionRef.current = null
+      return
+    }
+
     // End rotate session — commit a history entry by calling updateElement
     // one last time without skipHistory so the user can Ctrl+Z the whole
     // drag as one step rather than N incremental frames.
@@ -2285,24 +2624,20 @@ export function EditorCanvas({
       ? isPanning
         ? 'cursor-grabbing'
         : 'cursor-grab'
-      : canvasTool === 'mergeShapes'
-        ? 'cursor-pointer'
-        : canvasTool === 'rotate'
-          ? 'cursor-crosshair'
-          : moveGrabActive
-            ? 'cursor-grab'
-            : drawMode
-              ? 'cursor-crosshair'
-              : ''
+      : canvasTool === 'rotate'
+        ? 'cursor-crosshair'
+        : moveGrabActive
+          ? 'cursor-grab'
+          : drawMode
+            ? 'cursor-crosshair'
+            : ''
 
   const scrollTitle =
     canvasTool === 'pan'
       ? 'Drag to pan the canvas'
-      : canvasTool === 'mergeShapes'
-        ? 'Merge shapes — group shapes first, then click any member to merge into one outline'
-        : canvasTool === 'rotate'
-          ? 'Rotate tool — select an element, then drag to rotate (hold Shift to snap to 15°)'
-          : spaceMoveTool
+      : canvasTool === 'rotate'
+        ? 'Rotate tool — select an element, then drag to rotate (hold Shift to snap to 15°)'
+        : spaceMoveTool
             ? 'Release Space to exit quick move'
             : canvasTool === 'move'
               ? 'Move tool — drag elements without a long press'
@@ -2331,6 +2666,38 @@ export function EditorCanvas({
   const gOx = bandEditBox?.x ?? 0
   const gOy = bandEditBox?.y ?? 0
   const gGuideH = bandEditBox?.h ?? PAGE_H
+
+  /* ── Marquee / rubber-band selection ────────────────────────────────
+   * Active only under the Select tool. pointerdown on the page surface
+   * (below the element layer) opens a marquee session; pointermove
+   * updates the translucent rectangle; pointerup picks up every element
+   * whose axis-aligned bbox intersects it. A drag below {@link
+   * MARQUEE_THRESHOLD_PT} is treated as a plain click (deselect).
+   * Shift-drag adds to the existing selection instead of replacing.
+   * Skipped in band-edit mode (coordinate spaces differ). */
+  const MARQUEE_THRESHOLD_PT = 3
+  const marqueeSessionRef = useRef<{
+    pointerId: number
+    startX: number // document pt
+    startY: number
+    additive: boolean
+  } | null>(null)
+  const [marqueeRect, setMarqueeRect] = useState<
+    | { x: number; y: number; w: number; h: number }
+    | null
+  >(null)
+  const selectMany = useEditorStore((s) => s.selectMany)
+
+  const clientToPagePt = useCallback((clientX: number, clientY: number) => {
+    const node = canvasRef.current
+    if (!node) return null
+    const rect = node.getBoundingClientRect()
+    const z = useEditorStore.getState().canvasZoom
+    return {
+      x: (clientX - rect.left) / z,
+      y: (clientY - rect.top) / z,
+    }
+  }, [])
 
   const onPageMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -2369,9 +2736,106 @@ export function EditorCanvas({
         addElement(createDefaultElement(st.placementElementType, { x: placeX, y: placeY }))
         return
       }
+      // Select tool default on empty canvas: open a marquee session. The
+      // pointerup handler below decides between "bulk select" and "plain
+      // click deselect" based on drag distance. Shift adds to the
+      // existing selection.
+      if (
+        st.canvasTool === 'select' &&
+        !st.bandCanvasEditElementId &&
+        !st.canvasInlineEditId &&
+        !st.spaceMoveTool
+      ) {
+        const pt = clientToPagePt(e.clientX, e.clientY)
+        if (pt) {
+          marqueeSessionRef.current = {
+            pointerId: -1, // mousedown event; no pointerId. The pointermove
+                           // listener below accepts any id while a session is
+                           // live.
+            startX: pt.x,
+            startY: pt.y,
+            additive: e.shiftKey || e.metaKey || e.ctrlKey,
+          }
+          // Don't deselect yet — the pointerup handler does that if
+          // it turns out to be a click, not a drag.
+          return
+        }
+      }
       select(null)
     },
-    [addElement, select, requestImageInsertAt]
+    [addElement, select, requestImageInsertAt, clientToPagePt]
+  )
+
+  const onPagePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const session = marqueeSessionRef.current
+      if (!session) return
+      const pt = clientToPagePt(e.clientX, e.clientY)
+      if (!pt) return
+      const dx = pt.x - session.startX
+      const dy = pt.y - session.startY
+      if (Math.abs(dx) < MARQUEE_THRESHOLD_PT && Math.abs(dy) < MARQUEE_THRESHOLD_PT) {
+        setMarqueeRect(null)
+        return
+      }
+      const x = Math.min(session.startX, pt.x)
+      const y = Math.min(session.startY, pt.y)
+      const w = Math.abs(dx)
+      const h = Math.abs(dy)
+      setMarqueeRect({ x, y, w, h })
+    },
+    [clientToPagePt],
+  )
+
+  const onPagePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const session = marqueeSessionRef.current
+      if (!session) return
+      marqueeSessionRef.current = null
+      const pt = clientToPagePt(e.clientX, e.clientY)
+      if (!pt) {
+        setMarqueeRect(null)
+        return
+      }
+      const dx = pt.x - session.startX
+      const dy = pt.y - session.startY
+      const meaningfulDrag =
+        Math.abs(dx) >= MARQUEE_THRESHOLD_PT || Math.abs(dy) >= MARQUEE_THRESHOLD_PT
+      if (!meaningfulDrag) {
+        // Plain click on empty canvas → preserve existing behaviour.
+        setMarqueeRect(null)
+        if (!session.additive) useEditorStore.getState().select(null)
+        return
+      }
+      const mx = Math.min(session.startX, pt.x)
+      const my = Math.min(session.startY, pt.y)
+      const mw = Math.abs(dx)
+      const mh = Math.abs(dy)
+      // AABB intersection against every element on the active page.
+      // `displayElements` is what's on-canvas after visibility resolves —
+      // matches what the user actually sees.
+      const hits: string[] = []
+      for (const el of displayElements) {
+        if (
+          el.x + el.width < mx ||
+          el.x > mx + mw ||
+          el.y + el.height < my ||
+          el.y > my + mh
+        ) {
+          continue
+        }
+        hits.push(el.id)
+      }
+      setMarqueeRect(null)
+      if (hits.length === 0) {
+        // Empty drag — treat like a plain click so the user doesn't
+        // end up with a stale selection.
+        if (!session.additive) useEditorStore.getState().select(null)
+        return
+      }
+      selectMany(hits, { additive: session.additive })
+    },
+    [clientToPagePt, displayElements, selectMany],
   )
 
   return (
@@ -2379,8 +2843,12 @@ export function EditorCanvas({
     <div
       ref={scrollRef}
       data-agreemint-canvas-root
-      className={`min-w-0 flex-1 overflow-auto bg-zinc-200/80 p-6 dark:bg-zinc-950 ${scrollCursorClass}`}
+      className={`am-scrollbar-none min-w-0 flex-1 overflow-auto bg-zinc-200/80 p-6 dark:bg-zinc-950 ${scrollCursorClass}`}
       title={scrollTitle}
+      // `pan-x pan-y` reserves one-finger scroll for the browser while
+      // keeping two-finger pinch for us (instead of the native page
+      // zoom). Pointer events still fire so our pinch tracker works.
+      style={{ touchAction: 'pan-x pan-y' }}
       onPointerDownCapture={onScrollPointerDownCapture}
       onPointerMove={onScrollPointerMove}
       onPointerUp={onScrollPointerUp}
@@ -2411,6 +2879,13 @@ export function EditorCanvas({
                 widthPt={PAGE_W}
                 elRef={horizontalRulerBoundRef}
                 onPointerDownGuide={onRulerGuidePointerDown('horizontal')}
+                leftMarginPt={!bandContainerEl && !viewOnly ? m.left : undefined}
+                rightMarginPt={!bandContainerEl && !viewOnly ? m.right : undefined}
+                onMarginPointerDown={
+                  !bandContainerEl && !viewOnly
+                    ? (side) => onMarginMarkerPointerDown(side)
+                    : undefined
+                }
               />
             </div>
           )}
@@ -2420,6 +2895,13 @@ export function EditorCanvas({
                 heightPt={PAGE_H}
                 elRef={verticalRulerBoundRef}
                 onPointerDownGuide={onRulerGuidePointerDown('vertical')}
+                topMarginPt={!bandContainerEl && !viewOnly ? m.top : undefined}
+                bottomMarginPt={!bandContainerEl && !viewOnly ? m.bottom : undefined}
+                onMarginPointerDown={
+                  !bandContainerEl && !viewOnly
+                    ? (side) => onMarginMarkerPointerDown(side)
+                    : undefined
+                }
               />
             )}
             <div
@@ -2442,22 +2924,16 @@ export function EditorCanvas({
               onMouseDown={onPageMouseDown}
               onMouseMove={onPageMouseMove}
               onMouseLeave={() => setCanvasPointerPt(null)}
+              onPointerMove={onPagePointerMove}
+              onPointerUp={onPagePointerUp}
+              onPointerCancel={onPagePointerUp}
             >
-              {/* Print-margin guide is authoring UI — hide for VIEWER/REVIEWER,
-                  they don't move elements and the blue dashed box just clutters
-                  the read-only view. */}
-              {!bandContainerEl && !viewOnly ? (
-                <div
-                  className="pointer-events-none absolute z-[2] border border-dashed border-sky-500/45 dark:border-sky-400/55"
-                  style={{
-                    left: m.left,
-                    top: m.top,
-                    width: Math.max(0, PAGE_W - m.left - m.right),
-                    height: Math.max(0, PAGE_H - m.top - m.bottom),
-                  }}
-                  title="Print margins"
-                />
-              ) : null}
+              {/* The old sky-blue dashed rectangle that traced the print
+                  margins lived here. It's been replaced by the draggable
+                  triangle markers on the rulers (Google-Docs-style) so
+                  the page surface stays uncluttered and the author can
+                  drag margins directly from the ruler instead of hunting
+                  for them in Settings. */}
               {activePageGuides?.vertical.map((x, gi) => (
                 <Fragment key={`pgv-${gi}-${x}`}>
                   <div
@@ -2518,6 +2994,30 @@ export function EditorCanvas({
                   style={{ top: gOy + y, width: PAGE_W }}
                 />
               ))}
+              {/* Path-edit mode chrome (vertex handles + snap guides).
+                  Lives in page-coord space — the overlay positions
+                  itself at the editing element's (x, y). Renders null
+                  when no element is being path-edited. */}
+              <div
+                className="pointer-events-none absolute z-[26]"
+                style={{ left: gOx, top: gOy, width: PAGE_W, height: PAGE_H }}
+              >
+                <PathEditOverlay />
+              </div>
+              {/* Marquee / rubber-band selection rectangle. Only rendered
+                  while the Select-tool drag exceeds the click threshold
+                  (a plain click shows nothing — matches Figma / Excalidraw). */}
+              {marqueeRect && (
+                <div
+                  className="pointer-events-none absolute z-[24] border border-dashed border-violet-500 bg-violet-500/10 dark:border-violet-400 dark:bg-violet-400/10"
+                  style={{
+                    left: gOx + marqueeRect.x,
+                    top: gOy + marqueeRect.y,
+                    width: marqueeRect.w,
+                    height: marqueeRect.h,
+                  }}
+                />
+              )}
               {bandEditBox ? (
                 <BandEditOutsideMasks box={bandEditBox} pageW={PAGE_W} pageH={PAGE_H} />
               ) : null}
@@ -2673,17 +3173,17 @@ export function EditorCanvas({
               >
                 Save as component…
               </button>
-              {canPunchHole ? (
+              {canDivide ? (
                 <button
                   type="button"
                   role="menuitem"
                   className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   onClick={() => {
-                    subtractSelectionToMergedShape()
+                    divideSelectionIntoRegions()
                     setElementContextMenu(null)
                   }}
                 >
-                  Punch hole (subtract shapes)…
+                  Divide shapes (split into regions)…
                 </button>
               ) : null}
               <div className="border-t border-zinc-100 dark:border-zinc-700" />

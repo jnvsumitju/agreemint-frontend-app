@@ -19,7 +19,6 @@ import {
 } from '../../types/layout'
 import {
   excelColumnLabel,
-  getTableDataSourceState,
   getVisibleTableBodyRows,
   tablePreviewBodyRowCount,
 } from '../../lib/tablePreview'
@@ -174,7 +173,8 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     () => getVisibleTableBodyRows(el, variableValues, previewBodyRows),
     [el, variableValues, previewBodyRows]
   )
-  const dataState = getTableDataSourceState(el, variableValues)
+  // dataState used to drive an on-canvas hint banner — now removed so the
+  // element never shows UI text that could be mistaken for PDF content.
   const pinnedLetters = el.tableShowColumnLetters === true
   const pinnedRows = el.tableShowRowNumbers === true
   const [peekLetters, setPeekLetters] = useState(false)
@@ -194,7 +194,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   /** Refs to one cell per grid row (first column) to measure actual row positions. */
   const headerRowRef = useRef<HTMLDivElement>(null)
   const bodyRowRefs = useRef<(HTMLDivElement | null)[]>([])
-  const [gutterPositions, setGutterPositions] = useState<{ top: number; height: number }[]>([])
+  // The row-number gutter renders as a sibling CSS grid with the same
+  // grid-template-rows as the main grid (auto-aligns via the browser),
+  // so we no longer need a JS-measured gutterPositions state.
   const resizeRef = useRef<{
     index: number
     startX: number
@@ -275,32 +277,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     const grid = gridRef.current
     if (!grid) {
       setRowInsertZones((prev) => (prev.length ? [] : prev))
-      setGutterPositions([])
       return
     }
     const gRect = grid.getBoundingClientRect()
-
-    // Measure actual row positions from the first-column cells in the main grid
-    const gp: { top: number; height: number }[] = []
     const hr = headerRowRef.current
-    if (hr) {
-      const b = hr.getBoundingClientRect()
-      gp.push({ top: b.top - gRect.top, height: b.height })
-    }
-    for (let ri = 0; ri < previewBodyRows; ri++) {
-      const br = bodyRowRefs.current[ri]
-      if (br) {
-        const b = br.getBoundingClientRect()
-        gp.push({ top: b.top - gRect.top, height: b.height })
-      }
-    }
-    setGutterPositions((prev) => {
-      if (
-        prev.length === gp.length &&
-        prev.every((p, i) => Math.abs(p.top - gp[i].top) < 0.5 && Math.abs(p.height - gp[i].height) < 0.5)
-      ) return prev
-      return gp
-    })
 
     const zones: { top: number; insertIndex: number }[] = []
     if (hr) {
@@ -733,9 +713,16 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
       onPointerOut={handleTablePointerOut}
     >
       <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-visible">
-        {showRowNumbers && gutterPositions.length > 0 ? (
-          <div className="pointer-events-auto absolute right-full top-0 z-[1] w-5" style={{ height: '100%' }}>
-            {gutterPositions.map((gp, gi) => {
+        {showRowNumbers ? (
+          // Mirrors the main grid's `grid-template-rows` so labels line
+          // up 1-to-1 with actual rows — no JS-measured tops/heights to
+          // get out of sync during a resize drag. Total row count is
+          // header + every preview body row (fr-proportional).
+          <div
+            className="pointer-events-auto absolute right-full top-0 z-[1] grid w-5"
+            style={{ height: '100%', gridTemplateRows }}
+          >
+            {Array.from({ length: previewBodyRows + 1 }, (_, gi) => {
               const isHeader = gi === 0
               const ri = gi - 1
               const slot = !isHeader ? visibleBodyRows[ri] : undefined
@@ -755,7 +742,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                     if (isHeader) headerGutterRef.current = node
                     else dataGutterRefs.current[ri] = node
                   }}
-                  className={`absolute left-0 right-0 flex items-center justify-center ${cellBorder} bg-zinc-200 text-[9px] font-medium tabular-nums text-zinc-600 dark:bg-zinc-300 dark:text-zinc-800 ${
+                  className={`flex items-center justify-center self-stretch ${cellBorder} bg-zinc-200 text-[9px] font-medium tabular-nums text-zinc-600 dark:bg-zinc-300 dark:text-zinc-800 ${
                     isRowSel
                       ? `${TABLE_BLOCK_SELECTION_FILL} ${rowBlockSelectionClasses(
                           tableSelection!,
@@ -766,7 +753,6 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                         )}`
                       : ''
                   }`}
-                  style={{ top: gp.top, height: gp.height }}
                   onClick={(e) => onRowGutterClick(e, dataRowIndex)}
                   title={
                     isHeader
@@ -1152,7 +1138,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
             )
           })}
 
-        {/* Row insert (+) to the left of the grid, at row boundaries */}
+        {/* Row insert (+) to the LEFT of the row-number gutter, not
+            overlapping it. Gutter is 20px wide at `right-full` (i.e.
+            spans -20→0 of wrapRef), so the button's right edge sits at
+            -24 to leave a 4px gap before the gutter's left edge. */}
         {selected &&
           !locked &&
           rowInsertZones.map((z) => (
@@ -1161,7 +1150,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
               type="button"
               title="Insert row"
               className="pointer-events-auto absolute z-20 flex h-5 w-5 -translate-y-1/2 items-center justify-center bg-transparent opacity-0 hover:opacity-100 focus:opacity-100 focus-visible:opacity-100"
-              style={{ top: z.top, left: -22 }}
+              style={{ top: z.top, left: -44 }}
               onPointerDown={(e) => {
                 e.stopPropagation()
                 e.preventDefault()
@@ -1175,22 +1164,11 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           ))}
       </div>
 
-      {dataState.kind !== 'ok' ? (
-        <div
-          className={`shrink-0 border-t border-zinc-400 px-1.5 py-1 text-[9px] leading-snug dark:border-zinc-500 ${
-            dataState.kind === 'invalid'
-              ? 'bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100'
-              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
-          }`}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (locked) select(el.id)
-            else selectTableOnly()
-          }}
-        >
-          {dataState.message}
-        </div>
-      ) : null}
+      {/* Empty / invalid data-state banners used to render here —
+          removed because they looked like table content on the canvas
+          and risked confusing authors into thinking the text would show
+          up in the rendered PDF. The Variables tab still surfaces the
+          underlying key name and any JSON errors there. */}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useAuthStore } from '../stores/authStore'
+import { stripSystemVariableKeysFromData } from './systemTemplateVariables'
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -239,10 +240,15 @@ export async function generatePreviewPdf(
   layout: Record<string, unknown>,
   data: Record<string, unknown>
 ): Promise<Blob> {
+  // Strip reserved keys (pageNumber, totalPages, currentDate, …) before
+  // sending — the backend computes these per-page / per-render and
+  // ignores any client-supplied value. Keeping them out of the payload
+  // avoids misleading cURL / devtools inspections.
+  const cleanedData = stripSystemVariableKeysFromData(data)
   const res = await authFetch(`${API_BASE}/api/generate/preview`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ layout, data }),
+    body: JSON.stringify({ layout, data: cleanedData }),
   })
   if (!res.ok) {
     const text = await res.text()
@@ -263,10 +269,11 @@ export async function generatePdf(
   versionId: string,
   data: Record<string, unknown>
 ): Promise<GenerateResultDto> {
+  const cleanedData = stripSystemVariableKeysFromData(data)
   const res = await authFetch(`${API_BASE}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ templateId, versionId, data }),
+    body: JSON.stringify({ templateId, versionId, data: cleanedData }),
   })
   return parseJson<GenerateResultDto>(res)
 }

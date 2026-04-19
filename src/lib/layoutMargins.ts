@@ -175,10 +175,14 @@ export function finalizeDragPosition(
   snapToGrid: boolean,
   gridSize?: number
 ): { x: number; y: number } {
+  // When grid-snap is off we still want the margin clamp to run, but it
+  // must not silently re-snap the coordinates. Passing 0 turns the
+  // clamp's internal {@link snap} call into a no-op.
+  const clampGrid = snapToGrid ? gridSize : 0
   let x = nx
   let y = ny
   for (let i = 0; i < 4; i++) {
-    const c = clampElementTopLeftToPrintMargins(el, x, y, page, gridSize)
+    const c = clampElementTopLeftToPrintMargins(el, x, y, page, clampGrid)
     x = c.x
     y = c.y
     if (!snapToGrid || isHeaderOrFooterType(el.type)) break
@@ -199,10 +203,13 @@ export function finalizeResizeSize(
   snapToGrid: boolean,
   gridSize?: number
 ): { width: number; height: number } {
+  // Same rationale as in finalizeDragPosition — keep the clamp, lose
+  // the unwanted snap when the user isn't holding Shift.
+  const clampGrid = snapToGrid ? gridSize : 0
   let w = width
   let h = height
   for (let i = 0; i < 4; i++) {
-    const c = clampElementSizeToPrintMargins(el, w, h, page, gridSize)
+    const c = clampElementSizeToPrintMargins(el, w, h, page, clampGrid)
     w = c.width
     h = c.height
     if (!snapToGrid || isHeaderOrFooterType(el.type)) break

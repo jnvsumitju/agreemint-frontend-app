@@ -52,6 +52,7 @@ import { DocumentPageSection } from './DocumentPageSection'
 import { MultiSelectionPanel } from './MultiSelectionPanel'
 import { TabBar } from './ui/TabBar'
 import { Tooltip } from './ui/Tooltip'
+import { BindingIndicator, BindingIndicatorSummary } from './BindingIndicator'
 
 /**
  * localStorage keys — the right panel persists its collapsed-to-rail state
@@ -122,9 +123,11 @@ function useVariableMentionLists() {
 function StyleFields({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   return (
@@ -148,6 +151,9 @@ function StyleFields({
           { value: '', label: 'Default' },
           ...FONT_LIST.map((f) => ({ value: f.family, label: f.family })),
         ]}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="fontFamily" /> : undefined
+        }
       />
       <FieldInput
         label="Font size"
@@ -155,6 +161,9 @@ function StyleFields({
         type="number"
         value={s.fontSize ?? 12}
         onChange={(e) => onChange({ ...s, fontSize: Number(e.target.value) || 12 })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="fontSize" /> : undefined
+        }
       />
       <FieldInput
         label="Line height"
@@ -166,6 +175,9 @@ function StyleFields({
           const v = Number(e.target.value)
           if (Number.isFinite(v) && v >= 0.5 && v <= 5) onChange({ ...s, lineHeight: Math.round(v * 10) / 10 })
         }}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="lineHeight" /> : undefined
+        }
       />
       <FieldCheckbox
         label="Bold"
@@ -189,8 +201,11 @@ function StyleFields({
           { value: 'center', label: 'Center' },
           { value: 'right', label: 'Right' },
         ]}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="textAlign" /> : undefined
+        }
       />
-      <RichTextAppearanceFields style={s} onChange={onChange} />
+      <RichTextAppearanceFields style={s} onChange={onChange} element={element} />
     </div>
   )
 }
@@ -753,12 +768,9 @@ function BehaviourBody() {
       {!bandEditorMode ? <DocumentPageSection /> : null}
       <h2 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-xs">Behaviour</h2>
 
-      <FieldCheckbox
-        label="Locked (cannot move, resize, or edit on canvas)"
-        id={`ag-beh-locked-${el.id}`}
-        checked={!!el.locked}
-        onChange={(e) => patch({ locked: e.target.checked })}
-      />
+      {/* The Lock toggle used to live here, but it's already exposed per-row
+          in the Layers panel — keeping both created two competing controls
+          for the same field. Lock is owned by Layers now. */}
 
       {el.groupId && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 dark:border-zinc-600 dark:bg-zinc-800/50">
@@ -877,6 +889,11 @@ function PropertiesBody() {
       </div>
       <p className="text-[10px] text-zinc-600 lg:text-xs dark:text-zinc-400">Type: {el.type}</p>
 
+      {/* Rollup of every active binding on this element. Each chip jumps
+          to its rule in the Behaviour tab — lets users spot "why is this
+          field frozen / an unexpected color?" at a glance. */}
+      <BindingIndicatorSummary element={el} />
+
       <div className="grid grid-cols-2 gap-x-3 gap-y-2">
         <FieldInput
           label="X"
@@ -884,6 +901,7 @@ function PropertiesBody() {
           type="number"
           value={coerceLayoutScalar(el.x, 0)}
           onChange={(e) => patch({ x: Number(e.target.value) || 0 })}
+          labelAdornment={<BindingIndicator element={el} target="x" />}
         />
         <FieldInput
           label="Y"
@@ -891,6 +909,7 @@ function PropertiesBody() {
           type="number"
           value={coerceLayoutScalar(el.y, 0)}
           onChange={(e) => patch({ y: Number(e.target.value) || 0 })}
+          labelAdornment={<BindingIndicator element={el} target="y" />}
         />
         {el.type !== 'MERGED_SHAPE' ? (
           <>
@@ -900,6 +919,7 @@ function PropertiesBody() {
               type="number"
               value={coerceLayoutScalar(el.width, 20)}
               onChange={(e) => patch({ width: Number(e.target.value) || 20 })}
+              labelAdornment={<BindingIndicator element={el} target="width" />}
             />
             <FieldInput
               label="Height"
@@ -907,6 +927,7 @@ function PropertiesBody() {
               type="number"
               value={coerceLayoutScalar(el.height, 16)}
               onChange={(e) => patch({ height: Number(e.target.value) || 16 })}
+              labelAdornment={<BindingIndicator element={el} target="height" />}
             />
           </>
         ) : (
@@ -918,7 +939,7 @@ function PropertiesBody() {
 
       {(isRichTextElement(el) || el.type === 'LIST') && (
         <div className="border-t border-zinc-200 pt-3 dark:border-zinc-600">
-          <StyleFields style={el.style} onChange={(s) => patch({ style: s })} />
+          <StyleFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
         </div>
       )}
 
@@ -930,14 +951,16 @@ function PropertiesBody() {
             type="url"
             value={el.src ?? ''}
             onChange={(e) => patch({ src: e.target.value })}
+            labelAdornment={<BindingIndicator element={el} target="imageSrc" />}
           />
-          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} />
+          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <BorderStyleFields
             style={el.style}
             onChange={(s) => patch({ style: s })}
             showBorderWidth
             showBorderRadius
             showLineStyle
+            element={el}
           />
         </>
       )}
@@ -951,25 +974,28 @@ function PropertiesBody() {
             step={0.5}
             value={el.strokeWidth ?? 1}
             onChange={(e) => patch({ strokeWidth: Number(e.target.value) || 1 })}
+            labelAdornment={<BindingIndicator element={el} target="strokeWidth" />}
           />
-          <StrokeColorField style={el.style} onChange={(s) => patch({ style: s })} />
+          <StrokeColorField style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <BorderStyleFields
             style={el.style}
             onChange={(s) => patch({ style: s })}
             showLineStyle
+            element={el}
           />
         </>
       )}
 
       {el.type === 'BOX' && (
         <>
-          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} />
+          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <BorderStyleFields
             style={el.style}
             onChange={(s) => patch({ style: s })}
             showBorderWidth
             showBorderRadius
             showLineStyle
+            element={el}
           />
         </>
       )}
@@ -988,12 +1014,14 @@ function PropertiesBody() {
             step={0.5}
             value={el.strokeWidth ?? 2}
             onChange={(e) => patch({ strokeWidth: Number(e.target.value) || 1 })}
+            labelAdornment={<BindingIndicator element={el} target="strokeWidth" />}
           />
-          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} />
+          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <BorderStyleFields
             style={el.style}
             onChange={(s) => patch({ style: s })}
             showLineStyle
+            element={el}
           />
         </>
       )}
@@ -1007,19 +1035,21 @@ function PropertiesBody() {
             step={0.5}
             value={el.strokeWidth ?? 2}
             onChange={(e) => patch({ strokeWidth: Number(e.target.value) || 1 })}
+            labelAdornment={<BindingIndicator element={el} target="strokeWidth" />}
           />
-          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} />
+          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <BorderStyleFields
             style={el.style}
             onChange={(s) => patch({ style: s })}
             showLineStyle
+            element={el}
           />
         </>
       )}
 
       {el.type === 'TABLE' && (
         <div className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-600">
-          <TableTextColorField style={el.style} onChange={(s) => patch({ style: s })} />
+          <TableTextColorField style={el.style} onChange={(s) => patch({ style: s })} element={el} />
           <div className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white/80 p-2 dark:border-zinc-600 dark:bg-zinc-900/50">
             <p className="text-[9px] font-medium text-zinc-700 lg:text-[11px] dark:text-zinc-200">Table chrome (canvas)</p>
             <label className="flex cursor-pointer items-center gap-2 text-[10px] text-zinc-700 lg:text-xs dark:text-zinc-200">
@@ -1066,7 +1096,7 @@ function PropertiesBody() {
       )}
 
       {/* Visual: opacity, rotation, shadow — applies to all element types */}
-      <ElementVisualFields style={el.style} onChange={(s) => patch({ style: s })} />
+      <ElementVisualFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
     </div>
   )
 }

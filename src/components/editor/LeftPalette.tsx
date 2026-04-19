@@ -3,12 +3,13 @@ import { useDrag } from 'react-dnd'
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
 import { useEditorStore } from '../../stores/editorStore'
-import { canSubtractPunchHoleSelection } from '../../lib/shapeGeometry'
+import { canDivideSelection, canUnionSelection, isMergeableShapeType } from '../../lib/shapeGeometry'
 import { DND_COMPONENT, DND_NEW, type LayoutComponentDragItem, type NewElementDragItem } from './dndTypes'
 import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
 import { PagesSection } from './PagesSection'
 import { EmptyState } from '../ui/EmptyState'
 import { Tooltip } from './ui/Tooltip'
+import { SymbolPickerTile } from './SymbolPickerPopover'
 
 const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'TEXT', label: 'Text' },
@@ -56,11 +57,6 @@ const TOOLS: {
     Icon: IconPan,
   },
   {
-    id: 'mergeShapes',
-    title: 'Merge shapes — group shapes first, then click any member to union into one outline',
-    Icon: IconMergeShapes,
-  },
-  {
     id: 'rotate',
     title: 'Rotate — select an element, then drag on the canvas to rotate it',
     Icon: IconRotate,
@@ -101,16 +97,6 @@ function IconPan() {
   )
 }
 
-function IconMergeShapes() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="5" width="8" height="8" rx="1" />
-      <rect x="10" y="10" width="9" height="9" rx="1" />
-      <path d="M8 13h5M13 8v5" strokeDasharray="2 1" />
-    </svg>
-  )
-}
-
 function IconRotate() {
   // Circular-arrow — commonly read as "rotate" in design tools.
   return (
@@ -141,11 +127,35 @@ function IconUngroup() {
   )
 }
 
-function IconPunchHole() {
+function IconDivide() {
+  // Two overlapping circles with a dashed split between their shared lens —
+  // reads as "fragment into pieces".
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="12" cy="12" r="4" strokeDasharray="3 2" />
+      <circle cx="9" cy="12" r="6" />
+      <circle cx="15" cy="12" r="6" />
+      <path d="M12 7v10" strokeDasharray="2 2" />
+    </svg>
+  )
+}
+
+function IconUnion() {
+  // Two overlapping circles joined — reads as "combine into one outline".
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <path d="M9 6a6 6 0 1 0 0 12 6 6 0 0 1 6-6 6 6 0 0 0-6-6zm6 0a6 6 0 0 1 0 12 6 6 0 0 0-6-6 6 6 0 0 1 6-6z" />
+    </svg>
+  )
+}
+
+function IconEditPath() {
+  // Polyline with two visible vertex dots — reads as "node editor".
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 18L12 8l8 10" />
+      <circle cx="4" cy="18" r="2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="8" r="2" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="18" r="2" fill="currentColor" stroke="none" />
     </svg>
   )
 }
@@ -201,16 +211,30 @@ function useActionStates() {
 
   const multiSelected = selectedIds.length >= 2
   const anyGrouped = elements.some((e) => selectedIds.includes(e.id) && e.groupId)
-  const canPunch = canSubtractPunchHoleSelection({ selectedIds, elements })
+  // Divide and Union share the same precondition: ≥2 selected unlocked
+  // mergeable shapes. They're exposed separately so future behaviour
+  // tweaks (e.g. requiring actual overlap for Divide) can be targeted.
+  const canDivide = canDivideSelection({ selectedIds, elements })
+  const canUnion = canUnionSelection({ selectedIds, elements })
 
   const singleEl = selectedIds.length === 1 ? elements.find((e) => e.id === selectedIds[0]) : undefined
   const canUnmerge = !!(singleEl?.type === 'MERGED_SHAPE' && singleEl.mergedFromElements?.length)
+  // Path-edit mode opens on a single mergeable unlocked shape. Disabled
+  // while already editing so the button doesn't re-enter and reset the
+  // current vertex selection.
+  const canEditPath = !!(
+    singleEl &&
+    !singleEl.locked &&
+    isMergeableShapeType(singleEl.type)
+  )
 
   return {
     canGroup: !viewOnly && !bandNestedEditorMounted && multiSelected,
     canUngroup: !viewOnly && !bandNestedEditorMounted && anyGrouped,
-    canPunchHole: !viewOnly && canPunch,
+    canDivide: !viewOnly && canDivide,
+    canUnion: !viewOnly && canUnion,
     canUnmerge: !viewOnly && canUnmerge,
+    canEditPath: !viewOnly && canEditPath,
   }
 }
 
@@ -476,11 +500,14 @@ function ComponentPaletteRow({ component }: { component: SavedLayoutComponent })
 }
 
 function ActionsSection() {
-  const { canGroup, canUngroup, canPunchHole, canUnmerge } = useActionStates()
+  const { canGroup, canUngroup, canDivide, canUnion, canUnmerge, canEditPath } = useActionStates()
   const groupSelection = useEditorStore((s) => s.groupSelection)
   const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
-  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
+  const divideSelectionIntoRegions = useEditorStore((s) => s.divideSelectionIntoRegions)
+  const unionSelectionIntoMergedShape = useEditorStore((s) => s.unionSelectionIntoMergedShape)
   const unmergeSelection = useEditorStore((s) => s.unmergeSelection)
+  const enterPathEditMode = useEditorStore((s) => s.enterPathEditMode)
+  const selectedIds = useEditorStore((s) => s.selectedIds)
 
   return (
     <div>
@@ -492,8 +519,26 @@ function ActionsSection() {
         <ActionToolButton title="Ungroup — split grouped elements apart" disabled={!canUngroup} onClick={ungroupSelection}>
           <IconUngroup />
         </ActionToolButton>
-        <ActionToolButton title="Punch hole — subtract smaller shape from larger" disabled={!canPunchHole} onClick={subtractSelectionToMergedShape}>
-          <IconPunchHole />
+        <ActionToolButton
+          title="Union — combine selected shapes into a single outline"
+          disabled={!canUnion}
+          onClick={unionSelectionIntoMergedShape}
+        >
+          <IconUnion />
+        </ActionToolButton>
+        <ActionToolButton
+          title="Divide — split overlapping shapes into their distinct regions"
+          disabled={!canDivide}
+          onClick={divideSelectionIntoRegions}
+        >
+          <IconDivide />
+        </ActionToolButton>
+        <ActionToolButton
+          title="Edit points — double-click a shape or hit this to move / add / remove vertices"
+          disabled={!canEditPath}
+          onClick={() => selectedIds[0] && enterPathEditMode(selectedIds[0])}
+        >
+          <IconEditPath />
         </ActionToolButton>
         <ActionToolButton title="Unmerge — restore original shapes" disabled={!canUnmerge} onClick={unmergeSelection}>
           <IconUnmerge />
@@ -504,11 +549,14 @@ function ActionsSection() {
 }
 
 function CollapsedActions() {
-  const { canGroup, canUngroup, canPunchHole, canUnmerge } = useActionStates()
+  const { canGroup, canUngroup, canDivide, canUnion, canUnmerge, canEditPath } = useActionStates()
   const groupSelection = useEditorStore((s) => s.groupSelection)
   const ungroupSelection = useEditorStore((s) => s.ungroupSelection)
-  const subtractSelectionToMergedShape = useEditorStore((s) => s.subtractSelectionToMergedShape)
+  const divideSelectionIntoRegions = useEditorStore((s) => s.divideSelectionIntoRegions)
+  const unionSelectionIntoMergedShape = useEditorStore((s) => s.unionSelectionIntoMergedShape)
   const unmergeSelection = useEditorStore((s) => s.unmergeSelection)
+  const enterPathEditMode = useEditorStore((s) => s.enterPathEditMode)
+  const selectedIds = useEditorStore((s) => s.selectedIds)
 
   return (
     <div className="flex flex-col gap-1 px-1">
@@ -526,10 +574,28 @@ function CollapsedActions() {
           </ActionToolButton>
         </span>
       </Tooltip>
-      <Tooltip content="Punch hole" position="right">
+      <Tooltip content="Union" position="right">
         <span className="flex">
-          <ActionToolButton title="Punch hole" disabled={!canPunchHole} onClick={subtractSelectionToMergedShape}>
-            <IconPunchHole />
+          <ActionToolButton title="Union" disabled={!canUnion} onClick={unionSelectionIntoMergedShape}>
+            <IconUnion />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+      <Tooltip content="Divide" position="right">
+        <span className="flex">
+          <ActionToolButton title="Divide" disabled={!canDivide} onClick={divideSelectionIntoRegions}>
+            <IconDivide />
+          </ActionToolButton>
+        </span>
+      </Tooltip>
+      <Tooltip content="Edit points" position="right">
+        <span className="flex">
+          <ActionToolButton
+            title="Edit points"
+            disabled={!canEditPath}
+            onClick={() => selectedIds[0] && enterPathEditMode(selectedIds[0])}
+          >
+            <IconEditPath />
           </ActionToolButton>
         </span>
       </Tooltip>
@@ -666,6 +732,28 @@ export function LeftPalette() {
                 {SHAPES.map(({ type, label }) => (
                   <PaletteRow key={type} elementType={type} label={label} />
                 ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Symbols</p>
+              <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
+                Click a glyph to drop a text block with that character on the page.
+              </p>
+              <div className="grid grid-cols-2 gap-1" role="list">
+                <SymbolPickerTile
+                  kind="math"
+                  label="Math"
+                  triggerGlyph="∑"
+                  disabled={viewOnly}
+                  tooltip="Math symbols — operators, Greek letters, set notation"
+                />
+                <SymbolPickerTile
+                  kind="emoji"
+                  label="Emoji"
+                  triggerGlyph="😀"
+                  disabled={viewOnly}
+                  tooltip="Emoji — faces, gestures, objects"
+                />
               </div>
             </div>
             <div>

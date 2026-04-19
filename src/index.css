@@ -68,3 +68,15 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Hide the native scrollbar on a scrollable container while keeping the
+ * scroll interaction. Used on the editor canvas so the user doesn't see
+ * the grey thumb slide up/down during wheel / pinch / drag-scroll. */
+.am-scrollbar-none {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ / legacy Edge */
+}
+.am-scrollbar-none::-webkit-scrollbar {
+  /* Chrome, Safari, Edge (Chromium) */
+  display: none;
+}

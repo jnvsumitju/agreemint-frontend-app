@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { LABEL_CLASS, INPUT_CLASS, MONO_INPUT_CLASS } from '../uiClasses'
 
 interface FieldInputProps {
@@ -13,6 +14,12 @@ interface FieldInputProps {
   step?: number
   placeholder?: string
   className?: string
+  /**
+   * Rendered inline next to the label — intended for tiny status glyphs
+   * (e.g. {@link BindingIndicator}). Kept optional so existing call sites
+   * don't need to change.
+   */
+  labelAdornment?: ReactNode
 }
 
 export function FieldInput({
@@ -28,10 +35,14 @@ export function FieldInput({
   step,
   placeholder,
   className,
+  labelAdornment,
 }: FieldInputProps) {
   return (
     <label className={className ?? LABEL_CLASS}>
-      <span className="font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+      <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+        {label}
+        {labelAdornment}
+      </span>
       <input
         id={id}
         name={id}

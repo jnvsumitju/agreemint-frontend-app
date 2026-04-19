@@ -8,11 +8,21 @@ import {
   uniqueTableDataKeys,
 } from './variables'
 import { detectTableDataFormatFromJson, parseTableVariableData } from './tableDataFormat'
+import { isSystemGlobalVariableKey } from './systemTemplateVariables'
 
-/** {{variable}} keys that are not table/list JSON data keys. */
+/**
+ * {{variable}} keys that are not table/list JSON data keys AND are not
+ * reserved system variables (pageNumber, totalPages, currentDate, …).
+ *
+ * System keys are filtered here so the Preview modal's form, the
+ * PreviewDataPanel's input list, and anything else rendering a form
+ * field per key, all stop offering an input for values the backend
+ * will overwrite anyway. Authors can still reference the keys from text
+ * + rules — this just hides the no-op form rows.
+ */
 export function scalarVariableKeys(allKeys: string[], tableDataKeys: string[], listDataKeys: string[] = []): string[] {
   const bound = new Set([...tableDataKeys, ...listDataKeys])
-  return allKeys.filter((k) => !bound.has(k))
+  return allKeys.filter((k) => !bound.has(k) && !isSystemGlobalVariableKey(k))
 }
 
 export function getTableColumnsForDataKey(

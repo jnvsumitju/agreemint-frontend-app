@@ -14,7 +14,7 @@ const TOOL_LABELS: Record<EditorCanvasTool, string> = {
   move: 'Move',
   draw: 'Place',
   pan: 'Pan',
-  mergeShapes: 'Merge',
+  rotate: 'Rotate',
 }
 
 /* ── Zoom Pill ── */

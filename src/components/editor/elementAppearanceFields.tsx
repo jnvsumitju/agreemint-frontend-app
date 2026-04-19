@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import type { ElementShadow, ElementStyle, GradientDef } from '../../types/layout'
+import { useState, type ReactNode } from 'react'
+import type { ElementShadow, ElementStyle, GradientDef, LayoutElement } from '../../types/layout'
 import { ColorToolbarSwatch } from './ColorPalettePopover'
 import { INPUT_CLASS, MONO_INPUT_CLASS } from './uiClasses'
+import { BindingIndicator } from './BindingIndicator'
 
 const inputClass = `min-w-0 flex-1 ${MONO_INPUT_CLASS}`
 const numInputSmClass = `${INPUT_CLASS} min-w-0 flex-1`
@@ -16,6 +17,7 @@ function ColorRow({
   onClear,
   gradient,
   onGradientChange,
+  labelAdornment,
 }: {
   label: string
   /** Stable id/name for the hex/CSS text field (autofill / a11y). */
@@ -25,11 +27,16 @@ function ColorRow({
   onClear: () => void
   gradient?: GradientDef
   onGradientChange?: (g: GradientDef | undefined) => void
+  /** Small glyph slotted next to the label — e.g. {@link BindingIndicator}. */
+  labelAdornment?: ReactNode
 }) {
   const has = Boolean(value != null && String(value).trim() !== '') || gradient != null
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+      <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+        {label}
+        {labelAdornment}
+      </span>
       <div className="flex flex-wrap items-center gap-2">
         <ColorToolbarSwatch
           size="md"
@@ -56,9 +63,12 @@ function ColorRow({
 export function RichTextAppearanceFields({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
+  /** When provided, each row shows a binding badge if a rule drives it. */
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   const set = (patch: Partial<ElementStyle>) => {
@@ -84,6 +94,9 @@ export function RichTextAppearanceFields({
         }}
         gradient={s.colorGradient}
         onGradientChange={(g) => set({ colorGradient: g ?? undefined })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="textColor" /> : undefined
+        }
       />
       <ColorRow
         label="Background"
@@ -98,6 +111,9 @@ export function RichTextAppearanceFields({
         }}
         gradient={s.bgGradient}
         onGradientChange={(g) => set({ bgGradient: g ?? undefined })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="fillColor" /> : undefined
+        }
       />
     </div>
   )
@@ -108,10 +124,12 @@ export function StrokeColorField({
   style,
   onChange,
   label = 'Stroke color',
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
   label?: string
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   return (
@@ -130,6 +148,9 @@ export function StrokeColorField({
         }}
         gradient={s.colorGradient}
         onGradientChange={(g) => onChange({ ...s, colorGradient: g ?? undefined })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="strokeColor" /> : undefined
+        }
       />
     </div>
   )
@@ -139,9 +160,11 @@ export function StrokeColorField({
 export function BoxAppearanceFields({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   return (
@@ -160,6 +183,9 @@ export function BoxAppearanceFields({
         }}
         gradient={s.colorGradient}
         onGradientChange={(g) => onChange({ ...s, colorGradient: g ?? undefined })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="strokeColor" /> : undefined
+        }
       />
       <ColorRow
         label="Fill"
@@ -174,6 +200,9 @@ export function BoxAppearanceFields({
         }}
         gradient={s.bgGradient}
         onGradientChange={(g) => onChange({ ...s, bgGradient: g ?? undefined })}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="fillColor" /> : undefined
+        }
       />
     </div>
   )
@@ -183,9 +212,11 @@ export function BoxAppearanceFields({
 export function TableTextColorField({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   return (
@@ -204,6 +235,9 @@ export function TableTextColorField({
           delete rest.color
           onChange(rest)
         }}
+        labelAdornment={
+          element ? <BindingIndicator element={element} target="textColor" /> : undefined
+        }
       />
     </div>
   )
@@ -215,9 +249,11 @@ export function TableTextColorField({
 export function ElementVisualFields({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   const set = (patch: Partial<ElementStyle>) => onChange({ ...s, ...patch })
@@ -228,8 +264,9 @@ export function ElementVisualFields({
 
       {/* Opacity slider */}
       <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-        <span className="font-medium text-zinc-600 dark:text-zinc-400">
+        <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
           Opacity: {Math.round((s.opacity ?? 1) * 100)}%
+          {element && <BindingIndicator element={element} target="opacity" />}
         </span>
         <input
           type="range"
@@ -246,7 +283,10 @@ export function ElementVisualFields({
 
       {/* Rotation */}
       <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-        <span className="font-medium text-zinc-600 dark:text-zinc-400">Rotation (deg)</span>
+        <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+          Rotation (deg)
+          {element && <BindingIndicator element={element} target="rotation" />}
+        </span>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -276,7 +316,7 @@ export function ElementVisualFields({
         </div>
       </label>
 
-      <ShadowSubfields style={s} onChange={onChange} />
+      <ShadowSubfields style={s} onChange={onChange} element={element} />
     </div>
   )
 }
@@ -285,9 +325,11 @@ export function ElementVisualFields({
 function ShadowSubfields({
   style,
   onChange,
+  element,
 }: {
   style: ElementStyle
   onChange: (s: ElementStyle) => void
+  element?: LayoutElement
 }) {
   const shadow = style.shadow
   const [expanded, setExpanded] = useState(shadow != null)
@@ -309,7 +351,7 @@ function ShadowSubfields({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          className="font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="flex items-center gap-1 font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
           onClick={() => {
             if (!expanded) {
               if (!shadow) updateShadow({})
@@ -320,6 +362,16 @@ function ShadowSubfields({
           }}
         >
           Shadow {expanded ? '▾' : '▸'}
+          {/* Any one of the four shadow targets triggers this collapsed
+              header's indicator — click drills into the Behaviour tab. */}
+          {element && (
+            <>
+              <BindingIndicator element={element} target="shadowX" />
+              <BindingIndicator element={element} target="shadowY" />
+              <BindingIndicator element={element} target="shadowBlur" />
+              <BindingIndicator element={element} target="shadowColor" />
+            </>
+          )}
         </button>
         {shadow && (
           <button
@@ -335,7 +387,10 @@ function ShadowSubfields({
         <div className="flex flex-col gap-1.5 rounded border border-zinc-200 bg-white/60 p-1.5 dark:border-zinc-600 dark:bg-zinc-900/40">
           <div className="grid grid-cols-3 gap-1">
             <label className="flex flex-col gap-0.5">
-              <span className="text-[9px] text-zinc-500 dark:text-zinc-400">X</span>
+              <span className="flex items-center gap-1 text-[9px] text-zinc-500 dark:text-zinc-400">
+                X
+                {element && <BindingIndicator element={element} target="shadowX" />}
+              </span>
               <input
                 type="number"
                 className={numInputSmClass}
@@ -344,7 +399,10 @@ function ShadowSubfields({
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-[9px] text-zinc-500 dark:text-zinc-400">Y</span>
+              <span className="flex items-center gap-1 text-[9px] text-zinc-500 dark:text-zinc-400">
+                Y
+                {element && <BindingIndicator element={element} target="shadowY" />}
+              </span>
               <input
                 type="number"
                 className={numInputSmClass}
@@ -353,7 +411,10 @@ function ShadowSubfields({
               />
             </label>
             <label className="flex flex-col gap-0.5">
-              <span className="text-[9px] text-zinc-500 dark:text-zinc-400">Blur</span>
+              <span className="flex items-center gap-1 text-[9px] text-zinc-500 dark:text-zinc-400">
+                Blur
+                {element && <BindingIndicator element={element} target="shadowBlur" />}
+              </span>
               <input
                 type="number"
                 min={0}
@@ -369,6 +430,9 @@ function ShadowSubfields({
             value={shadow?.color ?? 'rgba(0,0,0,0.25)'}
             onChange={(v) => updateShadow({ color: v })}
             onClear={() => clearShadow()}
+            labelAdornment={
+              element ? <BindingIndicator element={element} target="shadowColor" /> : undefined
+            }
           />
         </div>
       )}
@@ -383,12 +447,14 @@ export function BorderStyleFields({
   showBorderWidth,
   showBorderRadius,
   showLineStyle,
+  element,
 }: {
   style: ElementStyle | undefined
   onChange: (s: ElementStyle) => void
   showBorderWidth?: boolean
   showBorderRadius?: boolean
   showLineStyle?: boolean
+  element?: LayoutElement
 }) {
   const s = style ?? {}
   const set = (patch: Partial<ElementStyle>) => onChange({ ...s, ...patch })
@@ -402,7 +468,10 @@ export function BorderStyleFields({
       <div className="grid grid-cols-2 gap-x-3 gap-y-2">
         {showBorderWidth && (
           <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">Width (pt)</span>
+            <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+              Width (pt)
+              {element && <BindingIndicator element={element} target="borderWidth" />}
+            </span>
             <input
               type="number"
               min={0}
@@ -415,7 +484,10 @@ export function BorderStyleFields({
         )}
         {showBorderRadius && (
           <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-            <span className="font-medium text-zinc-600 dark:text-zinc-400">Radius (pt)</span>
+            <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+              Radius (pt)
+              {element && <BindingIndicator element={element} target="borderRadius" />}
+            </span>
             <input
               type="number"
               min={0}
@@ -431,7 +503,10 @@ export function BorderStyleFields({
       </div>
       {showLineStyle && (
         <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-          <span className="font-medium text-zinc-600 dark:text-zinc-400">Line style</span>
+          <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+            Line style
+            {element && <BindingIndicator element={element} target="lineStyle" />}
+          </span>
           <select
             className={INPUT_CLASS}
             value={s.lineStyle ?? 'solid'}

@@ -34,6 +34,28 @@ export type ShapePolygon = ShapeRing[]
 /** Disjoint polygons (e.g. boolean union result). */
 export type ShapeMultiPolygon = ShapePolygon[]
 
+/**
+ * Cubic-bezier vertex on an editable path. Anchor `p` is in layout-local
+ * pt (same space as {@link ShapeRing} points). `cpIn` / `cpOut` are
+ * control-handle offsets *from* the anchor — a vertex with both absent is
+ * a plain corner (matches the polygon behaviour). `smooth = true` asks
+ * the editor to keep the two handles mirrored across the anchor so
+ * curves stay tangent-continuous through the vertex. `smooth` is purely
+ * authorial intent; the renderer only cares about `cpIn` / `cpOut`.
+ */
+export interface BezierVertex {
+  p: [number, number]
+  cpIn?: [number, number]
+  cpOut?: [number, number]
+  smooth?: boolean
+}
+/** A closed ring of bezier vertices (outer boundary or hole). */
+export type ShapeBezierRing = BezierVertex[]
+/** One bezier polygon: outer ring then optional holes. */
+export type ShapeBezierPath = ShapeBezierRing[]
+/** Disjoint bezier paths (multi-polygon analog). */
+export type ShapeBezierMultiPath = ShapeBezierPath[]
+
 export interface ElementShadow {
   offsetX: number
   offsetY: number
@@ -185,6 +207,14 @@ export interface LayoutElement {
   groupId?: string
   /** MERGED_SHAPE: filled/stroked regions in coordinates relative to element x,y (top-left). */
   shapePolys?: ShapeMultiPolygon
+  /**
+   * MERGED_SHAPE: cubic-bezier outline, when the user has introduced
+   * curves via the path-edit mode. When present, this is the editor's
+   * source of truth; {@link shapePolys} is kept in sync as the flattened
+   * polygon version so PDF rendering + boolean ops keep working without
+   * a dedicated curve renderer on the backend.
+   */
+  bezierPath?: ShapeBezierMultiPath
   /** MERGED_SHAPE: original elements before merge, for unmerge support. */
   mergedFromElements?: LayoutElement[]
   /**
@@ -351,7 +381,15 @@ export function pageDimensionsPt(spec: PageSpec): { width: number; height: numbe
 
 const DEFAULT_GRID = 10
 
+/**
+ * Round `n` to the nearest grid multiple. Returns `n` unchanged when
+ * `gridSize` is 0 / negative / non-finite — callers use that to disable
+ * grid snapping without restructuring (e.g. {@code finalizeDragPosition}
+ * passes 0 when the user isn't holding Shift, so the margin-clamp still
+ * runs but the coordinate stays at sub-grid precision).
+ */
 export function snap(n: number, gridSize: number = DEFAULT_GRID): number {
+  if (!Number.isFinite(gridSize) || gridSize <= 0) return n
   return Math.round(n / gridSize) * gridSize
 }
 
@@ -573,6 +611,7 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     groupId:
       raw.groupId != null && String(raw.groupId).trim() ? String(raw.groupId) : undefined,
     shapePolys: parseShapeMultiPolygon(raw.shapePolys),
+    bezierPath: parseShapeBezierMultiPath(raw.bezierPath),
     mergedFromElements: (() => {
       const arr = raw.mergedFromElements
       if (!Array.isArray(arr) || arr.length === 0) return undefined
@@ -734,6 +773,59 @@ function parseShapeMultiPolygon(raw: unknown): ShapeMultiPolygon | undefined {
   } catch {
     return undefined
   }
+}
+
+/**
+ * Safely coerce a raw JSON blob into a {@link ShapeBezierMultiPath}.
+ * Mirrors {@code parseShapeMultiPolygon} but walks the richer vertex
+ * shape (anchor + optional control handles + smooth flag). Unknown /
+ * malformed entries are dropped, never thrown.
+ */
+function parseShapeBezierMultiPath(raw: unknown): ShapeBezierMultiPath | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  try {
+    const multi: ShapeBezierMultiPath = []
+    for (const path of raw) {
+      if (!Array.isArray(path) || path.length === 0) continue
+      const rings: ShapeBezierPath = []
+      for (const ring of path) {
+        if (!Array.isArray(ring) || ring.length < 3) continue
+        const out: ShapeBezierRing = []
+        for (const v of ring) {
+          const vertex = parseBezierVertex(v)
+          if (vertex) out.push(vertex)
+        }
+        if (out.length >= 3) rings.push(out)
+      }
+      if (rings.length > 0) multi.push(rings)
+    }
+    return multi.length > 0 ? multi : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function parseBezierVertex(raw: unknown): BezierVertex | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const p = coercePair(o.p)
+  if (!p) return null
+  const cpIn = coercePair(o.cpIn)
+  const cpOut = coercePair(o.cpOut)
+  const smooth = o.smooth === true ? true : undefined
+  const vertex: BezierVertex = { p }
+  if (cpIn) vertex.cpIn = cpIn
+  if (cpOut) vertex.cpOut = cpOut
+  if (smooth) vertex.smooth = true
+  return vertex
+}
+
+function coercePair(raw: unknown): [number, number] | undefined {
+  if (!Array.isArray(raw) || raw.length < 2) return undefined
+  const x = Number(raw[0])
+  const y = Number(raw[1])
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined
+  return [x, y]
 }
 
 /** Normalizes author-entered variable names for catalog keys (global / local). */
