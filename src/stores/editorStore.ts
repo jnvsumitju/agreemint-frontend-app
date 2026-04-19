@@ -304,8 +304,15 @@ function takeUndoBarrier(s: EditorState): Partial<Pick<EditorState, 'undoPast' |
 /** Persist open canvas TipTap doc into the active page before clearing inline edit. */
 function tryFlushCanvasInlineEdit(s: EditorState): Partial<EditorState> | null {
   const editId = s.canvasInlineEditId
-  const ed = s.inlineTipTapEditor
-  if (!editId || !ed) return null
+  if (!editId) return null
+  // `s.inlineTipTapEditor` can go stale (re-entering `setCanvasInlineEdit` with
+  // the same id, a StrictMode useEditor swap that drops the store ref while
+  // the DOM editor is still alive, etc.). When the store ref is missing, fall
+  // back to the element-id-keyed map the TipTap canvas editor registers
+  // into on `onReady` — that's the ground truth for "does a live PM doc
+  // exist for this element right now?".
+  const ed = s.inlineTipTapEditor ?? activeCanvasTipTapEditorByElementId.get(editId) ?? null
+  if (!ed) return null
   try {
     const nested = findBandNestedChild(s.pages, editId)
     if (nested) {
@@ -1731,6 +1738,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         }
       }
       if (s.viewOnly) return {}
+      // Re-entering inline edit on the element that's already being edited
+      // is a no-op for the store. Nulling out `inlineTipTapEditor` here
+      // (which the naive branch below does) drops the reference to a live
+      // PM doc — later `setCanvasInlineEdit(null)` would then hit
+      // `tryFlushCanvasInlineEdit` with no editor to serialise from and
+      // the just-typed content would never reach `element.content`.
+      if (id === s.canvasInlineEditId && s.inlineTipTapEditor != null) {
+        return {}
+      }
       const bandNested = findBandNestedChild(s.pages, id)
       if (bandNested && s.bandCanvasEditElementId !== bandNested.container.id) {
         return {}

@@ -47,6 +47,23 @@ export function useCollab(templateId: string | null): void {
 
     const myUserId = useAuthStore.getState().user?.id ?? ''
 
+    // Tracks whether we've applied the *initial* snapshot for this editor
+    // session. Snapshots that arrive AFTER any local edit (e.g. a STOMP
+    // reconnect fires `requestSnapshot()` again while the user has typed
+    // unflushed content into a text element) would otherwise clobber the
+    // in-progress edit because `loadLayout` is a wholesale pages-array
+    // replacement — including any element whose content is newer locally
+    // than on the server.
+    //
+    // Symptom this used to cause: user drops a TEXT, types into it, walks
+    // away for several minutes. Laptop sleeps → WebSocket drops. On wake,
+    // `@stomp/stompjs` auto-reconnects, `onConnect` re-runs
+    // `requestSnapshot()`, server replies with its last-persisted layout
+    // (possibly stale if the final `updateElement` op was dropped during the
+    // disconnect, or if Redis TTL expired and Postgres is a flush cycle
+    // behind). `loadLayout` then replaces `pages`, wiping the typed content.
+    let hasAppliedInitialSnapshot = false
+
     // ── Receive ────────────────────────────────────────────────────────────────
 
     const offRemote = onRemoteOp((msg: RemoteOpMessage) => {
@@ -97,12 +114,32 @@ export function useCollab(templateId: string | null): void {
         captureBaseline(useEditorStore.getState())
         return
       }
+
+      // Reconnect snapshot: after the initial sync, a later snapshot is almost
+      // always a re-sync after a drop. Replacing `pages` wholesale at that
+      // point is destructive — any element the user edited since the last
+      // server-ack would revert to the server's version. Instead merge
+      // element-by-element, letting local mutations win when the store's
+      // content is non-empty. New elements from the server (other users'
+      // additions during our disconnect) are still picked up.
+      if (hasAppliedInitialSnapshot) {
+        remoteOpInFlight = true
+        try {
+          mergeSnapshotPreservingLocalEdits(parsed)
+        } finally {
+          remoteOpInFlight = false
+          captureBaseline(useEditorStore.getState())
+        }
+        return
+      }
+
       remoteOpInFlight = true
       try {
         // `loadLayout` is the canonical entry point — it normalises page spec,
         // rebuilds variableValues, clears editor UI state while preserving
         // view-only flags, and resets undo/redo history.
         useEditorStore.getState().loadLayout(parsed)
+        hasAppliedInitialSnapshot = true
       } finally {
         remoteOpInFlight = false
         captureBaseline(useEditorStore.getState())
@@ -169,6 +206,109 @@ interface Baseline {
 
 let remoteOpInFlight = false
 let baseline: Baseline | null = null
+
+/**
+ * Reconcile a server snapshot against the current local store WITHOUT
+ * clobbering local-only edits. For every element on every page:
+ *
+ *   • If the element exists locally, keep the local copy — the structural
+ *     diff observer has either already emitted the local changes to the
+ *     server (normal path) or will do so when the STOMP client reconnects.
+ *     Either way, the local version is at least as fresh as whatever the
+ *     server returned in this snapshot.
+ *   • If the element only exists on the server (another user added it during
+ *     our disconnect), pull it in.
+ *   • Locally-only elements that the server doesn't know about yet stay put
+ *     — their `addElement` op is still buffered and will fire on reconnect.
+ *
+ * Pages themselves are merged the same way (kept ids keep their local
+ * elements / metadata; new server-only pages are appended).
+ *
+ * This is intentionally conservative: on a reconnect snapshot, prefer LOCAL
+ * for anything we already know about. We can revisit if multi-user concurrent
+ * editing surfaces conflicts that this misses — in practice the Yjs channel
+ * is the real merge point for rich-text, and structural conflicts on the
+ * same element are vanishingly rare.
+ */
+function mergeSnapshotPreservingLocalEdits(parsed: {
+  pages: LayoutDocumentPage[]
+}): void {
+  const s = useEditorStore.getState()
+  const localPages = s.pages
+  const localById = new Map<string, LayoutDocumentPage>()
+  for (const p of localPages) localById.set(p.id, p)
+
+  const mergedPages: LayoutDocumentPage[] = []
+  const handledLocalIds = new Set<string>()
+  for (const remote of parsed.pages) {
+    const local = localById.get(remote.id)
+    if (!local) {
+      // New page on the server — take it as-is.
+      mergedPages.push(remote)
+      continue
+    }
+    // Same page id on both sides — keep local elements + local metadata.
+    // Two adjustments vs. the naive "prefer local":
+    //   1. Any element on the server that isn't local yet (e.g. another user
+    //      added it during our disconnect) is APPENDED.
+    //   2. For elements present on both sides: if LOCAL is missing the
+    //      `content` field (which means content got stripped somewhere) but
+    //      the REMOTE copy still has real content, adopt the remote content.
+    //      This is the recovery path for a pre-existing stripped layout —
+    //      the send-side defense in computeElementPatch will then keep the
+    //      recovered content from being lost again.
+    const remoteById = new Map(remote.elements.map((e) => [e.id, e]))
+    const mergedElements = local.elements.map((localEl) => {
+      const remoteEl = remoteById.get(localEl.id)
+      if (!remoteEl) return localEl
+      const localContent = typeof localEl.content === 'string' ? localEl.content : ''
+      const remoteContent = typeof remoteEl.content === 'string' ? remoteEl.content : ''
+      if (isMissingTextContent(localContent) && !isMissingTextContent(remoteContent)) {
+        return { ...localEl, content: remoteContent }
+      }
+      return localEl
+    })
+    const localElementIds = new Set(local.elements.map((e) => e.id))
+    const addedFromRemote = remote.elements.filter((e) => !localElementIds.has(e.id))
+    mergedPages.push({
+      ...local,
+      elements: addedFromRemote.length === 0
+        ? mergedElements
+        : [...mergedElements, ...addedFromRemote],
+    })
+    handledLocalIds.add(remote.id)
+  }
+  // Any local-only pages (e.g. a page we added while disconnected) stay at
+  // the end in their original local order. Their `addPage` op will fire on
+  // reconnect via the structural diff observer.
+  for (const leftover of localPages) {
+    if (!handledLocalIds.has(leftover.id)) mergedPages.push(leftover)
+  }
+
+  useEditorStore.setState({ pages: mergedPages })
+}
+
+/** A content string counts as "missing" when it's empty, whitespace, or a rich doc with no runs. */
+function isMissingTextContent(content: string): boolean {
+  if (!content || !content.trim()) return true
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(trimmed) as { rich?: boolean; runs?: unknown[] }
+    if (parsed && parsed.rich === true && Array.isArray(parsed.runs)) {
+      if (parsed.runs.length === 0) return true
+      return parsed.runs.every((r) => {
+        if (!r || typeof r !== 'object') return false
+        const run = r as { type?: string; text?: string; name?: string }
+        if (run.type === 'var') return false
+        return !run.text || !run.text.trim()
+      })
+    }
+  } catch {
+    /* not JSON — treat as plain content, non-empty above already covered */
+  }
+  return false
+}
 
 // ── Selection broadcast throttle ─────────────────────────────────────────────
 const SELECTION_THROTTLE_MS = 80
@@ -394,6 +534,22 @@ function computeElementPatch(a: LayoutElement, b: LayoutElement): Record<string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bv = (b as any)[k]
     if (av === bv) continue
+    // ── CONTENT DELETION SAFETY NET ──────────────────────────────────────
+    // If a TEXT/HEADER/FOOTER element's `content` field disappears from the
+    // local copy (typically because some layer in the pipeline spread the
+    // element without the field, or a stale snapshot applied an element
+    // record with no content key), DO NOT emit `{content: null}`. The
+    // server's `deepMerge` treats a null value as "delete this key", which
+    // would wipe the real content from Redis / Postgres, fan-out the loss
+    // to every connected client, and — on reopen — load the now-empty
+    // layout over any local recovery. Instead, treat the transition from
+    // "has content" → "missing content" as a NOOP for the content key. A
+    // genuine clear-content operation always writes a non-empty rich
+    // document (e.g. `{"rich":true,"runs":[]}`) that still reaches the
+    // server through the regular path.
+    if (k === 'content' && (bv === undefined || bv === null || bv === '') && av != null && av !== '') {
+      continue
+    }
     patch[k] = bv === undefined ? null : bv
   }
   return Object.keys(patch).length ? patch : null
@@ -458,6 +614,25 @@ function pageSpecEqual(a: PageSpec, b: PageSpec): boolean {
 
 // ── Wire-protocol → store-op mapping ─────────────────────────────────────────
 
+/**
+ * Strip any `content: null | undefined | ''` entry from an inbound update
+ * patch. A null content on the wire means "delete this key" — we never emit
+ * that intentionally, so an inbound one is always a symptom of the
+ * content-deletion bug (see {@link computeElementPatch}) coming back at us
+ * from another client / a stale broadcast / a server op replay. Swallowing
+ * it here stops the bug from propagating to this client's store and keeps
+ * whatever content is currently local.
+ */
+function sanitizeRemoteElementPatch(patch: Record<string, unknown>): Record<string, unknown> {
+  if (!('content' in patch)) return patch
+  const v = patch.content
+  if (v === null || v === undefined || v === '') {
+    const { content: _dropped, ...rest } = patch
+    return rest
+  }
+  return patch
+}
+
 function mapToStoreOp(op: CollabOp): CollabOpForStore | null {
   switch (op.type) {
     case 'addElement':
@@ -469,7 +644,7 @@ function mapToStoreOp(op: CollabOp): CollabOpForStore | null {
         type: 'updateElement',
         pageIndex: op.pageIndex,
         elementId: op.elementId,
-        patch: op.patch as Partial<LayoutElement>,
+        patch: sanitizeRemoteElementPatch(op.patch) as Partial<LayoutElement>,
       }
     case 'bulkUpdateElements':
       return {
@@ -477,7 +652,7 @@ function mapToStoreOp(op: CollabOp): CollabOpForStore | null {
         pageIndex: op.pageIndex,
         updates: op.updates.map((u) => ({
           elementId: u.elementId,
-          patch: u.patch as Partial<LayoutElement>,
+          patch: sanitizeRemoteElementPatch(u.patch) as Partial<LayoutElement>,
         })),
       }
     case 'addPage':

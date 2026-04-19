@@ -17,6 +17,21 @@
   }
 }
 
+/* Hyperlinks inside rich text (editor + preview). Color can still be
+ * overridden by an explicit `color` mark on the run; when it isn't, we
+ * fall back to a link-blue with underline so the user can tell it's a link.
+ */
+.agreemint-link,
+.ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dark .agreemint-link,
+.dark .ProseMirror a {
+  color: #60a5fa;
+}
+
 /* ── Animations ── */
 
 @keyframes shimmer {

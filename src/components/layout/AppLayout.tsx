@@ -4,6 +4,7 @@ import { OrgSwitcher } from './OrgSwitcher'
 import { UserMenu } from './UserMenu'
 import { Breadcrumb } from './Breadcrumb'
 import { CommandPalette } from './CommandPalette'
+import { AnnouncementBanner } from '../AnnouncementBanner'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -71,6 +72,11 @@ export function AppLayout() {
           <UserMenu />
         </div>
       </header>
+
+      {/* Staff-authored announcements — rendered just below the header
+          so they're the first thing users see. Dismissed IDs persist in
+          localStorage so acknowledging a banner sticks across reloads. */}
+      <AnnouncementBanner />
 
       {/* Breadcrumb */}
       <Breadcrumb />

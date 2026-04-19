@@ -2,7 +2,7 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import type { Mark } from '@tiptap/pm/model'
 import type { JSONContent } from '@tiptap/core'
 import type { RichRun } from './richContent'
-import { mergeAdjacentTextRuns, normalizeVariableIdentifier } from './richContent'
+import { mergeAdjacentTextRuns, normalizeVariableIdentifier, sanitizeLinkHref } from './richContent'
 
 type TextRun = Extract<RichRun, { type: 'text' }>
 
@@ -34,6 +34,11 @@ function marksToTextPartial(marks: readonly Mark[]): Partial<Omit<TextRun, 'type
       case 'highlight':
         if (m.attrs.color) o.highlightColor = String(m.attrs.color)
         break
+      case 'link': {
+        const href = typeof m.attrs.href === 'string' ? sanitizeLinkHref(m.attrs.href) : undefined
+        if (href) o.linkHref = href
+        break
+      }
       default:
         break
     }
@@ -52,6 +57,15 @@ function textFragmentToJSON(text: string, run: TextRun): JSONContent {
   if (run.color?.trim()) marks.push({ type: 'textStyle', attrs: { color: run.color.trim() } })
   if (run.highlightColor?.trim()) {
     marks.push({ type: 'highlight', attrs: { color: run.highlightColor.trim() } })
+  }
+  if (run.linkHref) {
+    const href = sanitizeLinkHref(run.linkHref)
+    if (href) {
+      marks.push({
+        type: 'link',
+        attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
+      })
+    }
   }
   const node: JSONContent = { type: 'text', text }
   if (marks.length) {
@@ -76,10 +90,22 @@ export function runsToTipTapJSON(runs: RichRun[]): JSONContent {
 
   for (const run of runs) {
     if (run.type === 'var') {
-      current.push({
+      const varNode: JSONContent = {
         type: 'layoutVariable',
         attrs: { name: normalizeVariableIdentifier(run.name) },
-      })
+      }
+      if (run.linkHref) {
+        const href = sanitizeLinkHref(run.linkHref)
+        if (href) {
+          varNode.marks = [
+            {
+              type: 'link',
+              attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
+            },
+          ]
+        }
+      }
+      current.push(varNode)
       continue
     }
     const parts = (run.text ?? '').split('\n')
@@ -129,7 +155,17 @@ export function pmDocToRuns(doc: PMNode): RichRun[] {
     block.forEach((node) => {
       if (node.type.name === 'layoutVariable') {
         const name = String(node.attrs.name ?? '').trim()
-        if (name) raw.push({ type: 'var', name })
+        if (!name) return
+        // A variable chip can carry the `link` mark just like a text node
+        // (applied via `setLink` when the cursor span covers it).
+        let href: string | undefined
+        for (const m of node.marks) {
+          if (m.type.name === 'link') {
+            const raw = typeof m.attrs.href === 'string' ? sanitizeLinkHref(m.attrs.href) : undefined
+            if (raw) href = raw
+          }
+        }
+        raw.push(href ? { type: 'var', name, linkHref: href } : { type: 'var', name })
         return
       }
       if (node.type.name === 'hardBreak') {

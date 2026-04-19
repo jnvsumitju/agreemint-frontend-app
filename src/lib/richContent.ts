@@ -59,8 +59,20 @@ export type RichRun =
       color?: string
       /** CSS background behind text (highlight). */
       highlightColor?: string
+      /**
+       * Hyperlink target for this run. May contain `{{var}}` placeholders
+       * that get resolved at preview / PDF render time. Always-HTTPS is a
+       * good default — the link editor auto-prepends `https://` to bare
+       * domains, and the render paths reject non-safe protocols.
+       */
+      linkHref?: string
     }
-  | { type: 'var'; name: string }
+  | {
+      type: 'var'
+      name: string
+      /** A variable chip can itself be a hyperlink (e.g. `{{ticketUrl}}` shown as "Open ticket"). */
+      linkHref?: string
+    }
 
 /** Run-level keys toggled from the formatting toolbar (Properties mode). */
 export type TextRunFormatKey =
@@ -86,8 +98,9 @@ function isRichDoc(o: unknown): o is RichContentDoc {
 }
 
 function normalizeRun(r: RichRun): RichRun {
+  const link = typeof r.linkHref === 'string' ? sanitizeLinkHref(r.linkHref) : undefined
   if (r.type === 'var') {
-    return { type: 'var', name: r.name }
+    return link ? { type: 'var', name: r.name, linkHref: link } : { type: 'var', name: r.name }
   }
   let sup = !!r.superscript
   let sub = !!r.subscript
@@ -108,6 +121,44 @@ function normalizeRun(r: RichRun): RichRun {
     subscript: sub,
     ...(color ? { color } : {}),
     ...(highlightColor ? { highlightColor } : {}),
+    ...(link ? { linkHref: link } : {}),
+  }
+}
+
+/**
+ * Protocols that are safe to store as link targets. Everything else
+ * (javascript:, data:, file:, vbscript:, …) is stripped at save time so a
+ * malicious paste can't embed an XSS vector into a template.
+ */
+const SAFE_LINK_PROTOCOLS = ['http:', 'https:', 'mailto:', 'tel:'] as const
+
+/**
+ * Clean a link URL:
+ *   • trim + drop control characters
+ *   • reject > 2 KB so a runaway paste can't blow up our JSON payloads
+ *   • require a safe protocol; relative URLs and bare domains pass through
+ *     and the UI prepends `https://` before calling this function
+ * Returns the cleaned URL, or undefined if it should be dropped entirely.
+ */
+export function sanitizeLinkHref(raw: string | null | undefined): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  // Strip ASCII control chars and trim.
+  // eslint-disable-next-line no-control-regex
+  const cleaned = raw.replace(/[\u0000-\u001F\u007F]+/g, '').trim()
+  if (!cleaned) return undefined
+  if (cleaned.length > 2048) return undefined
+  // Allow `{{var}}`-only URLs as-is — they resolve at render time and may
+  // expand to any of the safe protocols.
+  if (/^\{\{[^}]+\}\}$/.test(cleaned)) return cleaned
+  try {
+    const parsed = new URL(cleaned)
+    const proto = parsed.protocol.toLowerCase()
+    if (!(SAFE_LINK_PROTOCOLS as readonly string[]).includes(proto)) return undefined
+    return parsed.toString()
+  } catch {
+    // Not a full URL (e.g. "example.com/foo") — treat as untrusted and reject.
+    // The UI layer is responsible for prepending `https://` before calling this.
+    return undefined
   }
 }
 
@@ -169,8 +220,14 @@ export function serializeRunsToContent(runs: RichRun[]): string {
     rich: true,
     runs: runs.map((run) => {
       if (run.type === 'var') {
-        return { type: 'var', name: normalizeVariableIdentifier(run.name) }
+        const link = run.linkHref ? sanitizeLinkHref(run.linkHref) : undefined
+        return {
+          type: 'var',
+          name: normalizeVariableIdentifier(run.name),
+          ...(link ? { linkHref: link } : {}),
+        }
       }
+      const link = run.linkHref ? sanitizeLinkHref(run.linkHref) : undefined
       return {
         type: 'text',
         text: run.text,
@@ -182,6 +239,7 @@ export function serializeRunsToContent(runs: RichRun[]): string {
         ...(run.subscript ? { subscript: true } : {}),
         ...(run.color?.trim() ? { color: run.color.trim() } : {}),
         ...(run.highlightColor?.trim() ? { highlightColor: run.highlightColor.trim() } : {}),
+        ...(link ? { linkHref: link } : {}),
       }
     }),
   }
@@ -263,7 +321,8 @@ export function mergeAdjacentTextRuns(runs: RichRun[]): RichRun[] {
       !!prev.superscript === !!r.superscript &&
       !!prev.subscript === !!r.subscript &&
       String(prev.color ?? '') === String(r.color ?? '') &&
-      String(prev.highlightColor ?? '') === String(r.highlightColor ?? '')
+      String(prev.highlightColor ?? '') === String(r.highlightColor ?? '') &&
+      String(prev.linkHref ?? '') === String(r.linkHref ?? '')
     ) {
       prev.text += r.text
     } else {
@@ -278,6 +337,7 @@ export function mergeAdjacentTextRuns(runs: RichRun[]): RichRun[] {
         subscript: r.subscript,
         color: r.color,
         highlightColor: r.highlightColor,
+        linkHref: r.linkHref,
       })
     }
   }

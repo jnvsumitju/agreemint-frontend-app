@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
@@ -7,7 +7,8 @@ import {
   useEditorStore,
 } from '../../stores/editorStore'
 import { ColorToolbarSwatch } from './ColorPalettePopover'
-import { IconBold, IconItalic, IconUnderline, IconStrikethrough, IconSuperscript, IconSubscript, IconClearFormat } from './ToolbarIcons'
+import { IconBold, IconItalic, IconUnderline, IconStrikethrough, IconSuperscript, IconSubscript, IconClearFormat, IconLink } from './ToolbarIcons'
+import { LinkEditorPopover } from './LinkEditorPopover'
 
 /** Prefer per-element map (survives stale unmount), then Zustand, then prop. */
 function resolveLiveInlineEditor(editorProp: Editor | null): Editor | null {
@@ -90,6 +91,7 @@ const INACTIVE_FMT = {
   strike: false,
   sup: false,
   sub: false,
+  link: false,
 }
 
 /** Capture + preventDefault so focus stays in TipTap; otherwise selection is lost before mark toggles run. */
@@ -195,8 +197,38 @@ export function RichTextTipTapToolbar({
       strike: ed?.isActive('strike') ?? false,
       sup: ed?.isActive('superscript') ?? false,
       sub: ed?.isActive('subscript') ?? false,
+      link: ed?.isActive('link') ?? false,
     }),
   })
+
+  // ── Link popover ────────────────────────────────────────────────────
+  // Anchor the LinkEditorPopover to the link button. When the user hits
+  // the button OR presses Cmd/Ctrl+K while the editor is focused, we open
+  // the popover with the current selection's link pre-filled.
+  const linkBtnRef = useRef<HTMLButtonElement | null>(null)
+  const [linkAnchor, setLinkAnchor] = useState<DOMRect | null>(null)
+  const openLinkPopover = () => {
+    const btn = linkBtnRef.current
+    if (btn) setLinkAnchor(btn.getBoundingClientRect())
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return
+      const ed = resolveLiveInlineEditor(editor)
+      if (!ed || ed.isDestroyed) return
+      // Only intercept when the inline editor (or a related TipTap instance)
+      // has focus — otherwise Cmd+K might be the user's browser search.
+      try {
+        if (!ed.view.hasFocus() && !ed.isFocused) return
+      } catch {
+        return
+      }
+      e.preventDefault()
+      openLinkPopover()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [editor])
 
   const showChrome = editor != null || canvasEditing
   if (!showChrome) {
@@ -293,6 +325,28 @@ export function RichTextTipTapToolbar({
       >
         <IconSubscript size={14} />
       </ToolbarBtn>
+      <span className="hidden h-4 w-px shrink-0 bg-zinc-300 dark:bg-zinc-600 sm:block" aria-hidden />
+      <button
+        ref={linkBtnRef}
+        type="button"
+        title={fmtDisplay.link ? 'Edit link (⌘K)' : 'Insert link (⌘K)'}
+        aria-label={fmtDisplay.link ? 'Edit link' : 'Insert link'}
+        aria-pressed={fmtDisplay.link}
+        className={`min-w-[2rem] rounded border px-2 py-1 text-xs font-medium transition-colors ${
+          fmtDisplay.link
+            ? 'border-violet-600 bg-violet-100 text-violet-900 dark:border-violet-500 dark:bg-violet-950/60 dark:text-violet-100'
+            : 'border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700'
+        }`}
+        onMouseDown={(e) => {
+          // preventDefault keeps the current TipTap selection alive when the
+          // popover opens so `setLink` applies to the right range.
+          e.preventDefault()
+          openLinkPopover()
+        }}
+        onClick={(e) => e.preventDefault()}
+      >
+        <IconLink size={14} />
+      </button>
       <ToolbarBtn
         label="Clear formatting on selection"
         onMouseDown={() =>
@@ -301,6 +355,17 @@ export function RichTextTipTapToolbar({
       >
         <IconClearFormat size={14} />
       </ToolbarBtn>
+      {linkAnchor && (() => {
+        const liveEd = resolveLiveInlineEditor(editor)
+        if (!liveEd || liveEd.isDestroyed) return null
+        return (
+          <LinkEditorPopover
+            editor={liveEd}
+            anchorRect={linkAnchor}
+            onClose={() => setLinkAnchor(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

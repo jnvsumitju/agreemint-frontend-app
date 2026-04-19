@@ -8,6 +8,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Placeholder from '@tiptap/extension-placeholder'
+import Link from '@tiptap/extension-link'
 import Collaboration from '@tiptap/extension-collaboration'
 import type * as Y from 'yjs'
 import { LayoutVariable } from '../../lib/tiptapLayoutVariable'
@@ -15,7 +16,7 @@ import { VariableSuggestStorage } from '../../lib/tiptapVariableSuggestStorage'
 import { VariableAtSuggestion } from '../../lib/tiptapVariableAtSuggestion'
 import { pmDocToRuns, runsToTipTapJSON } from '../../lib/tipTapRichBridge'
 import type { VariableChipInfo, VariableMentionItem } from '../../lib/layoutBehaviourResolve'
-import { parseContentToRuns, serializeRunsToContent } from '../../lib/richContent'
+import { parseContentToRuns, sanitizeLinkHref, serializeRunsToContent } from '../../lib/richContent'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 export type TipTapRichEditorMode = 'panel' | 'canvas'
 
@@ -138,6 +139,25 @@ export function TipTapRichEditor({
         TextStyle,
         Color.configure({ types: ['textStyle'] }),
         Highlight.configure({ multicolor: true }),
+        // `Link` — configured with our own safe-URL validator so pasted /
+        // autolinked hrefs with unsafe protocols (javascript:, data:, …) are
+        // rejected before they can reach the PDF renderer. `openOnClick:false`
+        // because the editor surface should never navigate away — clicks on
+        // a link inside the canvas just position the caret. Variable-aware:
+        // LayoutVariable chips are in `includeInlineType`s, which TipTap
+        // needs to let a link mark span a variable chip.
+        Link.configure({
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+          protocols: ['http', 'https', 'mailto', 'tel'],
+          HTMLAttributes: {
+            rel: 'noopener noreferrer',
+            target: '_blank',
+            class: 'agreemint-link',
+          },
+          validate: (href: string) => sanitizeLinkHref(href) != null,
+        }),
         Placeholder.configure({
           placeholder,
           emptyEditorClass: 'is-editor-empty',
