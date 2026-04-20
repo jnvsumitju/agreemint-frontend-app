@@ -823,17 +823,23 @@ function CanvasElement({
             />
           </div>
         ) : (
-          /* ── TEXT / HEADER / FOOTER inline editing: TipTap ── */
+          // ── TEXT / HEADER / FOOTER inline editing: TipTap ──
+          // No horizontal/vertical padding utility classes or bg-white
+          // fallback here — the inline editor must visually sit at the
+          // exact same box as the ElementPreview render, otherwise the
+          // first frame of edit mode looks like the text jumped
+          // down-and-right and the element suddenly grew an opaque
+          // background. The violet selection ring is already the
+          // visual cue that edit mode is active, so a white fill is
+          // unnecessary. If the author wants a background they set
+          // style.backgroundColor (picked up by resolveBgStyle below)
+          // and it renders in BOTH modes.
           <div
             ref={inlineEditorRef}
-            className={`w-full px-1 py-0.5 ${
+            className={`w-full ${
               el.style?.color?.trim()
                 ? ''
                 : 'text-zinc-900 dark:text-zinc-100'
-            } ${
-              el.style?.backgroundColor?.trim() || isValidGradient(el.style?.bgGradient)
-                ? ''
-                : 'bg-white/95 dark:bg-zinc-900/95'
             }`}
             style={{
               fontSize: el.style?.fontSize ?? 12,
@@ -2865,32 +2871,42 @@ export function EditorCanvas({
           className="inline-block min-w-0 origin-top-left"
           style={{
             transform: `scale(${canvasZoom})`,
-            // Ruler gutter is 22pt on each axis — drop it when rulers are hidden
-            // so the page hugs the canvas scroll area without empty padding.
-            width: (showRulers ? 22 : 0) + PAGE_W,
-            height: (showRulers ? 22 : 0) + PAGE_H,
+            // ALWAYS reserve the 22pt ruler gutter on each axis — even when
+            // rulers are toggled off. Otherwise, dropping the gutter shrinks
+            // this inner box by 22pt and the page jumps up-and-left inside
+            // the scroll viewport. Hiding rulers swaps their content for
+            // empty spacers below; the page's position relative to the
+            // outer scroll container stays rock-steady.
+            width: 22 + PAGE_W,
+            height: 22 + PAGE_H,
           }}
         >
           <div className="flex flex-col">
-          {showRulers && (
-            <div className="flex">
-              <RulerCorner elRef={rulerCornerBoundRef} />
-              <HorizontalRuler
-                widthPt={PAGE_W}
-                elRef={horizontalRulerBoundRef}
-                onPointerDownGuide={onRulerGuidePointerDown('horizontal')}
-                leftMarginPt={!bandContainerEl && !viewOnly ? m.left : undefined}
-                rightMarginPt={!bandContainerEl && !viewOnly ? m.right : undefined}
-                onMarginPointerDown={
-                  !bandContainerEl && !viewOnly
-                    ? (side) => onMarginMarkerPointerDown(side)
-                    : undefined
-                }
-              />
-            </div>
-          )}
+          <div className="flex" style={{ height: 22 }}>
+            {showRulers ? (
+              <>
+                <RulerCorner elRef={rulerCornerBoundRef} />
+                <HorizontalRuler
+                  widthPt={PAGE_W}
+                  elRef={horizontalRulerBoundRef}
+                  onPointerDownGuide={onRulerGuidePointerDown('horizontal')}
+                  leftMarginPt={!bandContainerEl && !viewOnly ? m.left : undefined}
+                  rightMarginPt={!bandContainerEl && !viewOnly ? m.right : undefined}
+                  onMarginPointerDown={
+                    !bandContainerEl && !viewOnly
+                      ? (side) => onMarginMarkerPointerDown(side)
+                      : undefined
+                  }
+                />
+              </>
+            ) : (
+              // Invisible spacer keeps the horizontal band reserved so
+              // toggling rulers doesn't move the page.
+              <div aria-hidden style={{ width: 22 + PAGE_W, height: 22 }} />
+            )}
+          </div>
           <div className="flex">
-            {showRulers && (
+            {showRulers ? (
               <VerticalRuler
                 heightPt={PAGE_H}
                 elRef={verticalRulerBoundRef}
@@ -2903,6 +2919,8 @@ export function EditorCanvas({
                     : undefined
                 }
               />
+            ) : (
+              <div aria-hidden style={{ width: 22, height: PAGE_H, flexShrink: 0 }} />
             )}
             <div
               ref={connectDropRef}

@@ -16,7 +16,12 @@ import { VariableSuggestStorage } from '../../lib/tiptapVariableSuggestStorage'
 import { VariableAtSuggestion } from '../../lib/tiptapVariableAtSuggestion'
 import { pmDocToRuns, runsToTipTapJSON } from '../../lib/tipTapRichBridge'
 import type { VariableChipInfo, VariableMentionItem } from '../../lib/layoutBehaviourResolve'
-import { parseContentToRuns, sanitizeLinkHref, serializeRunsToContent } from '../../lib/richContent'
+import {
+  isEffectivelyEmptyRichContent,
+  parseContentToRuns,
+  sanitizeLinkHref,
+  serializeRunsToContent,
+} from '../../lib/richContent'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 export type TipTapRichEditorMode = 'panel' | 'canvas'
 
@@ -181,8 +186,12 @@ export function TipTapRichEditor({
         attributes: {
           class: [
             'ProseMirror max-w-none outline-none',
+            // Canvas mode: no padding. The ProseMirror box must sit at the
+            // exact same origin as `ElementPreview`'s box so double-clicking
+            // into edit mode doesn't visually shift the text. Keeping a
+            // minimum height ensures there's always a hit target + caret.
             mode === 'canvas'
-              ? 'min-h-[1.25em] px-1 py-0.5'
+              ? 'min-h-[1.25em]'
               : 'min-h-[120px] rounded border border-zinc-300 px-2 py-1.5 text-sm dark:border-zinc-600',
             editorClassName ?? '',
           ]
@@ -264,6 +273,61 @@ export function TipTapRichEditor({
     onReadyRef.current?.(editor)
   }, [editor, sessionKey, mode])
 
+  /**
+   * Mount-time content reconciliation (Google-Docs / Figma-style).
+   *
+   * TipTap's `Collaboration` extension treats the Y.XmlFragment as source
+   * of truth on mount: if the fragment has ANY child nodes, the PM doc is
+   * rebuilt from the fragment and the `content` prop is ignored. That's
+   * correct in principle — but it means a previously-seeded fragment that
+   * contains just an empty paragraph (which is what you get when an
+   * element was first edited with no typed content) will "win" on every
+   * later mount and silently blank out a store that does have content.
+   *
+   * This effect runs exactly once per editor instance and reconciles:
+   *   • If the Y fragment resolves to effectively-empty content AND the
+   *     store's `content` prop has real content, apply `content` to the
+   *     editor. Because Collaboration is watching, the setContent goes
+   *     through to the fragment too — the next mount will find the
+   *     fragment populated and this effect is a no-op.
+   *   • Otherwise trust whatever is currently in the PM doc (which is
+   *     already the fragment's content).
+   *
+   * `emitUpdate: true` so downstream listeners (`persistCanvasTextContent`)
+   * mirror the reconciled doc into the store.
+   */
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return
+    // Only reconcile when Yjs is active — for non-collab mode the normal
+    // content-sync effect below already handles the store-→-doc flow.
+    if (!collabFragment) return
+    const pmSerialized = serializeRunsToContent(pmDocToRuns(editor.state.doc))
+    const incoming = content ?? ''
+    if (
+      isEffectivelyEmptyRichContent(pmSerialized) &&
+      !isEffectivelyEmptyRichContent(incoming)
+    ) {
+      richTextDebugLog('tiptap-reconcile', 'seeding empty Yjs fragment from store content', {
+        sessionKey,
+        incomingLen: incoming.length,
+      })
+      // Defer to the microtask queue so this doesn't run inside the
+      // React commit phase (TipTap's nodeViews can call flushSync during
+      // setContent which conflicts with passive effects).
+      queueMicrotask(() => {
+        if (!editor || editor.isDestroyed) return
+        editor.commands.setContent(runsToTipTapJSON(parseContentToRuns(incoming)), {
+          emitUpdate: true,
+        })
+        lastEmitted.current = incoming
+      })
+    }
+    // Intentionally only runs when editor identity changes — once per
+    // mount. We don't want to re-seed on every content-prop change (the
+    // other sync effect handles that path with all its staleness guards).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
+
   useEffect(() => {
     if (!editor) return
     editor.setEditable(!readOnly)
@@ -299,10 +363,17 @@ export function TipTapRichEditor({
 
   useEffect(() => {
     if (!editor) return
-    // Do not overwrite the doc from props while the user is typing (prop can lag one frame).
+    // Do not overwrite the doc from props while the user is typing (prop
+    // can lag one frame). Exception: on the very first run after mount
+    // (`lastEmitted.current === null`) autofocus makes the editor
+    // "focused" before the user has actually typed anything, so treating
+    // it as "typing" here locks the initial content sync out. Allow the
+    // first invocation through — `lastEmitted` will be populated as soon
+    // as the sync applies or the user types a character, after which
+    // this guard starts behaving normally for subsequent prop churn.
     const typing =
       emitOnChange && !readOnly && (editor.isFocused || proseMirrorHasFocus(editor))
-    if (typing) return
+    if (typing && lastEmitted.current != null) return
 
     const incoming = content ?? ''
     if (emitOnChange && !readOnly) {
@@ -318,6 +389,32 @@ export function TipTapRichEditor({
       if (mode === 'canvas') {
         richTextDebugLog('tiptap-sync', 'skip incoming===local', { sessionKey })
       }
+      return
+    }
+    // ── Yjs-first content guard ──────────────────────────────────────────
+    // When Collaboration is active, the Y.XmlFragment is the source of
+    // truth and TipTap seeds the PM doc from it on mount. The store's
+    // `content` prop is a DERIVED mirror that can lag (or be transiently
+    // wiped by a stale remote op, a snapshot clobber, etc.). If the prop
+    // is effectively empty but the Yjs-backed PM doc has real content,
+    // applying the prop via `setContent("")` would wipe the fragment,
+    // which then fans out to every other replica — exactly the
+    // "double-click shows empty text" bug. Skip in that case.
+    if (
+      collabFragment &&
+      isEffectivelyEmptyRichContent(incoming) &&
+      !isEffectivelyEmptyRichContent(local)
+    ) {
+      if (mode === 'canvas') {
+        richTextDebugLog('tiptap-sync', 'skip empty-incoming-with-yjs', {
+          sessionKey,
+          localLen: local.length,
+        })
+      }
+      // Seed `lastEmitted` with the Yjs-backed value so the next incoming
+      // prop (which will mirror it on the next onUpdate tick) is treated
+      // as "same as local" and exits the effect cleanly.
+      lastEmitted.current = local
       return
     }
     if (
@@ -374,6 +471,23 @@ export function TipTapRichEditor({
         }
         return
       }
+      // Re-check the Yjs-first guard inside the microtask too — the PM doc
+      // may have gained content between the outer effect and this point
+      // (Yjs state replay, remote update, etc.).
+      if (
+        collabFragment &&
+        isEffectivelyEmptyRichContent(inc) &&
+        !isEffectivelyEmptyRichContent(loc)
+      ) {
+        if (mode === 'canvas') {
+          richTextDebugLog('tiptap-sync', 'microtask skip empty-incoming-with-yjs', {
+            sessionKey,
+            locLen: loc.length,
+          })
+        }
+        lastEmitted.current = loc
+        return
+      }
       if (
         mode === 'canvas' &&
         emitOnChange &&
@@ -397,7 +511,7 @@ export function TipTapRichEditor({
       }
       ed.commands.setContent(runsToTipTapJSON(parseContentToRuns(docContent)), { emitUpdate: false })
     })
-  }, [content, editor, emitOnChange, readOnly, sessionKey, mode])
+  }, [content, editor, emitOnChange, readOnly, sessionKey, mode, collabFragment])
 
   if (!editor) {
     return <div className={className} style={editorStyle} aria-hidden />
