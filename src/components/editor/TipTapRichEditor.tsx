@@ -161,7 +161,15 @@ export function TipTapRichEditor({
             target: '_blank',
             class: 'agreemint-link',
           },
+          // TipTap 3 splits URL validation into two hooks: `validate` runs
+          // on autolink / paste-detected URLs, while `isAllowedUri` is the
+          // gate for explicit `setLink()` calls. Earlier we only supplied
+          // `validate`, so `setLink` silently fell back to the built-in
+          // loose permission check. Configuring both against our single
+          // sanitiser keeps all code paths consistent and prevents a safe
+          // URL from being refused by setLink in some edge case.
           validate: (href: string) => sanitizeLinkHref(href) != null,
+          isAllowedUri: (href: string) => sanitizeLinkHref(href) != null,
         }),
         Placeholder.configure({
           placeholder,

@@ -187,13 +187,18 @@ function TextStylePresetDropdown({
         type="button"
         disabled={disabled}
         title="Text style"
-        className={`flex h-[26px] max-w-[7.5rem] items-center gap-1 truncate rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
+        // FIXED width (not `max-w-…`) so the trigger occupies the same
+        // horizontal space regardless of which preset is selected —
+        // otherwise picking "Heading 1" makes the button wider than "Normal"
+        // and every toolbar chip to the right shifts. The inner `<span>`
+        // still truncates if a future longer label doesn't fit.
+        className={`flex h-[26px] w-[7.5rem] shrink-0 items-center gap-1 rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
         onMouseDown={(e) => {
           e.preventDefault()
           if (!disabled) toggle()
         }}
       >
-        <span className="truncate">{value || 'Style'}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{value || 'Style'}</span>
         <DropdownChevron />
       </button>
       {open &&
@@ -287,14 +292,18 @@ function FontFamilyDropdown({
         type="button"
         disabled={disabled}
         title="Font family"
-        className={`flex h-[26px] max-w-[8.5rem] items-center gap-1 truncate rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
+        // FIXED width so switching from a short font name (e.g. "Arial")
+        // to a long one (e.g. "Source Sans 3") doesn't push the rest of
+        // the toolbar sideways. Picked to fit the longest family name in
+        // `FONT_LIST`. The inner span truncates on overflow.
+        className={`flex h-[26px] w-[8.5rem] shrink-0 items-center gap-1 rounded-lg border border-zinc-200/60 bg-white px-1.5 text-[11px] text-zinc-700 transition-all duration-100 hover:bg-zinc-50 focus:outline-none dark:border-zinc-600/40 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700${disabled ? ' cursor-not-allowed opacity-30' : ' cursor-pointer'}`}
         style={value ? { fontFamily: value } : undefined}
         onMouseDown={(e) => {
           e.preventDefault()
           if (!disabled) toggle()
         }}
       >
-        <span className="truncate">{value || 'Default'}</span>
+        <span className="min-w-0 flex-1 truncate text-left">{value || 'Default'}</span>
         <DropdownChevron />
       </button>
       {open &&
@@ -894,18 +903,27 @@ export function FormatBar({
         )}
 
         {/* ──── Text format group (B/I/U/S) ──── */}
+        {/* Targets toggle based on mode:
+         *   • Not editing → element-level `style.bold/italic/…` (whole textbox)
+         *   • Inline editing → TipTap marks on the current selection
+         * The dynamic tooltip suffix ("whole textbox" / "selection") is the
+         * only cue the user gets about which target applies, since the
+         * buttons themselves are visually identical. The inline-only
+         * "Selected text" toolbar below carries superscript, subscript,
+         * link, and clear-formatting — actions that ONLY make sense on
+         * a selection, so they can't be mistaken for element-level. */}
         {(!noElement && (isText || isList || isInline)) && (
           <div className={`flex shrink-0 items-center gap-0.5 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-0.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30${textDisabled && !noElement ? ' opacity-30' : ''}`}>
-            <FmtBtn title="Bold (⌘B / Ctrl+B)" active={boldActive} disabled={textDisabled} onMouseDown={toggleBold}>
+            <FmtBtn title={`Bold — ${isInline ? 'selected text' : 'whole textbox'} (⌘B / Ctrl+B)`} active={boldActive} disabled={textDisabled} onMouseDown={toggleBold}>
               <IconBold size={14} />
             </FmtBtn>
-            <FmtBtn title="Italic (⌘I / Ctrl+I)" active={italicActive} disabled={textDisabled} onMouseDown={toggleItalic}>
+            <FmtBtn title={`Italic — ${isInline ? 'selected text' : 'whole textbox'} (⌘I / Ctrl+I)`} active={italicActive} disabled={textDisabled} onMouseDown={toggleItalic}>
               <IconItalic size={14} />
             </FmtBtn>
-            <FmtBtn title="Underline (⌘U / Ctrl+U)" active={underlineActive} disabled={textDisabled || !isInline} onMouseDown={toggleUnderline}>
+            <FmtBtn title={`Underline — ${isInline ? 'selected text' : 'whole textbox'} (⌘U / Ctrl+U)`} active={underlineActive} disabled={textDisabled || !isInline} onMouseDown={toggleUnderline}>
               <IconUnderline size={14} />
             </FmtBtn>
-            <FmtBtn title="Strikethrough" active={strikeActive} disabled={textDisabled || !isInline} onMouseDown={toggleStrike}>
+            <FmtBtn title={`Strikethrough — ${isInline ? 'selected text' : 'whole textbox'}`} active={strikeActive} disabled={textDisabled || !isInline} onMouseDown={toggleStrike}>
               <IconStrikethrough size={14} />
             </FmtBtn>
             {SEP}

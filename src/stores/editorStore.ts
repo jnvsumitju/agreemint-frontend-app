@@ -429,6 +429,13 @@ export interface EditorState {
   /** Show the horizontal + vertical rulers around the page. Defaults to true for
    *  editors; TemplateEditor flips it to false for VIEWER/REVIEWER on load. */
   showRulers: boolean
+  /**
+   * Show the small "Double-click to edit · … · ⌘/Ctrl+Enter to finish" label
+   * above a selected element AND the equivalent hover-tooltip on every
+   * element. Useful for first-time users; noisy once people know the app.
+   * Off by default so the canvas stays clean.
+   */
+  showEditorHints: boolean
   /** Grid spacing in pt (default 10). */
   gridSize: number
   /** Show alignment guides to margins, page center, and sibling elements while dragging. */
@@ -470,6 +477,7 @@ export interface EditorState {
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
   setShowRulers: (v: boolean) => void
+  setShowEditorHints: (v: boolean) => void
   setGridSize: (v: number) => void
   setSmartGuidesEnabled: (v: boolean) => void
   setDragGuides: (guides: DragGuideState) => void
@@ -772,8 +780,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   editorSidebarTab: 'properties',
   pageSpec: defaultPageSpec(),
   snapToGrid: true,
-  showGrid: true,
+  // Grid is off by default — the ruler + smart guides carry most of the
+  // alignment affordance, and the visible gridlines add visual noise on a
+  // fresh canvas. Users can flip it back on from the status bar.
+  showGrid: false,
   showRulers: true,
+  // Editor hints (the floating "Double-click to edit · …" hint strip on a
+  // selected element and the equivalent hover-tooltip on every element)
+  // are OFF by default — they teach but also crowd the canvas. Users can
+  // flip them back on from the status bar's "Hints" toggle.
+  showEditorHints: false,
   gridSize: 10,
   smartGuidesEnabled: true,
   dragGuides: { vertical: [], horizontal: [] },
@@ -820,8 +836,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         editorSidebarTab: 'properties',
         pageSpec: defaultPageSpec(),
         snapToGrid: true,
-        showGrid: true,
+        // Match the initial-state default in the `create()` call above —
+        // `reset()` should land users in the same "clean canvas" state
+        // they get on first load.
+        showGrid: false,
         showRulers: true,
+        showEditorHints: false,
         gridSize: 10,
         smartGuidesEnabled: true,
         dragGuides: { vertical: [], horizontal: [] },
@@ -1904,6 +1924,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSnapToGrid: (v) => set({ snapToGrid: v }),
   setShowGrid: (v) => set({ showGrid: v }),
   setShowRulers: (v) => set({ showRulers: v }),
+  setShowEditorHints: (v) => set({ showEditorHints: v }),
   setGridSize: (v) => set({ gridSize: Math.max(2, Math.round(v)) }),
   setSmartGuidesEnabled: (v) => set({ smartGuidesEnabled: v }),
 

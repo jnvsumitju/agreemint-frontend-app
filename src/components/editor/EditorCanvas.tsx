@@ -48,6 +48,8 @@ import {
 import { TipTapRichEditor } from './TipTapRichEditor'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
+import { RemoteSelectionBadge } from './RemoteSelectionBadge'
+import { TableSelectHandle } from './TableSelectHandle'
 import { TableElementCanvas, type LayoutTableElement } from './TableElementCanvas'
 import { ListElementCanvas } from './ListElementCanvas'
 import { AddImageModal } from './AddImageModal'
@@ -151,8 +153,15 @@ function CanvasElement({
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
+  const showEditorHints = useEditorStore((s) => s.showEditorHints)
   const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
   const isCommentHighlighted = commentHighlightId === el.id
+  // TABLE-specific cell state — used to distinguish "whole table selected"
+  // from "a cell inside the table is active". The visual selection style
+  // differs: whole-table selection draws a purple ring + light tint,
+  // while cell-level activity hands off the ring to the cell itself.
+  const tableSelection = useEditorStore((s) => s.tableSelection)
+  const tableCellEdit = useEditorStore((s) => s.tableCellEdit)
   const templateId = useEditorStore((s) => s.templateId)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
   // Remote selections: the first presence user (other than me) whose selection
@@ -199,8 +208,24 @@ function CanvasElement({
 
   const selected = selectedIds.includes(el.id)
   const soleSelected = selectedIds.length === 1 && selectedIds[0] === el.id
-  /** TABLE: never use the outer violet ring — selection is shown on cells inside the table. */
-  const hideTableOuterSelectionRing = el.type === 'TABLE' && selected && !el.locked
+  /**
+   * True when this TABLE has an active cell selection or a cell in edit
+   * mode — in that case the violet outer-wrapper ring would collide with
+   * the cell's own selection ring, so we suppress it and let the inner
+   * cell chrome tell the story. If the TABLE is selected at the element
+   * level with NO cell activity (user just clicked the new table-select
+   * handle, or the whole table is picked from the Layers panel), we
+   * still render the outer ring so the user sees that the table as a
+   * whole is the selection target.
+   */
+  const tableCellActive =
+    el.type === 'TABLE' &&
+    !el.locked &&
+    (tableSelection?.tableId === el.id || tableCellEdit?.tableId === el.id)
+  const hideTableOuterSelectionRing = tableCellActive
+  /** TABLE selected at the element level (not a cell) → add a subtle violet tint. */
+  const tableElementLevelSelected =
+    el.type === 'TABLE' && selected && !el.locked && !tableCellActive
   const bandNested = useMemo(() => findBandNestedChild(pages, el.id), [pages, el.id])
 
   const persistCanvasTextContent = useCallback(
@@ -773,7 +798,13 @@ function CanvasElement({
                 ? 'ring-2 ring-amber-500 ring-offset-1'
                 : hideTableOuterSelectionRing
                   ? 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
-                  : 'ring-2 ring-violet-500 ring-offset-1'
+                  // A TABLE picked at element-level gets the normal violet
+                  // ring PLUS a soft violet tint, so it reads as "the whole
+                  // table is the selection target" even though each cell
+                  // draws its own chrome inside.
+                  : tableElementLevelSelected
+                    ? 'ring-2 ring-violet-500 ring-offset-1 bg-violet-50/40 dark:bg-violet-950/30'
+                    : 'ring-2 ring-violet-500 ring-offset-1'
               : 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
       } ${isDragging ? 'z-10' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
       style={
@@ -788,7 +819,10 @@ function CanvasElement({
       onPointerDownCapture={onPointerDownCapture}
       onPointerDown={onPointerDownBubble}
       title={
-        locked
+        // Native hover-tooltip. Gated on the same `showEditorHints` flag
+        // as the floating hint strip below so both can be toggled from
+        // the status bar's "Hints" switch.
+        !showEditorHints || locked
           ? undefined
           : canInlineEdit
             ? bandNested && bandCanvasEditElementId !== bandNested.container.id
@@ -843,9 +877,16 @@ function CanvasElement({
             }`}
             style={{
               fontSize: el.style?.fontSize ?? 12,
-              // Do not inherit element bold/italic onto the editor — it hides TipTap marks (B/I/sub/sup).
-              fontWeight: 400,
-              fontStyle: 'normal',
+              // Inherit element-level bold/italic into the inline editor so
+              // the visual weight + slant matches `RichTextBlockPreview`
+              // (which does `fontWeight: r.bold || elementBold ? 700 : 400`).
+              // Otherwise double-clicking a bold element appears to unbold
+              // the text, even though nothing changed in the data. TipTap
+              // run-level bold marks still layer on top of this inherited
+              // weight — they just become redundant when the element is
+              // already bold at the container level, same as in preview.
+              fontWeight: el.style?.bold ? 700 : 400,
+              fontStyle: el.style?.italic ? 'italic' : 'normal',
               fontFamily: el.style?.fontFamily || undefined,
               textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
               color: el.style?.color?.trim() || undefined,
@@ -869,11 +910,16 @@ function CanvasElement({
               // Collaborative TEXT: bind to a Y.XmlFragment keyed by element id so
               // concurrent typing from multiple users merges CRDT-style.
               collabFragment={templateId ? getYFragment(templateId, el.id) : undefined}
-              editorClassName="bg-transparent font-normal not-italic"
+              // `bg-transparent` so the editor never paints its own background
+              // on top of the element's (possibly gradient) fill. NO
+              // `font-normal` / `not-italic` here — we WANT the inherited
+              // weight/style from the wrapper above so edit mode matches
+              // the preview render of element-level bold/italic.
+              editorClassName="bg-transparent"
               editorStyle={{
                 fontSize: el.style?.fontSize ?? 12,
-                fontWeight: 400,
-                fontStyle: 'normal',
+                fontWeight: el.style?.bold ? 700 : 400,
+                fontStyle: el.style?.italic ? 'italic' : 'normal',
                 textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
                 color: el.style?.color?.trim() || undefined,
                 backgroundColor: 'transparent',
@@ -925,6 +971,19 @@ function CanvasElement({
           Group
         </span>
       )}
+      {/* Remote-selection presence badge. Same condition as the coloured
+          outline above — when another user has this element in their
+          active selection, show a tiny avatar chip at the top-right with
+          a hover tooltip naming them. Lets people tell at-a-glance who's
+          poking at which element, MS-Excel-style. */}
+      {remoteSelector && <RemoteSelectionBadge user={remoteSelector} />}
+      {/* Table-select handle: a hover-revealed grid-icon button pinned
+          outside the top-left corner of a TABLE element. Click it to
+          select the whole table (bypassing the cell-level selection the
+          table interior would otherwise route clicks into). Also doubles
+          as an escape hatch when any cell inside is selected or in edit
+          mode — the handle stays persistently visible then. */}
+      {el.type === 'TABLE' && !locked && !viewOnly && <TableSelectHandle tableId={el.id} />}
       {locked && (
         <span
           className="pointer-events-none absolute right-1 top-1 z-30 rounded bg-amber-100 px-1 py-px text-[9px] font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-100"
@@ -957,7 +1016,7 @@ function CanvasElement({
           Continues &#x2193;
         </span>
       )}
-      {canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
+      {showEditorHints && canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
         <span className={`pointer-events-none absolute left-0 max-w-[min(100%,280px)] text-[9px] leading-tight text-zinc-500 dark:text-zinc-400 ${el.linkedPrevId ? '-top-9' : '-top-5'}`}>
           {el.type === 'TEXT' && bandNested && bandCanvasEditElementId !== bandNested.container.id
             ? 'Double-click opens band editor — text edits only there · toolbar Page / Header / Footer · Esc when done'
@@ -1858,6 +1917,33 @@ export function EditorCanvas({
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [bandCanvasEditElementId])
+
+  // ── Escape = step up inside a TABLE ──
+  // Figma/Google-Sheets-style hierarchy escape:
+  //   cell-edit → cell-selection (handled by TipTap inside the cell editor)
+  //   cell-selection → table-element-only selection (this handler)
+  // Without this, Escape inside a selected cell (not editing) is a no-op
+  // and the user has to mouse over to the new corner handle to get out.
+  // Kept as its own effect so the guard is explicit — doesn't fire
+  // when a TipTap inline / cell editor has focus, doesn't fire when
+  // no table cell is selected.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (isEditableTarget(document.activeElement)) return
+      const st = useEditorStore.getState()
+      // Let the cell editor's own Escape handler run first for cell-edit.
+      if (st.tableCellEdit) return
+      if (st.canvasInlineEditId) return
+      const sel = st.tableSelection
+      if (!sel) return
+      e.preventDefault()
+      // Keep the table element selected but drop the cell-level selection.
+      st.setTableSelection(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   // ── Phase 3: arrow-key nudge, Tab cycle, Delete/Backspace ──
   useEffect(() => {
