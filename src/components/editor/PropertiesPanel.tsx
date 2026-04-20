@@ -46,7 +46,7 @@ import {
   ElementVisualFields,
   BorderStyleFields,
 } from './elementAppearanceFields'
-import { FONT_LIST, loadFont } from '../../lib/fontLoader'
+import { allFontFamilies, coerceToSupportedFamily, loadFont } from '../../lib/fontLoader'
 import { ElementBehaviourEditor } from './ElementBehaviourEditor'
 import { DocumentPageSection } from './DocumentPageSection'
 import { MultiSelectionPanel } from './MultiSelectionPanel'
@@ -137,8 +137,12 @@ function StyleFields({
         id="ag-editor-style-font-family"
         value={s.fontFamily ?? ''}
         onChange={(e) => {
-          const v = e.target.value
-          if (v) {
+          const raw = e.target.value
+          if (raw) {
+            // Under pixel-parity, non-curated families are silently coerced
+            // to the default sans so canvas and PDF agree on glyph bytes.
+            // Off the flag, coerce is a pass-through.
+            const v = coerceToSupportedFamily(raw) ?? raw
             loadFont(v)
             onChange({ ...s, fontFamily: v })
           } else {
@@ -149,7 +153,7 @@ function StyleFields({
         }}
         options={[
           { value: '', label: 'Default' },
-          ...FONT_LIST.map((f) => ({ value: f.family, label: f.family })),
+          ...allFontFamilies().map((family) => ({ value: family, label: family })),
         ]}
         labelAdornment={
           element ? <BindingIndicator element={element} target="fontFamily" /> : undefined

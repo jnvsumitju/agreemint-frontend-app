@@ -28,6 +28,8 @@ import {
   variableValuesToDataTree,
 } from '../../lib/layoutBehaviourResolve'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
+import { pixelParityEnabled } from '../../lib/features'
+import { useElementMeasurement } from './MeasurementContext'
 import {
   TABLE_BLOCK_SELECTION_FILL,
   TABLE_HEADER_ROW,
@@ -184,8 +186,16 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const showRowNumbers = pinnedRows || peekRows
   /** Cell grid only — letters/row gutters are absolutely positioned outside so toggles do not resize cells. */
   const gridTemplateColumns = colTemplate
-  /** All rows (header + body) share height via `fr` units from `rowWeights`. */
-  const gridTemplateRows = rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
+  // Phase 2.5: when the backend measurement endpoint has returned row-heights
+  // for this table, use explicit pt tokens so canvas rows match the PDF rows
+  // pixel-for-pixel. Falls back to `fr`-weighted distribution when measurement
+  // is missing (cold start, flag off, or non-text-bearing element).
+  const tableMeasurement = useElementMeasurement(el.id)
+  const measuredRowHeights = tableMeasurement?.rowHeights ?? []
+  const gridTemplateRows =
+    measuredRowHeights.length > 0 && measuredRowHeights.length === rowWeights.length
+      ? measuredRowHeights.map((h) => `${h}pt`).join(' ')
+      : rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
 
   const gridRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -684,6 +694,16 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const cellBorder = 'border-r border-b border-zinc-400 dark:border-zinc-500'
   const sumW = weights.reduce((a, b) => a + b, 0) || 1
 
+  // Under parity the canvas cell inherits the element's text style so canvas
+  // and PDF render identical glyph widths. Off the flag we keep the legacy
+  // 9px / leading-tight pairing that tables have shipped with for years.
+  const parity = pixelParityEnabled()
+  const parityCellFontSize = el.style?.fontSize ?? 12
+  const cellTextSizeClass = parity ? '' : 'text-[9px] leading-tight'
+  const cellBodyFontSize = parity ? parityCellFontSize : 9
+  const cellBodyFontFamily = parity ? el.style?.fontFamily : undefined
+  const cellBodyLineHeight = parity ? (el.style?.lineHeight ?? 1.4) : undefined
+
   const colBoundaryLeftPct = (insertIndex: number) => {
     if (insertIndex <= 0) return 0
     if (insertIndex >= cols.length) return 100
@@ -869,7 +889,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   if (ci === 0) headerRowRef.current = node
                   if (!showRowNumbers && ci === 0) headerGutterRef.current = node
                 }}
-                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left ${cellTextSizeClass} ${
                   fillBg ? '' : 'bg-white dark:bg-zinc-50'
                 } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
                 style={{ gridRow: 1, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
@@ -896,7 +916,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       autoFocus
                       editorClassName="bg-transparent"
                       editorStyle={{
-                        fontSize: 9,
+                        fontSize: cellBodyFontSize,
+                        fontFamily: cellBodyFontFamily,
+                        lineHeight: cellBodyLineHeight,
+                        fontWeight: 700,
                         textAlign: 'left',
                         color: el.style?.color?.trim() || undefined,
                         backgroundColor: 'transparent',
@@ -915,7 +938,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       content={headerContent}
                       variableValues={variableValues}
                       variableSurfaceLabelResolver={variableSurfaceLabelResolver}
-                      fontSize={9}
+                      fontSize={cellBodyFontSize}
+                      fontFamily={cellBodyFontFamily}
+                      lineHeight={cellBodyLineHeight}
+                      elementBold={true}
                       textAlign="left"
                       color={el.style?.color}
                     />
@@ -998,7 +1024,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                         if (ci === 0) bodyRowRefs.current[ri] = node
                         if (!showRowNumbers && ci === 0) dataGutterRefs.current[ri] = node
                       }}
-                      className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                      className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left ${cellTextSizeClass} ${
                         fillBg ? '' : zebra
                       } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
                       style={{ gridRow: ri + 2, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
@@ -1027,7 +1053,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                             autoFocus
                             editorClassName="bg-transparent"
                             editorStyle={{
-                              fontSize: 9,
+                              fontSize: cellBodyFontSize,
+                              fontFamily: cellBodyFontFamily,
+                              lineHeight: cellBodyLineHeight,
                               textAlign: 'left',
                               color: tc || undefined,
                               backgroundColor: 'transparent',
@@ -1046,7 +1074,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                             content={cellContent}
                             variableValues={variableValues}
                             variableSurfaceLabelResolver={variableSurfaceLabelResolver}
-                            fontSize={9}
+                            fontSize={cellBodyFontSize}
+                            fontFamily={cellBodyFontFamily}
+                            lineHeight={cellBodyLineHeight}
                             textAlign="left"
                             color={tc}
                           />

@@ -3,7 +3,8 @@ import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
 import { createPortal } from 'react-dom'
 import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/editorConstants'
-import { FONT_LIST, loadFont } from '../../lib/fontLoader'
+import { FONT_LIST, PARITY_FONT_LIST, coerceToSupportedFamily, loadFont } from '../../lib/fontLoader'
+import { pixelParityEnabled } from '../../lib/features'
 import { mergeElementStyle, omitStyleKey, patchTextRunColor, patchTextRunFormat } from '../../lib/elementStyleHelpers'
 import type { GradientDef } from '../../types/layout'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
@@ -326,7 +327,7 @@ function FontFamilyDropdown({
               <span className="text-zinc-800 dark:text-zinc-100">Default</span>
             </button>
             <div className="my-0.5 border-t border-zinc-100 dark:border-zinc-700" />
-            {FONT_LIST.map((f) => (
+            {(pixelParityEnabled() ? PARITY_FONT_LIST : FONT_LIST).map((f) => (
               <button
                 key={f.family}
                 type="button"
@@ -826,8 +827,9 @@ export function FormatBar({
               disabled={textDisabled || isInline}
               onChange={(family) => {
                 if (family) {
-                  loadFont(family)
-                  patchStyle({ fontFamily: family })
+                  const coerced = coerceToSupportedFamily(family) ?? family
+                  loadFont(coerced)
+                  patchStyle({ fontFamily: coerced })
                 } else {
                   if (el) {
                     const { fontFamily: _, ...rest } = style

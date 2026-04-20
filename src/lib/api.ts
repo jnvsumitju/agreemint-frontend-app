@@ -264,6 +264,52 @@ export async function generatePreviewPdf(
   return res.blob()
 }
 
+/**
+ * Ask the backend to run iText's layout engine against `layout` + `data`
+ * without producing PDF bytes, returning per-element geometry the canvas can
+ * use to agree with the PDF on line breaks + overflow.
+ *
+ * Pass `elementIds` to restrict measurement to a subset — useful for
+ * per-element edits where remeasuring the whole page would be wasteful.
+ * The backend guarantees elements not in the subset are excluded from the
+ * response (rather than returned with stale data).
+ *
+ * Returns an empty `{ measurements: {} }` when the backend pixel-parity flag
+ * is off — callers should treat that as "no measurement available" and
+ * fall back to CSS-flow behaviour.
+ */
+export interface TextLineMeasurement {
+  y: number
+  h: number
+  runs: Array<{ text: string; width: number; runIndex: number }>
+}
+export interface ElementMeasurement {
+  measuredHeight: number
+  textLines: TextLineMeasurement[]
+  rowHeights: number[]
+}
+export interface MeasureLayoutResponse {
+  measurements: Record<string, ElementMeasurement>
+}
+
+export async function measureLayout(
+  layout: Record<string, unknown>,
+  data: Record<string, unknown>,
+  elementIds?: string[],
+): Promise<MeasureLayoutResponse> {
+  const cleanedData = stripSystemVariableKeysFromData(data)
+  const res = await authFetch(`${API_BASE}/api/generate/measure`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ layout, data: cleanedData, elementIds }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || res.statusText)
+  }
+  return res.json() as Promise<MeasureLayoutResponse>
+}
+
 export async function generatePdf(
   templateId: string,
   versionId: string,

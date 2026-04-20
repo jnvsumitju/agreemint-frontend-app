@@ -6,6 +6,7 @@ import { RichTextBlockPreview } from './RichTextBlockPreview'
 import { variableMergeFieldSurfaceLabel } from '../../lib/layoutBehaviourResolve'
 import { substituteVariables } from '../../lib/variables'
 import { gradientToCss, isValidGradient } from '../../lib/gradientUtils'
+import { coerceToSupportedFamily } from '../../lib/fontLoader'
 import type { CSSProperties } from 'react'
 
 // ── Marker helpers ──
@@ -590,7 +591,7 @@ export function ListElementCanvas({ el, isEditing, onCommit: _onCommit, onEscape
       ? gradientToCss(el.style!.bgGradient!)
       : el.style?.backgroundColor?.trim() || undefined,
     color: el.style?.color?.trim() || undefined,
-    fontFamily: el.style?.fontFamily || undefined,
+    fontFamily: coerceToSupportedFamily(el.style?.fontFamily),
   }
 
   // ── Editing mode (both static and loop) ──
@@ -708,7 +709,7 @@ export function ListElementCanvas({ el, isEditing, onCommit: _onCommit, onEscape
                   elementBold={el.style?.bold}
                   elementItalic={el.style?.italic}
                   color={el.style?.color}
-                  fontFamily={el.style?.fontFamily}
+                  fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
                   lineHeight={lh}
                 />
               )}

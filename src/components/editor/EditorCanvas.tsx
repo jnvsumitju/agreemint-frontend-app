@@ -24,6 +24,11 @@ import { useAuthStore } from '../../stores/authStore'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { getYFragment } from '../../collab/yDocProvider'
 import { computeDragSnap, computeResizeSnap } from '../../lib/canvasGuides'
+import { coerceToSupportedFamily } from '../../lib/fontLoader'
+import { useLayoutMeasurement } from '../../lib/useLayoutMeasurement'
+import { MeasurementProvider, useElementMeasurement } from './MeasurementContext'
+import { RichTextAbsoluteLines } from './RichTextAbsoluteLines'
+import { buildLayoutJson } from '../../types/layout'
 import { CANVAS_ZOOM_MAX, CANVAS_ZOOM_MIN } from '../../lib/editorConstants'
 import { isHeaderOrFooterType } from '../../lib/layoutMargins'
 import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
@@ -887,7 +892,7 @@ function CanvasElement({
               // already bold at the container level, same as in preview.
               fontWeight: el.style?.bold ? 700 : 400,
               fontStyle: el.style?.italic ? 'italic' : 'normal',
-              fontFamily: el.style?.fontFamily || undefined,
+              fontFamily: coerceToSupportedFamily(el.style?.fontFamily),
               textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
               color: el.style?.color?.trim() || undefined,
               background: resolveBgStyle(el) || undefined,
@@ -1135,7 +1140,7 @@ function ElementPreview({ el }: { el: LayoutElement }) {
           elementBold={el.style?.bold}
           elementItalic={el.style?.italic}
           color={el.style?.color}
-          fontFamily={el.style?.fontFamily}
+          fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
           lineHeight={el.style?.lineHeight}
         />
       </div>
@@ -1387,14 +1392,18 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   // Gradient text colour (or solid)
   const hasColorGrad = isValidGradient(el.style?.colorGradient)
   const textColorStyle = resolveTextColorStyle(el)
+  // Phase 1.5: when we have a measurement for this element id, absolute-position
+  // each line; otherwise fall back to CSS flow via RichTextBlockPreview.
+  const measurement = useElementMeasurement(el.id)
 
   return (
     <div
       className={`pointer-events-none h-full w-full overflow-hidden ${el.style?.color?.trim() || hasColorGrad ? '' : 'text-zinc-900 dark:text-zinc-100'}`}
-      style={{ fontFamily: el.style?.fontFamily || undefined, background: bgCss, ...textColorStyle }}
+      style={{ fontFamily: coerceToSupportedFamily(el.style?.fontFamily), background: bgCss, ...textColorStyle }}
     >
-      <RichTextBlockPreview
+      <RichTextAbsoluteLines
         content={el.content}
+        measurement={measurement}
         variableValues={variableValues}
         variableSurfaceLabelResolver={variableSurfaceLabelResolver}
         fontSize={fs}
@@ -1403,7 +1412,7 @@ function ElementPreview({ el }: { el: LayoutElement }) {
         elementItalic={el.style?.italic}
         color={hasColorGrad ? undefined : el.style?.color}
         backgroundColor={isValidGradient(el.style?.bgGradient) ? undefined : el.style?.backgroundColor}
-        fontFamily={el.style?.fontFamily}
+        fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
         lineHeight={el.style?.lineHeight}
       />
     </div>
@@ -1640,6 +1649,20 @@ export function EditorCanvas({
 
   const variableValues = useEditorStore((s) => s.variableValues)
   const previewData = useMemo(() => variableValuesToDataTree(variableValues), [variableValues])
+
+  // Phase 1.5: drive the backend measurement endpoint from the currently
+  // rendered layout. The hook debounces 250ms + caches results by element id;
+  // ElementPreview consumes the per-id entry via MeasurementContext and
+  // switches to absolute-positioned line rendering when present.
+  const measurement = useLayoutMeasurement()
+  const editorGlobalVars = useEditorStore((s) => s.globalVariableDefinitions)
+  const editorPageSpec = useEditorStore((s) => s.pageSpec)
+  useEffect(() => {
+    const layoutJson = buildLayoutJson(pages, editorPageSpec, editorGlobalVars) as unknown as Record<string, unknown>
+    measurement.requestMeasurement(layoutJson, variableValues as unknown as Record<string, unknown>)
+    // Dependency intent: remeasure whenever the document shape or preview data
+    // changes. `requestMeasurement` is stable across renders (useCallback).
+  }, [pages, editorPageSpec, editorGlobalVars, variableValues, measurement.requestMeasurement])
   const mergedElements = useMemo(
     () =>
       bandContainerEl ? elements : mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements),
@@ -2931,6 +2954,7 @@ export function EditorCanvas({
   )
 
   return (
+    <MeasurementProvider value={measurement.byId}>
     <>
     <div
       ref={scrollRef}
@@ -3321,5 +3345,6 @@ export function EditorCanvas({
       </>
     ) : null}
     </>
+    </MeasurementProvider>
   )
 }
