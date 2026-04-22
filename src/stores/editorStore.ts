@@ -275,8 +275,28 @@ function findElementLocation(
   return null
 }
 
+/**
+ * Last-line defense against duplicate elements in a page. Every store path
+ * that writes a new elements array (move, resize, add, delete, applyRemoteOp,
+ * reorder, etc.) funnels through here, so a stray duplicate introduced by a
+ * flaky collab echo or a mis-ordered op dispatch can never persist past one
+ * set() call. Order is preserved (first occurrence wins); non-string ids
+ * are dropped silently.
+ */
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const it of items) {
+    if (!it || typeof it.id !== 'string' || seen.has(it.id)) continue
+    seen.add(it.id)
+    out.push(it)
+  }
+  return out
+}
+
 function replacePageElements(s: EditorState, pageIndex: number, elements: LayoutElement[]): Partial<EditorState> {
-  const pages = s.pages.map((p, idx) => (idx === pageIndex ? { ...p, elements } : p))
+  const deduped = dedupeById(elements)
+  const pages = s.pages.map((p, idx) => (idx === pageIndex ? { ...p, elements: deduped } : p))
   return {
     pages,
     variableValues: mergeVariableValues(
@@ -1077,12 +1097,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   addElement: (el) =>
     set((s) => {
       if (s.viewOnly) return {}
+      // Idempotent by id. With multiple tabs open, a drop in one tab ops-
+      // broadcasts through STOMP back to collab peers; reconnect snapshots and
+      // in-flight-op races can cause the same op to reach the same tab twice
+      // ({@link applyRemoteOp} shares the same id-dedupe safeguard below).
+      // Appending duplicates silently produced 2×, 3×, 4× copies of a single
+      // drop — the "dropped one table, got three" symptom. A no-op return is
+      // safe: the original placement already selected the element, so skipping
+      // the duplicate leaves UX unchanged.
       if (s.bandNestedEditorMounted && s.bandCanvasEditElementId) {
         if (el.type === 'HEADER' || el.type === 'FOOTER') return {}
         const loc = findElementLocation(s, s.bandCanvasEditElementId)
         if (!loc) return {}
         const c = loc.el
         if (c.type !== 'HEADER' && c.type !== 'FOOTER') return {}
+        if ((c.bandElements ?? []).some((e) => e.id === el.id)) return {}
         const { w, h } = bandViewportDims(s, c)
         const placed = placeBandElementOnDrop(el, w, h)
         const nested = [...(c.bandElements ?? []), placed]
@@ -1092,6 +1121,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           selectedIds: [placed.id],
         }
       }
+      if (activeElements(s).some((e) => e.id === el.id)) return {}
       const placed = clampElementLayoutToPrintMargins(el, s.pageSpec, s.gridSize)
       const elements = [...activeElements(s), placed]
       return {
@@ -1241,11 +1271,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
       const loc = findElementLocation(s, id)
       if (!loc) return {}
+      const removed = loc.elements.find((e) => e.id === id)
       const elements = loc.elements.filter((e) => e.id !== id)
       const wasInSelection = s.selectedIds.includes(id)
+
+      // Purge the table's dataKey from global/local variable definitions
+      // when the last TABLE using it is the one being deleted. Without
+      // this the orphaned def lingers and the Preview data panel shows
+      // the raw JSON under TEXT FIELDS (scalarVariableKeys sweeps it up).
+      // `removeElements` already does the same thing for batch deletes —
+      // single-delete needed parity.
+      const removedKey =
+        removed?.type === 'TABLE' && removed.dataKey ? removed.dataKey : null
+      const nextPagesAfterDelete = s.pages.map((p, pi) =>
+        pi === loc.pageIndex ? { ...p, elements } : p
+      )
+      const stillUsed =
+        removedKey
+          ? nextPagesAfterDelete.some((p) =>
+              p.elements.some((e) => e.type === 'TABLE' && e.dataKey === removedKey)
+            )
+          : false
+      const globalDefs =
+        removedKey && !stillUsed
+          ? s.globalVariableDefinitions.filter((d) => d.key !== removedKey)
+          : s.globalVariableDefinitions
+      const pagesWithLocalsCleaned =
+        removedKey && !stillUsed
+          ? nextPagesAfterDelete.map((p) => {
+              const locals = p.localVariables
+              if (!locals?.length) return p
+              const cleaned = locals.filter((d) => d.key !== removedKey)
+              return cleaned.length === locals.length
+                ? p
+                : { ...p, localVariables: cleaned.length ? cleaned : undefined }
+            })
+          : nextPagesAfterDelete
+
       return {
         ...takeUndoBarrier(s),
-        ...replacePageElements(s, loc.pageIndex, elements),
+        ...replacePageElements(
+          { ...s, pages: pagesWithLocalsCleaned, globalVariableDefinitions: globalDefs },
+          loc.pageIndex,
+          elements
+        ),
+        globalVariableDefinitions: globalDefs,
         selectedIds: s.selectedIds.filter((i) => i !== id),
         canvasInlineEditId: s.canvasInlineEditId === id ? null : s.canvasInlineEditId,
         bandCanvasEditElementId: s.bandCanvasEditElementId === id ? null : s.bandCanvasEditElementId,
@@ -3072,9 +3142,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       switch (op.type) {
         case 'addElement': {
-          pages = s.pages.map((p, i) =>
-            i === op.pageIndex ? { ...p, elements: [...p.elements, op.element] } : p
-          )
+          // Idempotent by id — see comment in the public addElement action.
+          // Multi-tab collab rebroadcasts + reconnect snapshots can deliver the
+          // same addElement op more than once to the same tab; appending blindly
+          // was the root of the "dropped one table, got three" regression.
+          const incoming = op.element as LayoutElement
+          pages = s.pages.map((p, i) => {
+            if (i !== op.pageIndex) return p
+            if (p.elements.some((e) => e.id === incoming.id)) return p
+            return { ...p, elements: [...p.elements, incoming] }
+          })
           break
         }
         case 'deleteElements': {
@@ -3160,8 +3237,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // Clamp activePageIndex in case a page was removed.
       const activePageIndex = Math.min(s.activePageIndex, Math.max(0, pages.length - 1))
+      // Final dedupe sweep so a mis-ordered remote op stream (e.g. an
+      // addElement echo that somehow raced past the `p.elements.some(...)`
+      // guard in the case above, or an updatePage op whose patch included
+      // a full elements array with duplicates) can never persist.
+      const dedupedPages = pages.map((p) => ({
+        ...p,
+        elements: dedupeById(p.elements.map((el) => (
+          el.bandElements && el.bandElements.length
+            ? { ...el, bandElements: dedupeById(el.bandElements) }
+            : el
+        ))),
+      }))
       return {
-        pages,
+        pages: dedupedPages,
         globalVariableDefinitions,
         pageSpec,
         activePageIndex,
@@ -3207,9 +3296,14 @@ export function createDefaultElement(
         type: 'TABLE',
         width: 200,
         height: 88,
+        // Keys match the `col_${n}` pattern used by the add-column paths in
+        // TableElementCanvas / TableContextToolbar so every column in the
+        // table has a consistent key shape. Headers start blank — the author
+        // fills them in on the canvas (or in the Preview data panel's
+        // editable header row).
         columns: [
-          { header: serializeRunsToContent([]), key: 'c0' },
-          { header: serializeRunsToContent([]), key: 'c1' },
+          { header: serializeRunsToContent([]), key: 'col_1' },
+          { header: serializeRunsToContent([]), key: 'col_2' },
         ],
         columnWidths: [1, 1],
         tablePreviewBodyRows: 2,

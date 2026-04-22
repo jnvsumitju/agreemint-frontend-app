@@ -571,8 +571,8 @@ export function FormatBar({
   // Active states — TipTap when inline, element style when not
   const boldActive = isInline ? (fmt?.bold ?? false) : !!style.bold
   const italicActive = isInline ? (fmt?.italic ?? false) : !!style.italic
-  const underlineActive = isInline ? (fmt?.underline ?? false) : false
-  const strikeActive = isInline ? (fmt?.strike ?? false) : false
+  const underlineActive = isInline ? (fmt?.underline ?? false) : !!style.underline
+  const strikeActive = isInline ? (fmt?.strike ?? false) : !!style.strikethrough
 
   // Action handlers — TipTap commands when inline, style patch when not
   const toggleBold = () => {
@@ -585,9 +585,11 @@ export function FormatBar({
   }
   const toggleUnderline = () => {
     if (isInline) execCmd('underline', (ed) => ed.chain().focus().toggleUnderline().run())
+    else if (el) patchStyle({ underline: !style.underline })
   }
   const toggleStrike = () => {
     if (isInline) execCmd('strike', (ed) => ed.chain().focus().toggleStrike().run())
+    else if (el) patchStyle({ strikethrough: !style.strikethrough })
   }
 
   // Color handlers
@@ -922,10 +924,10 @@ export function FormatBar({
             <FmtBtn title={`Italic — ${isInline ? 'selected text' : 'whole textbox'} (⌘I / Ctrl+I)`} active={italicActive} disabled={textDisabled} onMouseDown={toggleItalic}>
               <IconItalic size={14} />
             </FmtBtn>
-            <FmtBtn title={`Underline — ${isInline ? 'selected text' : 'whole textbox'} (⌘U / Ctrl+U)`} active={underlineActive} disabled={textDisabled || !isInline} onMouseDown={toggleUnderline}>
+            <FmtBtn title={`Underline — ${isInline ? 'selected text' : 'whole textbox'} (⌘U / Ctrl+U)`} active={underlineActive} disabled={textDisabled} onMouseDown={toggleUnderline}>
               <IconUnderline size={14} />
             </FmtBtn>
-            <FmtBtn title={`Strikethrough — ${isInline ? 'selected text' : 'whole textbox'}`} active={strikeActive} disabled={textDisabled || !isInline} onMouseDown={toggleStrike}>
+            <FmtBtn title={`Strikethrough — ${isInline ? 'selected text' : 'whole textbox'}`} active={strikeActive} disabled={textDisabled} onMouseDown={toggleStrike}>
               <IconStrikethrough size={14} />
             </FmtBtn>
             {SEP}

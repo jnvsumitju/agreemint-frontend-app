@@ -374,7 +374,15 @@ function CanvasElement({
     const syncHeight = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        const h = Math.ceil(root.getBoundingClientRect().height)
+        // Browser bounding rect ≈ iText's ascender+descender region. iText
+        // adds a small tail of trailing leading below the last baseline
+        // (~fontSize × 0.2 for most Latin fonts) that shows up as the
+        // bottom row of descenders clipping in the generated PDF when the
+        // canvas and element height agree exactly. Pad the stored height
+        // by one descender-row so the PDF has room to render the tail.
+        const fontSize = typeof el.style?.fontSize === 'number' ? el.style.fontSize : 12
+        const descenderPad = Math.max(2, fontSize * 0.2)
+        const h = Math.ceil(root.getBoundingClientRect().height + descenderPad)
         const st = useEditorStore.getState()
         const cur = findElementByIdInDocumentDeep(st.pages, el.id)
         if (!cur) return
@@ -396,6 +404,42 @@ function CanvasElement({
       ro.disconnect()
     }
   }, [isInlineEditing, canInlineEdit, isLinkedFrame, el.id])
+
+  // View-mode auto-grow — fires whenever the backend measurement disagrees
+  // with the authored height. Runs OUTSIDE inline edit so that content
+  // changes from variable resolution, remote collab ops, or rule-driven
+  // mutations reflow the box without the author re-entering edit mode.
+  // Gated on TEXT-like + non-linked + non-edit so we don't race the
+  // inline ResizeObserver above (that one drives growth from DOM bbox;
+  // this one drives growth from iText's ground truth).
+  const measuredForGrow = useElementMeasurement(el.id)
+  const lastAppliedMeasuredHeightRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (isInlineEditing || isLinkedFrame) return
+    if (el.type !== 'TEXT' && el.type !== 'HEADER' && el.type !== 'FOOTER') return
+    const m = measuredForGrow?.measuredHeight
+    if (!m || m <= 0) return
+    // Skip if this measurement value was already applied — the measurement
+    // endpoint can return the same `measuredHeight` on every tick while
+    // the author is doing unrelated work. Each run of this effect would
+    // otherwise trigger a re-render.
+    if (lastAppliedMeasuredHeightRef.current === m) return
+    // Only grow, never shrink — if the author intentionally sized the box
+    // taller than the content, we don't want to collapse it just because
+    // the measurement fits.
+    if (m > el.height + 0.5) {
+      const st = useEditorStore.getState()
+      const n = findBandNestedChild(st.pages, el.id)
+      const phPage = pageDimensionsPt(st.pageSpec).height
+      const bottomMargin = st.pageSpec.margins?.bottom ?? 40
+      const maxH = (n ? bandViewportDims(st, n.container).h : phPage - bottomMargin) - el.y
+      const next = Math.max(16, Math.min(maxH, Math.ceil(m)))
+      if (Math.abs(next - el.height) > 0.5) {
+        st.updateElement(el.id, { height: next }, { skipHistory: true })
+      }
+    }
+    lastAppliedMeasuredHeightRef.current = m
+  }, [isInlineEditing, isLinkedFrame, el.type, el.id, el.height, el.y, measuredForGrow?.measuredHeight])
 
   useEffect(() => {
     if (!isInlineEditing) return
@@ -643,6 +687,92 @@ function CanvasElement({
     const startY = e.clientY
     const startW = Math.max(1, coerceLayoutScalar(el.width, 20))
     const startH = Math.max(1, coerceLayoutScalar(el.height, 16))
+
+    // TEXT content-min floor: a textbox can't be shrunk below the size its
+    // current content needs to render without clipping. Uses a hidden
+    // "mirror" div cloned from the live rendered content — during drag, we
+    // set mirror.style.width = target, read its scrollHeight, and clamp the
+    // resize height to that value. This gives the "shrink one, grow the
+    // other" UX: narrowing width forces height to stretch (because text
+    // rewraps to more lines), and the clamp refuses to let both shrink
+    // past the area the content needs. Replaces the earlier static
+    // drag-start snapshot, which couldn't reflow when width changed.
+    const isTextEl = el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
+    let mirror: HTMLDivElement | null = null
+    let widestWordPx = 20
+    if (isTextEl && outerRef.current) {
+      const root = outerRef.current
+      // Widest unbreakable token via Canvas 2D — this is the absolute width
+      // floor. No amount of taller-height can make a word narrower.
+      try {
+        const text = root.innerText ?? ''
+        const words = text.split(/\s+/).filter(Boolean)
+        if (words.length > 0) {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            const fs = typeof el.style?.fontSize === 'number' ? el.style.fontSize : 12
+            const ff = coerceToSupportedFamily(el.style?.fontFamily) || 'sans-serif'
+            const weight = el.style?.bold ? '700' : '400'
+            const slant = el.style?.italic ? 'italic' : 'normal'
+            ctx.font = `${slant} ${weight} ${fs}px ${ff}`
+            let max = 0
+            for (const w of words) {
+              const m = ctx.measureText(w).width
+              if (m > max) max = m
+            }
+            widestWordPx = Math.max(20, Math.ceil(max) + 4)
+          }
+        }
+      } catch {
+        /* leave widestWordPx at 20px absolute floor */
+      }
+      // Mirror: positioned off-screen, populated with a clone of the live
+      // inner content. We re-size its width each frame and read back
+      // scrollHeight to get the required height at that width. Using a
+      // clone of the actual rendered DOM means font, weight, color, and
+      // decoration all carry over without us re-deriving them.
+      try {
+        const inner = root.firstElementChild as HTMLElement | null
+        if (inner) {
+          const clone = inner.cloneNode(true) as HTMLElement
+          // Strip absolute-positioned line wrappers — they don't reflow.
+          // The simplest way: fall through to flowed text by forcing the
+          // container into CSS-flow and dropping children with `position:
+          // absolute`. In practice the cloned subtree from
+          // RichTextAbsoluteLines has many absolute children; copying the
+          // plain text as a single paragraph gives us a reliable reflow.
+          const text = root.innerText ?? ''
+          clone.innerHTML = ''
+          const p = document.createElement('div')
+          p.textContent = text
+          // Inherit the visible element's typography so measurement
+          // matches what the user sees.
+          const cs = window.getComputedStyle(inner)
+          p.style.fontFamily = cs.fontFamily
+          p.style.fontSize = cs.fontSize
+          p.style.fontWeight = cs.fontWeight
+          p.style.fontStyle = cs.fontStyle
+          p.style.lineHeight = cs.lineHeight
+          p.style.letterSpacing = cs.letterSpacing
+          p.style.whiteSpace = 'pre-wrap'
+          p.style.wordBreak = 'normal'
+          p.style.overflowWrap = 'break-word'
+          clone.appendChild(p)
+          clone.style.position = 'absolute'
+          clone.style.left = '-99999px'
+          clone.style.top = '0'
+          clone.style.visibility = 'hidden'
+          clone.style.pointerEvents = 'none'
+          clone.style.width = `${startW}px`
+          clone.style.height = 'auto'
+          document.body.appendChild(clone)
+          mirror = clone
+        }
+      } catch {
+        /* mirror setup failed — onMove falls back to the widestWordPx floor */
+      }
+    }
     // MERGED_SHAPE's outline lives in per-vertex data. Snapshot it at
     // drag start so each frame can scale from the ORIGINAL (snapshot →
     // target) rather than from whatever the store holds after the
@@ -687,7 +817,8 @@ function CanvasElement({
       const dx = (ev.clientX - startX) / z
       const dy = (ev.clientY - startY) / z
       const others = activeEls.filter((x) => x.id !== el.id)
-      const { width, height, guides, violatesMargins } = computeResizeSnap(
+      // eslint-disable-next-line prefer-const
+      let { width, height, guides, violatesMargins } = computeResizeSnap(
         startW + dx,
         startH + dy,
         current,
@@ -701,6 +832,21 @@ function CanvasElement({
         },
         viewportPt
       )
+      if (isTextEl) {
+        // Dynamic content-min: the widest unbreakable word is a hard
+        // width floor, and the mirror div's scrollHeight at the proposed
+        // width gives the height floor at that width. If the author
+        // narrows the box, the mirror rewraps, scrollHeight goes up,
+        // and we clamp the height to match — so "shrink width, grow
+        // height" works; "shrink both" is refused.
+        if (width < widestWordPx) width = widestWordPx
+        let contentMinH = 16
+        if (mirror) {
+          mirror.style.width = `${Math.max(1, Math.floor(width))}px`
+          contentMinH = Math.ceil(mirror.scrollHeight)
+        }
+        if (height < contentMinH) height = contentMinH
+      }
       setMarginClampHighlight(violatesMargins)
       st.setDragGuides(guides)
       if (isMergedShape) {
@@ -735,6 +881,10 @@ function CanvasElement({
       setMarginClampHighlight(false)
       useEditorStore.getState().setDragGuides({ vertical: [], horizontal: [] })
       useEditorStore.getState().endHistoryBatch()
+      if (mirror && mirror.parentNode) {
+        mirror.parentNode.removeChild(mirror)
+        mirror = null
+      }
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
@@ -882,16 +1032,18 @@ function CanvasElement({
             }`}
             style={{
               fontSize: el.style?.fontSize ?? 12,
-              // Inherit element-level bold/italic into the inline editor so
-              // the visual weight + slant matches `RichTextBlockPreview`
-              // (which does `fontWeight: r.bold || elementBold ? 700 : 400`).
-              // Otherwise double-clicking a bold element appears to unbold
-              // the text, even though nothing changed in the data. TipTap
-              // run-level bold marks still layer on top of this inherited
-              // weight — they just become redundant when the element is
-              // already bold at the container level, same as in preview.
+              // Inherit element-level bold/italic/underline/strikethrough
+              // into the inline editor so the visual weight + slant +
+              // decoration match `RichTextBlockPreview`. Otherwise
+              // double-clicking e.g. a bold-underlined element appears to
+              // unbold/undecoreate the text even though nothing changed in
+              // the data. TipTap run-level marks still layer on top.
               fontWeight: el.style?.bold ? 700 : 400,
               fontStyle: el.style?.italic ? 'italic' : 'normal',
+              textDecoration: [
+                el.style?.underline ? 'underline' : null,
+                el.style?.strikethrough ? 'line-through' : null,
+              ].filter(Boolean).join(' ') || undefined,
               fontFamily: coerceToSupportedFamily(el.style?.fontFamily),
               textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
               color: el.style?.color?.trim() || undefined,
@@ -1139,6 +1291,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
           textAlign={align}
           elementBold={el.style?.bold}
           elementItalic={el.style?.italic}
+          elementUnderline={el.style?.underline}
+          elementStrikethrough={el.style?.strikethrough}
           color={el.style?.color}
           fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
           lineHeight={el.style?.lineHeight}
@@ -1410,6 +1564,8 @@ function ElementPreview({ el }: { el: LayoutElement }) {
         textAlign={align}
         elementBold={el.style?.bold}
         elementItalic={el.style?.italic}
+        elementUnderline={el.style?.underline}
+        elementStrikethrough={el.style?.strikethrough}
         color={hasColorGrad ? undefined : el.style?.color}
         backgroundColor={isValidGradient(el.style?.bgGradient) ? undefined : el.style?.backgroundColor}
         fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}

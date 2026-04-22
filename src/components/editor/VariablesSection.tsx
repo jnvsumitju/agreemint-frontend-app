@@ -448,25 +448,6 @@ export function VariablesSection() {
     if (ids.length > 0) removeElements(ids)
   }
 
-  /** Find the TABLE element whose dataKey matches the given key (walks into band elements). */
-  const findTableElement = (key: string): LayoutElement | undefined => {
-    for (const page of pages) {
-      const walk = (els: LayoutElement[]): LayoutElement | undefined => {
-        for (const el of els) {
-          if (el.type === 'TABLE' && el.dataKey === key) return el
-          if (el.bandElements?.length) {
-            const found = walk(el.bandElements)
-            if (found) return found
-          }
-        }
-        return undefined
-      }
-      const found = walk(page.elements)
-      if (found) return found
-    }
-    return undefined
-  }
-
   const declaredHere = useMemo(() => {
     const s = bandEditorMode
       ? catalogKeySet(globalVariableDefinitions, [])
@@ -582,11 +563,8 @@ export function VariablesSection() {
     }
     if (isDataBound && (tableKeys.has(normKey) || tableKeys.has(elementDataKey ?? ''))) {
       const raw = variableValues[normKey] ?? ''
-      const lookupKey = elementDataKey ?? normKey
       const parsed = parseTableVariableData(raw)
       const format = detectTableDataFormatFromJson(raw)
-      const tableEl = findTableElement(lookupKey)
-      const styleEnabled = tableEl?.tableStyleFromVariable === true
       const tid = `${fieldIdBase}-table-json`
 
       if (parsed) {
@@ -594,8 +572,6 @@ export function VariablesSection() {
         const headers = parsed.data[0] ?? []
         const bodyRows = Math.max(0, parsed.data.length - 1)
         const colCount = headers.length
-        const hasCellStyle = Array.isArray(parsed.cellStyle) && parsed.cellStyle.length > 0
-        const hasBorderStyle = !!parsed.borderStyle
 
         return (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -603,34 +579,12 @@ export function VariablesSection() {
               <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
                 {colCount} col{colCount !== 1 ? 's' : ''} &times; {bodyRows} row{bodyRows !== 1 ? 's' : ''}
               </span>
-              <span
-                className={[
-                  'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                  styleEnabled
-                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
-                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
-                ].join(' ')}
-              >
-                style {styleEnabled ? 'on' : 'off'}
-              </span>
             </div>
 
             {headers.length > 0 && (
               <p className="mt-1.5 text-[11px] leading-snug text-emerald-700 dark:text-emerald-300">
                 <span className="font-medium">Headers:</span>{' '}
                 <span className="font-mono text-[10px]">{headers.join(', ')}</span>
-              </p>
-            )}
-
-            {(hasCellStyle || hasBorderStyle) && (
-              <p className="mt-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/70">
-                {[
-                  hasCellStyle && 'cell styles',
-                  hasBorderStyle &&
-                    `border: ${parsed.borderStyle?.style ?? 'solid'}, ${parsed.borderStyle?.color ?? 'default'}`,
-                ]
-                  .filter(Boolean)
-                  .join(' + ')}
               </p>
             )}
 

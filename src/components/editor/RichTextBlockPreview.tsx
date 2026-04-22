@@ -32,6 +32,8 @@ export function RichTextBlockPreview({
   textAlign,
   elementBold,
   elementItalic,
+  elementUnderline,
+  elementStrikethrough,
   color,
   backgroundColor,
   fontFamily,
@@ -45,6 +47,8 @@ export function RichTextBlockPreview({
   textAlign: CSSProperties['textAlign']
   elementBold?: boolean
   elementItalic?: boolean
+  elementUnderline?: boolean
+  elementStrikethrough?: boolean
   color?: string
   backgroundColor?: string
   fontFamily?: string
@@ -109,22 +113,27 @@ export function RichTextBlockPreview({
           )
         }
         const deco: string[] = []
-        if (r.underline) deco.push('underline')
-        if (r.strikethrough) deco.push('line-through')
+        // Tri-state precedence: the run's explicit true/false overrides the
+        // element default in either direction; undefined falls through.
+        if ((r.underline ?? elementUnderline)) deco.push('underline')
+        if ((r.strikethrough ?? elementStrikethrough)) deco.push('line-through')
         // Linked runs get the underline by default unless the author has
         // explicitly set a different text-decoration state (strike stays).
         if (resolvedHref && !deco.includes('underline')) deco.push('underline')
+        // Per-run size override; super/sub scale applies on top. When a run
+        // has no explicit size, inherit the element-level `fontSize`.
+        const baseRunSize = typeof r.fontSize === 'number' && r.fontSize > 0 ? r.fontSize : fontSize
+        const effectiveRunSize = r.superscript || r.subscript
+          ? Math.round((baseRunSize * 0.75 + Number.EPSILON) * 10) / 10
+          : baseRunSize
         const spanNode = (
           <span
             style={{
-              fontWeight: r.bold || elementBold ? 700 : 400,
-              fontStyle: r.italic || elementItalic ? 'italic' : 'normal',
+              fontWeight: (r.bold ?? elementBold) ? 700 : 400,
+              fontStyle: (r.italic ?? elementItalic) ? 'italic' : 'normal',
               textDecoration: deco.length ? deco.join(' ') : undefined,
               verticalAlign: r.superscript ? 'super' : r.subscript ? 'sub' : undefined,
-              fontSize:
-                r.superscript || r.subscript
-                  ? `${Math.round((fontSize * 0.75 + Number.EPSILON) * 10) / 10}px`
-                  : undefined,
+              fontSize: effectiveRunSize !== fontSize ? `${effectiveRunSize}px` : undefined,
               // If no explicit color, linked text falls back to a link-blue.
               color: r.color?.trim() || (resolvedHref ? '#2563eb' : undefined),
               backgroundColor: r.highlightColor?.trim() || undefined,

@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import {
   createProduct,
   createTemplate,
+  deleteTemplate,
   duplicateTemplate,
   fetchProducts,
   fetchTemplates,
@@ -142,10 +143,11 @@ function TagEditor({ templateId, tags, onUpdate }: { templateId: string; tags: s
 /* ── Template Card ── */
 
 function TemplateCard({
-  template, thumbnail, tags, onDuplicate, onTagUpdate, duplicating,
+  template, thumbnail, tags, onDuplicate, onDelete, onTagUpdate, duplicating, deleting,
 }: {
   template: TemplateDto; thumbnail: string | null; tags: string[]
-  onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
+  onDuplicate: () => void; onDelete: () => void; onTagUpdate: () => void
+  duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
   return (
@@ -192,7 +194,7 @@ function TemplateCard({
         )}
       </div>
 
-      {/* Hover actions — only for users who can clone */}
+      {/* Hover actions — only for users who can clone / delete (ADMIN, DESIGNER) */}
       {canCreateTemplates && (
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
@@ -214,6 +216,27 @@ function TemplateCard({
               </svg>
             )}
           </button>
+          <button
+            type="button"
+            className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-red-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Delete template"
+            disabled={deleting || duplicating}
+            onClick={(e) => { e.preventDefault(); onDelete() }}
+          >
+            {deleting ? (
+              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1.36 13.6a2 2 0 01-2 1.8H8.36a2 2 0 01-2-1.8L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2" />
+              </svg>
+            )}
+          </button>
         </div>
       )}
     </div>
@@ -223,10 +246,11 @@ function TemplateCard({
 /* ── Template Row ── */
 
 function TemplateRow({
-  template, tags, onDuplicate, onTagUpdate, duplicating,
+  template, tags, onDuplicate, onDelete, onTagUpdate, duplicating, deleting,
 }: {
   template: TemplateDto; tags: string[]
-  onDuplicate: () => void; onTagUpdate: () => void; duplicating: boolean
+  onDuplicate: () => void; onDelete: () => void; onTagUpdate: () => void
+  duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
   return (
@@ -258,18 +282,41 @@ function TemplateRow({
         {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
       </span>
       {canCreateTemplates && (
-        <button
-          type="button"
-          className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
-          title="Duplicate template"
-          disabled={duplicating}
-          onClick={() => onDuplicate()}
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        </button>
+        <>
+          <button
+            type="button"
+            className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-violet-600 dark:hover:bg-zinc-800 dark:hover:text-violet-400 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Duplicate template"
+            disabled={duplicating || deleting}
+            onClick={() => onDuplicate()}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Delete template"
+            disabled={deleting || duplicating}
+            onClick={() => onDelete()}
+          >
+            {deleting ? (
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1.36 13.6a2 2 0 01-2 1.8H8.36a2 2 0 01-2-1.8L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2" />
+              </svg>
+            )}
+          </button>
+        </>
       )}
     </li>
   )
@@ -331,6 +378,13 @@ export function TemplateList() {
   const [creating, setCreating] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  /**
+   * Delete confirmation flow: clicking the trash icon sets {@code deleteTarget}
+   * (opens the modal); {@code deletingId} flips during the in-flight API call
+   * so the row's spinner shows. Soft-resets after success/cancel.
+   */
+  const [deleteTarget, setDeleteTarget] = useState<TemplateDto | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   // Products loaded once per org — used by the filter dropdown above the
   // grid and by the create-modal product picker.
   const [products, setProducts] = useState<ProductDto[]>([])
@@ -430,6 +484,25 @@ export function TemplateList() {
       toast.error(err instanceof Error ? err.message : 'Duplicate failed')
     } finally {
       setDuplicatingId(null)
+    }
+  }
+
+  const confirmDelete = async () => {
+    const t = deleteTarget
+    if (!t) return
+    setDeletingId(t.id)
+    try {
+      await deleteTemplate(t.id)
+      toast.success(`Deleted "${t.name}"`)
+      setDeleteTarget(null)
+      // Optimistic: drop the row immediately; {@code load} confirms with the
+      // backend and catches any race where two clients delete concurrently.
+      setTemplates((prev) => prev.filter((x) => x.id !== t.id))
+      load()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -570,7 +643,9 @@ export function TemplateList() {
               thumbnail={thumbnails[t.id] ?? null}
               tags={tagMap[t.id] ?? []}
               duplicating={duplicatingId === t.id}
+              deleting={deletingId === t.id}
               onDuplicate={() => void onDuplicate(t)}
+              onDelete={() => setDeleteTarget(t)}
               onTagUpdate={refreshTags}
             />
           ))}
@@ -583,7 +658,9 @@ export function TemplateList() {
               template={t}
               tags={tagMap[t.id] ?? []}
               duplicating={duplicatingId === t.id}
+              deleting={deletingId === t.id}
               onDuplicate={() => void onDuplicate(t)}
+              onDelete={() => setDeleteTarget(t)}
               onTagUpdate={refreshTags}
             />
           ))}
@@ -692,6 +769,42 @@ export function TemplateList() {
             </Button>
           </ModalFooter>
         </form>
+      </Modal>
+
+      {/* Delete confirmation — destructive action, explicit copy. Gated to
+          ADMIN/DESIGNER via the trash-icon's canCreateTemplates check on the
+          card/row; the modal just confirms intent. */}
+      <Modal
+        open={deleteTarget != null}
+        onClose={() => { if (!deletingId) setDeleteTarget(null) }}
+        title="Delete template?"
+        description={
+          deleteTarget
+            ? `"${deleteTarget.name}" and every version, draft, review, and share link will be permanently removed. This cannot be undone.`
+            : ''
+        }
+        size="sm"
+      >
+        <ModalFooter>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            disabled={deletingId != null}
+            onClick={() => setDeleteTarget(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            type="button"
+            loading={deletingId != null}
+            onClick={() => void confirmDelete()}
+          >
+            Delete template
+          </Button>
+        </ModalFooter>
       </Modal>
     </div>
   )

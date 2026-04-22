@@ -311,8 +311,14 @@ export function ElementVisualFields({
               type="number"
               className={numInputSmClass}
               value={s.rotation ?? 0}
+              min={-360}
+              max={360}
               onChange={(e) => {
-                const v = Number(e.target.value) || 0
+                const raw = Number(e.target.value) || 0
+                // Normalize stray inputs (e.g. 9999) into [-360, 360]. The
+                // canvas + PDF renderers take the modulo naturally but
+                // storing it clamped keeps the input box well-behaved.
+                const v = Math.max(-360, Math.min(360, Math.round(raw))) % 360
                 set({ rotation: v === 0 ? undefined : v })
               }}
             />

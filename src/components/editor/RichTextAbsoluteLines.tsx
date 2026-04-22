@@ -1,8 +1,16 @@
 import type { CSSProperties } from 'react'
 
 import type { ElementMeasurement } from '../../lib/api'
-import { parseContentToRuns, type RichRun } from '../../lib/richContent'
+import {
+  normalizeVariableIdentifier,
+  parseContentToRuns,
+  type RichRun,
+} from '../../lib/richContent'
+import { stripPipesFromKey } from '../../lib/variablePipes'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
+
+const varChipClass =
+  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
 
 /**
  * Phase 1.5 renderer that replays iText's per-line layout by absolute-positioning
@@ -26,6 +34,8 @@ export function RichTextAbsoluteLines({
   textAlign,
   elementBold,
   elementItalic,
+  elementUnderline,
+  elementStrikethrough,
   color,
   backgroundColor,
   fontFamily,
@@ -39,6 +49,8 @@ export function RichTextAbsoluteLines({
   textAlign: CSSProperties['textAlign']
   elementBold?: boolean
   elementItalic?: boolean
+  elementUnderline?: boolean
+  elementStrikethrough?: boolean
   color?: string
   backgroundColor?: string
   fontFamily?: string
@@ -52,6 +64,8 @@ export function RichTextAbsoluteLines({
     textAlign,
     elementBold,
     elementItalic,
+    elementUnderline,
+    elementStrikethrough,
     color,
     backgroundColor,
     fontFamily,
@@ -65,6 +79,26 @@ export function RichTextAbsoluteLines({
   }
 
   const runs = parseContentToRuns(content)
+
+  // Staleness guard: after a content edit (e.g. inserting an `@variable`
+  // chip on blur, or a remote collab mutation) the measurement hasn't
+  // caught up — it still lists runs from BEFORE the edit. Rendering
+  // absolute-positioned lines against a stale textLines array silently
+  // drops any run the measurement doesn't know about (new variables
+  // disappear from the canvas until the backend re-measures).
+  //
+  // Detect the divergence: every authored-run index must appear in the
+  // measurement. If even one is missing, fall through to the flow-based
+  // preview which doesn't depend on measurement geometry and renders
+  // variable chips natively.
+  const seenRunIndices = new Set<number>()
+  for (const line of measurement.textLines) {
+    for (const r of line.runs) seenRunIndices.add(r.runIndex)
+  }
+  const measurementIsStale = runs.some((_, i) => !seenRunIndices.has(i))
+  if (measurementIsStale) {
+    return <RichTextBlockPreview {...fallbackProps} />
+  }
 
   return (
     <div
@@ -96,6 +130,21 @@ export function RichTextAbsoluteLines({
         >
           {line.runs.map((m, runIdx) => {
             const authored: RichRun | undefined = m.runIndex >= 0 ? runs[m.runIndex] : undefined
+            // Var runs render as violet chips in view mode — matches the
+            // flow-preview behavior so the author always sees WHICH runs
+            // are variables, even if the resolved text is empty (iText
+            // couldn't look up the name → `m.text` is "" → a plain text
+            // span would be invisible).
+            if (authored?.type === 'var') {
+              return (
+                <AbsoluteVarChip
+                  key={runIdx}
+                  authored={authored}
+                  variableValues={variableValues}
+                  variableSurfaceLabelResolver={variableSurfaceLabelResolver}
+                />
+              )
+            }
             return (
               <AbsoluteRunSpan
                 key={runIdx}
@@ -104,6 +153,8 @@ export function RichTextAbsoluteLines({
                 authored={authored}
                 elementBold={elementBold}
                 elementItalic={elementItalic}
+                elementUnderline={elementUnderline}
+                elementStrikethrough={elementStrikethrough}
               />
             )
           })}
@@ -113,31 +164,84 @@ export function RichTextAbsoluteLines({
   )
 }
 
+function AbsoluteVarChip({
+  authored,
+  variableValues,
+  variableSurfaceLabelResolver,
+}: {
+  authored: RichRun & { type: 'var' }
+  variableValues: Record<string, string>
+  variableSurfaceLabelResolver?: (rawName: string) => string
+}) {
+  const baseKey = stripPipesFromKey(authored.name)
+  const k = normalizeVariableIdentifier(baseKey)
+  const surface = variableSurfaceLabelResolver?.(k)?.trim()
+  const label = surface || `{{${k}}}`
+  const preview = variableValues[k] ?? ''
+  const titleParts: string[] = [`Token: {{${authored.name.trim()}}}`]
+  if (preview.trim()) titleParts.push(`Variables tab preview: ${preview}`)
+  // Chip takes its natural width instead of the backend-measured advance.
+  // The measurement reports the width iText would emit for the RESOLVED
+  // value (often shorter than the chip label, sometimes zero if the value
+  // doesn't resolve) — using that width caused adjacent chips to stack on
+  // top of each other in view mode. In the PDF the var prints its resolved
+  // text at the measured width, so PDF parity for vars is handled server-
+  // side anyway; the canvas chip is purely an authoring affordance.
+  const style: CSSProperties = {
+    display: 'inline-block',
+    whiteSpace: 'nowrap',
+    verticalAlign: 'baseline',
+  }
+  return (
+    <span style={style} title={titleParts.join('\n')} data-am-var={k}>
+      <span className={varChipClass}>{label}</span>
+    </span>
+  )
+}
+
 function AbsoluteRunSpan({
   rendered,
   width,
   authored,
   elementBold,
   elementItalic,
+  elementUnderline,
+  elementStrikethrough,
 }: {
   rendered: string
   width: number
   authored: RichRun | undefined
   elementBold?: boolean
   elementItalic?: boolean
+  elementUnderline?: boolean
+  elementStrikethrough?: boolean
 }) {
   // Discriminated-union narrow: the `text` variant carries the style props we
   // need. Variable runs render as plain rendered text (the variable chip
   // decoration is editor-preview-only; iText emits the resolved value).
   const asText = authored?.type === 'text' ? authored : undefined
   const deco: string[] = []
-  if (asText?.underline) deco.push('underline')
-  if (asText?.strikethrough) deco.push('line-through')
+  // Tri-state nullish fallback: a run with an explicit bold/italic/underline
+  // /strikethrough value overrides the element-level style in either direction.
+  // A run with the mark absent (undefined) falls through to the element
+  // default. This lets an author bold a whole paragraph and then un-bold a
+  // specific selection inside it, or vice versa. The earlier 2-state setup
+  // (`bold: !!r.bold` in normalizeRun) made this impossible; normalizeRun now
+  // preserves undefined, so `??` does what the name suggests.
+  if ((asText?.underline ?? elementUnderline)) deco.push('underline')
+  if ((asText?.strikethrough ?? elementStrikethrough)) deco.push('line-through')
   const isBold = asText?.bold ?? elementBold
   const isItalic = asText?.italic ?? elementItalic
-  // Inline-block with an explicit width locks the span to the advance width
-  // iText measured, so sub-glyph drift in the browser's own text metrics
-  // can't push the next run onto a different column.
+  // Inline-block with an explicit width reserves iText's measured advance
+  // width for this run, so the NEXT run starts at the exact pt iText will
+  // emit. Ink that naturally extends past the advance box (italic lean,
+  // serif curls, descender tails, combining diacritics) is allowed to
+  // render with `overflow: visible` — clipping it truncated the final glyph
+  // of italic / serif runs (e.g. "Sumit Kumar" cut to "Sumit Kuma"). PDF
+  // never clipped those pixels either, so visible overflow is the parity-
+  // correct behaviour.
+  const runFontSize =
+    typeof asText?.fontSize === 'number' && asText.fontSize > 0 ? asText.fontSize : undefined
   const style: CSSProperties = {
     display: 'inline-block',
     width: `${width}px`,
@@ -146,10 +250,12 @@ function AbsoluteRunSpan({
     textDecoration: deco.length ? deco.join(' ') : undefined,
     color: asText?.color?.trim() || undefined,
     backgroundColor: asText?.highlightColor?.trim() || undefined,
-    // overflow:hidden prevents a rendered shard from painting over the next run
-    // when the browser's CSS text rendering disagrees with iText by a fraction
-    // of a pt on the final glyph.
-    overflow: 'hidden',
+    // Per-run font size override; the outer container's fontSize is the
+    // default that most runs inherit. When a run has a different size the
+    // span renders it locally — iText is fed the same value through the
+    // serialized `fontSize` field so canvas and PDF agree.
+    ...(runFontSize != null ? { fontSize: `${runFontSize}px` } : {}),
+    overflow: 'visible',
     whiteSpace: 'nowrap',
     verticalAlign: 'baseline',
   }

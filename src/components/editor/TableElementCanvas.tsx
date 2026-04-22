@@ -29,7 +29,6 @@ import {
 } from '../../lib/layoutBehaviourResolve'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
 import { pixelParityEnabled } from '../../lib/features'
-import { useElementMeasurement } from './MeasurementContext'
 import {
   TABLE_BLOCK_SELECTION_FILL,
   TABLE_HEADER_ROW,
@@ -90,16 +89,8 @@ function mergeBlockSelectionStyle(
 function tableCellEffectiveBackground(
   table: LayoutElement,
   row: number,
-  col: number,
-  structuredData?: TableVariableData | null
+  col: number
 ): string | undefined {
-  // When tableStyleFromVariable is enabled and structured data has cellStyle, use it
-  if (table.tableStyleFromVariable && structuredData?.cellStyle) {
-    // Map: row -1 (header) → cellStyle[0], row 0 (data row 0) → cellStyle[1], etc.
-    const styleRowIdx = row === -1 ? 0 : row + 1
-    const cs = structuredData.cellStyle[styleRowIdx]?.[col]
-    if (cs?.cellBgColor) return cs.cellBgColor
-  }
   const cellBg = table.tableCellBackgrounds?.[`${row},${col}`]?.trim()
   if (cellBg) return cellBg
   const colBg = table.tableColumnBackgrounds?.[String(col)]?.trim()
@@ -188,14 +179,18 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const gridTemplateColumns = colTemplate
   // Phase 2.5: when the backend measurement endpoint has returned row-heights
   // for this table, use explicit pt tokens so canvas rows match the PDF rows
-  // pixel-for-pixel. Falls back to `fr`-weighted distribution when measurement
-  // is missing (cold start, flag off, or non-text-bearing element).
-  const tableMeasurement = useElementMeasurement(el.id)
-  const measuredRowHeights = tableMeasurement?.rowHeights ?? []
-  const gridTemplateRows =
-    measuredRowHeights.length > 0 && measuredRowHeights.length === rowWeights.length
-      ? measuredRowHeights.map((h) => `${h}pt`).join(' ')
-      : rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
+  // Match the backend renderer's own distribution: `addTable` pins each
+  // row's height to {@code (authoredHeight / weightSum) × rowWeight}, so the
+  // rows STRETCH to fill the element box instead of collapsing to their
+  // minimum measured content height. Using pt-exact values from the
+  // measurement endpoint (phase 2.5's earlier attempt) left the bottom of
+  // the box empty — canvas and PDF disagreed because the PDF renderer uses
+  // weight-distribution, not minimum heights.
+  //
+  // Measurement still drives the overflow check via {@link findOverflowingElements}:
+  // when the sum of measured rows exceeds the authored height, the soft-
+  // assist warns that cells will clip in the PDF.
+  const gridTemplateRows = rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
 
   const gridRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -355,9 +350,29 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     [tableCellEdit, el.id, cols, updateElement, isStructured, parsedStructured, dk, setVariableValue]
   )
 
+  const loopEnabled = !!el.dataKey
+  const staticCells = el.tableStaticCells
+
   const onBodyTipTapChange = useCallback(
     (serialized: string) => {
       if (!tableCellEdit || tableCellEdit.tableId !== el.id || tableCellEdit.row === HEADER_ROW) return
+      if (!loopEnabled) {
+        // Loop-off TABLEs store body content ON the element so every table
+        // gets an independent store (the old fallback to variableValues["items"]
+        // collided between tables) and the backend can print the canvas-typed
+        // values directly in static mode.
+        const key = `${tableCellEdit.row},${tableCellEdit.col}`
+        const nextCells: Record<string, string> = { ...(staticCells ?? {}) }
+        if (serialized) {
+          nextCells[key] = serialized
+        } else {
+          delete nextCells[key]
+        }
+        updateElement(el.id, {
+          tableStaticCells: Object.keys(nextCells).length ? nextCells : undefined,
+        })
+        return
+      }
       if (isStructured && parsedStructured) {
         const next = setStructuredCellValue(parsedStructured, tableCellEdit.row, tableCellEdit.col, serialized)
         setVariableValue(dk, serializeTableVariableData(next))
@@ -368,7 +383,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
         setVariableValue(dk, nextJson)
       }
     },
-    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue, isStructured, parsedStructured]
+    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue, isStructured, parsedStructured, loopEnabled, staticCells, updateElement]
   )
 
   const tableCellEditorKey = tableCellEdit?.tableId === el.id ? `table-${el.id}-cell` : null
@@ -846,7 +861,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           {cols.map((c, ci) => {
             const sel = tableSelection
             const isSel = highlight(sel, HEADER_ROW, ci)
-            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci, parsedStructured)
+            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci)
             const colBlockBorder =
               selected &&
               sel?.tableId === el.id &&
@@ -956,7 +971,11 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           {Array.from({ length: previewBodyRows }, (_, ri) => {
             const zebra = 'bg-white dark:bg-zinc-50'
             const slot = visibleBodyRows[ri]
-            const dataRowIndex = slot?.rowIndex ?? -1
+            // Loop-off TABLEs don't have variable data backing them, so the
+            // row index is simply the render index `ri` — that's the same
+            // index the tableStaticCells map is keyed against and the index
+            // the backend uses when synthesizing rows in static mode.
+            const dataRowIndex = loopEnabled ? (slot?.rowIndex ?? -1) : ri
             const rowObj = slot?.row ?? {}
             return (
               <div key={`g-${ri}`} className="contents">
@@ -964,8 +983,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   const fillBgRaw = tableCellEffectiveBackground(
                     el,
                     dataRowIndex >= 0 ? dataRowIndex : ri,
-                    ci,
-                    parsedStructured
+                    ci
                   )
                   const cellBeh = tableCellBehaviourStyle(
                     el.behaviour,
@@ -1032,9 +1050,11 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       onClick={(e) => onGridCellClick(e, dataRowIndex, ci, dataRowIndex >= 0)}
                     >
                       {(() => {
-                        const cellContent = isStructured
-                          ? getStructuredCellValue(parsedStructured!, dataRowIndex, ci)
-                          : getDataCellStringValue(rawJson, dataRowIndex, c.key)
+                        const cellContent = !loopEnabled
+                          ? (staticCells?.[`${dataRowIndex},${ci}`] ?? '')
+                          : isStructured
+                            ? getStructuredCellValue(parsedStructured!, dataRowIndex, ci)
+                            : getDataCellStringValue(rawJson, dataRowIndex, c.key)
                         return editingHere ? (
                         <div
                           className="absolute inset-0 z-[5] box-border min-w-0 overflow-hidden ring-2 ring-violet-500"

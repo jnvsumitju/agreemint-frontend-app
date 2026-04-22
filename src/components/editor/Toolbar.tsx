@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, measureLayout, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, measureLayout, putDraft, putDraftVariables, reopenReview, type TemplateReviewDto } from '../../lib/api'
 import { pixelParityEnabled } from '../../lib/features'
 import { findOverflowingElements, type Overflow } from '../../lib/overflowCheck'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
@@ -325,6 +325,44 @@ export function Toolbar() {
       })
     }, ms)
     return () => window.clearInterval(id)
+  }, [templateId])
+
+  // Variable-values debounced persist.
+  //
+  // The collab op stream carries layout changes + variable DEFINITIONS, but
+  // not variable VALUES — so typed preview data (table body cells, list
+  // items, scalar placeholders) lived only in client memory. On refresh the
+  // bootstrap hydrated from the server draft, which never received these
+  // edits, so body-cell text disappeared.
+  //
+  // We debounce 800 ms and PUT only to the draft-variables endpoint, which
+  // preserves the collab-flushed layoutJson — no race with CollabFlushJob.
+  useEffect(() => {
+    const tid = templateId
+    if (!tid) return
+    let lastSaved = JSON.stringify(useEditorStore.getState().variableValues)
+    let timer: number | null = null
+    const flush = () => {
+      timer = null
+      const s = useEditorStore.getState()
+      if (s.templateId !== tid) return
+      const current = JSON.stringify(s.variableValues)
+      if (current === lastSaved) return
+      lastSaved = current
+      void putDraftVariables(tid, s.variableValues).catch(() => {
+        /* offline or server down — next change will retry */
+      })
+    }
+    const unsubscribe = useEditorStore.subscribe((state, prev) => {
+      if (state.templateId !== tid) return
+      if (state.variableValues === prev.variableValues) return
+      if (timer != null) window.clearTimeout(timer)
+      timer = window.setTimeout(flush, 800)
+    })
+    return () => {
+      unsubscribe()
+      if (timer != null) window.clearTimeout(timer)
+    }
   }, [templateId])
 
   const commitVersion = async () => {

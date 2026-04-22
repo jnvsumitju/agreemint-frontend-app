@@ -214,6 +214,25 @@ export async function putDraft(
   return parseJson<TemplateDraftDto>(res)
 }
 
+/**
+ * Persists only the draft variables — layout is untouched on the server.
+ * Variables aren't part of the collab op stream, so without this call any
+ * body-cell edit (table body text, list items, scalar preview values) lived
+ * only in the client's memory and disappeared on reload. The matching BE
+ * endpoint preserves the collab-flushed layout so this can't race the
+ * collab flush.
+ */
+export async function putDraftVariables(
+  templateId: string,
+  variables: Record<string, string>
+): Promise<void> {
+  await authFetch(`${API_BASE}/api/templates/${templateId}/draft/variables`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(variables),
+  })
+}
+
 export async function commitDraft(templateId: string): Promise<TemplateVersionDto> {
   const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft/commit`, {
     method: 'POST',
@@ -571,6 +590,31 @@ export async function duplicateTemplate(
   }
 
   return newTemplate
+}
+
+/**
+ * Hard-delete a template and every row that references it (versions, drafts,
+ * reviews, shares). Gated to {@code ADMIN} / {@code DESIGNER} on the backend —
+ * viewers and reviewers get a 403. The call is idempotent from the UI's
+ * perspective: 404 is treated as "already gone" and we return without
+ * throwing so a stale list refresh doesn't erupt.
+ */
+export async function deleteTemplate(templateId: string): Promise<void> {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}`, {
+    method: 'DELETE',
+  })
+  if (res.status === 404) return
+  if (!res.ok) {
+    const text = await res.text()
+    let msg = text
+    try {
+      const parsed = JSON.parse(text) as { error?: string }
+      if (parsed.error) msg = parsed.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || res.statusText)
+  }
 }
 
 // ── Org members (for Share modal autocomplete + reviewer picker) ─────────────

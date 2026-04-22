@@ -129,42 +129,6 @@ export function structuredRowToObject(
 }
 
 // ---------------------------------------------------------------------------
-// Seed cellStyle from canvas background maps
-// ---------------------------------------------------------------------------
-
-/**
- * Build an initial cellStyle 2D array from the canvas-set background maps.
- * Uses same row/col indexing as data: row 0 = header, rows 1+ = data rows.
- */
-export function seedCellStyleFromCanvasMaps(
-  data: string[][],
-  tableRowBackgrounds?: Record<string, string>,
-  tableColumnBackgrounds?: Record<string, string>,
-  tableCellBackgrounds?: Record<string, string>
-): (TableCellStyle | null)[][] {
-  const rowCount = data.length
-  const colCount = data[0]?.length ?? 0
-  const result: (TableCellStyle | null)[][] = []
-
-  for (let r = 0; r < rowCount; r++) {
-    const row: (TableCellStyle | null)[] = []
-    // Map: row 0 in data = header = row key "-1", row 1+ = data row key "0","1",...
-    const rowKey = r === 0 ? '-1' : String(r - 1)
-    for (let c = 0; c < colCount; c++) {
-      // Cascade: cell > column > row (mirroring the canvas priority)
-      const cellKey = `${rowKey},${c}`
-      const cellBg = tableCellBackgrounds?.[cellKey]
-      const colBg = tableColumnBackgrounds?.[String(c)]
-      const rowBg = tableRowBackgrounds?.[rowKey]
-      const bg = cellBg || colBg || rowBg || null
-      row.push(bg ? { cellBgColor: bg } : null)
-    }
-    result.push(row)
-  }
-  return result
-}
-
-// ---------------------------------------------------------------------------
 // Structured CRUD: cell access
 // ---------------------------------------------------------------------------
 
