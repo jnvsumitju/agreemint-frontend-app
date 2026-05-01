@@ -15,6 +15,8 @@ import { Toolbar } from '../components/editor/Toolbar'
 import { FormatBar } from '../components/editor/FormatBar'
 import { EditorStatusBar } from '../components/editor/EditorStatusBar'
 import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/ShortcutCheatsheet'
+import { AiGenerateModal } from '../components/editor/AiGenerateModal'
+import { AiGenerationOverlay, AiPendingBar } from '../components/editor/AiGenerationOverlay'
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
@@ -135,6 +137,9 @@ export function TemplateEditor() {
         </div>
         <EditorStatusBar />
         <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
+        <AiGenerateModal />
+        <AiGenerationOverlay />
+        <AiPendingBar />
       </div>
     </DndProvider>
   )

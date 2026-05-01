@@ -75,6 +75,7 @@ import {
 } from '../../lib/layoutBehaviourResolve'
 import type { Editor as TipTapEditor } from '@tiptap/core'
 import { copyElementsToClipboard, pasteElementsFromClipboard } from '../../lib/clipboard'
+import { reflowText as reflowTextApi } from '../../lib/api'
 import { gradientToCss, isValidGradient, svgGradientId, svgLinearGradientProps } from '../../lib/gradientUtils'
 import type { GradientDef } from '../../types/layout'
 
@@ -145,6 +146,13 @@ function CanvasElement({
   const inlineEditorRef = useRef<HTMLDivElement>(null)
   /** Survives brief store/zustand timing gaps vs TipTap destroy order. */
   const inlineTipTapLocalRef = useRef<TipTapEditor | null>(null)
+  /**
+   * True when the user pasted into the inline editor at least once during
+   * the current edit session. Reset on every fresh edit. On commit, when
+   * set, the canvas schedules a backend-driven reflow so the eventual PDF's
+   * split point is what the editor preview shows.
+   */
+  const pasteSeenInEditRef = useRef(false)
   const select = useEditorStore((s) => s.select)
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const updateElement = useEditorStore((s) => s.updateElement)
@@ -284,6 +292,65 @@ function CanvasElement({
   const inlineOpenedRef = useRef(false)
   const commitGuardRef = useRef(false)
 
+  /**
+   * Ask the backend to recompute the linked-frame split for `headId`'s chain
+   * using iText measurement, then apply the response to the chain. The
+   * frontend has already done a local reflow at this point — this overwrites
+   * it with the authoritative result. Errors are swallowed (we keep the FE
+   * approximation rather than reverting to single-frame state).
+   */
+  const scheduleBackendReflow = useCallback(async (headId: string) => {
+    try {
+      const st = useEditorStore.getState()
+      // The element id passed in might be mid-chain after the FE reflow ran;
+      // walk back to the actual head before sending.
+      let actualHeadId = headId
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let found: LayoutElement | undefined
+        for (const page of st.pages) {
+          found = page.elements.find((e) => e.id === actualHeadId)
+          if (found) break
+        }
+        if (!found?.linkedPrevId) break
+        actualHeadId = found.linkedPrevId
+      }
+      let headEl: LayoutElement | undefined
+      for (const page of st.pages) {
+        headEl = page.elements.find((e) => e.id === actualHeadId)
+        if (headEl) break
+      }
+      if (!headEl || headEl.type !== 'TEXT') return
+
+      // Build the request payload mirroring elementToJson — the backend reads
+      // `content`, `style`, `width`, `y`, `type`. Send the rich content as a
+      // string so the backend's existing rich-runs parser handles it.
+      const headPayload: Record<string, unknown> = {
+        id: headEl.id,
+        type: 'TEXT',
+        x: headEl.x,
+        y: headEl.y,
+        width: headEl.width,
+        height: headEl.height,
+        content: headEl.content ?? '',
+      }
+      if (headEl.style) headPayload.style = headEl.style
+      const pagePayload: Record<string, unknown> = {
+        size: st.pageSpec.size,
+      }
+      if (st.pageSpec.margins) pagePayload.margins = st.pageSpec.margins
+      if (st.pageSpec.margin != null) pagePayload.margin = st.pageSpec.margin
+      if (st.pageSpec.orientation) pagePayload.orientation = st.pageSpec.orientation
+
+      const resp = await reflowTextApi(headPayload, pagePayload)
+      if (!resp || !Array.isArray(resp.frames) || resp.frames.length === 0) return
+      const frames = resp.frames.map((f) => ({ content: f.content, measuredHeight: f.measuredHeight }))
+      reflowLinkedText(actualHeadId, frames)
+    } catch {
+      // Backend offline / network blip / 5xx: keep the FE approximation.
+    }
+  }, [reflowLinkedText])
+
   const commitInlineEdit = useCallback(() => {
     if (commitGuardRef.current) return
     const st0 = useEditorStore.getState()
@@ -326,16 +393,30 @@ function CanvasElement({
       const nh = Math.max(16, Math.min(phCap - cur.y, Math.ceil(outer.getBoundingClientRect().height)))
       if (Math.abs(nh - cur.height) > 0.5) height = nh
     }
+    // Detect any actual content change so we know whether to ask the backend
+    // to re-split. A no-op edit (open + close without typing) shouldn't burn
+    // a network round-trip.
+    const contentChanged = (cur?.content ?? '') !== content
     updateElement(el.id, height !== undefined ? { content, height } : { content })
     setCanvasInlineEdit(null)
+    pasteSeenInEditRef.current = false
     queueMicrotask(() => {
       commitGuardRef.current = false
       // Trigger linked text reflow for TEXT elements after commit
       if (el.type === 'TEXT' && !nested) {
         reflowLinkedText(el.id)
+        // Ask the backend (iText) for the authoritative split whenever the
+        // content actually changed — paste, type, delete, all of them. The
+        // local reflow above is an instant approximation; the BE response
+        // may pick a slightly different paragraph boundary so the editor
+        // matches what the eventual PDF will render. Failures are silent —
+        // the FE result stays and the editor remains usable.
+        if (contentChanged) {
+          void scheduleBackendReflow(el.id)
+        }
       }
     })
-  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText])
+  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText, scheduleBackendReflow])
 
   const escapeInlineEdit = useCallback(() => {
     const u = inlineUndoRef.current
@@ -364,6 +445,9 @@ function CanvasElement({
       inlineOpenedRef.current = true
       inlineUndoRef.current = { content: el.content ?? '', height: el.height }
       contentSnapshotRef.current = el.content
+      // Fresh edit session — reset the paste flag. A paste from a previous
+      // edit shouldn't kick off a backend reflow on this commit.
+      pasteSeenInEditRef.current = false
     }
   }, [isInlineEditing, el.id, el.content, el.height])
 
@@ -1090,6 +1174,7 @@ function CanvasElement({
               mode="canvas"
               sessionKey={el.id}
               autoFocus
+              onPaste={() => { pasteSeenInEditRef.current = true }}
               // Collaborative TEXT: bind to a Y.XmlFragment keyed by element id so
               // concurrent typing from multiple users merges CRDT-style.
               collabFragment={templateId ? getYFragment(templateId, el.id) : undefined}
@@ -3477,6 +3562,25 @@ export function EditorCanvas({
         >
           {!viewOnly && (
             <>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                onClick={() => {
+                  const st = useEditorStore.getState()
+                  const elId = st.selectedIds[st.selectedIds.length - 1]
+                  setElementContextMenu(null)
+                  if (elId) st.openAiModalForElement(elId)
+                }}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M14.5 9.5L4 20" />
+                  <path d="M14.5 9.5l5-5" />
+                  <path d="M13 8l3 3" />
+                </svg>
+                Modify with AI…
+              </button>
+              <div className="border-t border-zinc-100 dark:border-zinc-700" />
               <button
                 type="button"
                 role="menuitem"

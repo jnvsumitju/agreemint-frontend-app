@@ -543,15 +543,52 @@ export type VariableChipInfo = {
   previewLine?: string
 }
 
-/** Humanize a flat merge-field key for chip labels (matches preview / Variables style). */
+/**
+ * Humanize a flat merge-field key for chip labels (matches preview / Variables style).
+ *
+ * Walks each segment between `.` / `_` / `-` and splits on these boundaries:
+ *   - camelCase  (`borrowerName`     → `Borrower Name`)
+ *   - PascalCase (`BorrowerName`     → `Borrower Name`)
+ *   - acronym→word (`HTTPRequest`    → `HTTP Request`)
+ *   - letter↔digit (`address1`       → `Address 1`, `top10Items` → `Top 10 Items`)
+ * If the segment has none of those (e.g. an AI-generated `borrowername`),
+ * it falls back to the old "Title-case the whole thing" behaviour so the
+ * chip still reads as a single word rather than a glued lowercase blob.
+ */
 export function humanizeMergeFieldKeyLabel(rawKey: string): string {
   const k = rawKey.trim()
   if (!k) return ''
   return k
-    .split(/[._]/)
+    .split(/[._-]/)
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map((segment) => splitWordBoundaries(segment))
+    .map((words) =>
+      words
+        .map((w) => (isAllUpper(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+        .join(' ')
+    )
     .join(' ')
+}
+
+/** Split a single identifier segment into words on case / digit boundaries. */
+function splitWordBoundaries(segment: string): string[] {
+  if (!segment) return []
+  // Insert a marker on each boundary, then split on it. Order matters:
+  //   1. acronym→word: `HTTPRequest` becomes `HTTP|Request` (lookahead: cap+lower
+  //      after a run of caps splits before the cap+lower pair).
+  //   2. lower→Upper: `borrowerName` becomes `borrower|Name`.
+  //   3. letter↔digit both directions: `address1` / `2items`.
+  const SEP = ''
+  const marked = segment
+    .replace(/([A-Z]+)([A-Z][a-z])/g, `$1${SEP}$2`)
+    .replace(/([a-z])([A-Z])/g, `$1${SEP}$2`)
+    .replace(/([A-Za-z])(\d)/g, `$1${SEP}$2`)
+    .replace(/(\d)([A-Za-z])/g, `$1${SEP}$2`)
+  return marked.split(SEP).filter(Boolean)
+}
+
+function isAllUpper(s: string): boolean {
+  return s.length > 1 && s === s.toUpperCase() && /[A-Z]/.test(s)
 }
 
 /**

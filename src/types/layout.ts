@@ -589,9 +589,40 @@ function parseStringRecord(raw: unknown): Record<string, string> | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof v === 'string') out[k] = v
+    const coerced = coerceRichContentField(v)
+    if (typeof coerced === 'string') out[k] = coerced
   }
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * Defensive coercion for fields that are SUPPOSED to hold a JSON-encoded
+ * rich-content envelope as a string but sometimes arrive as the raw object.
+ * The AI output, in particular, occasionally emits {@code "content": {rich:
+ * true, runs: [...]}} (object) instead of {@code "content": "{\"rich\":true,...}"}
+ * (string) — without this coercion the rich-content parser fails its first
+ * JSON.parse and the entire envelope leaks onto the page as visible prose.
+ *
+ * Behaviour:
+ *   - String → returned unchanged.
+ *   - Object that LOOKS like a rich envelope ({rich, runs}) → JSON.stringify.
+ *   - Object that doesn't match the envelope shape → undefined (we'd rather
+ *     drop a malformed value than render junk).
+ *   - Anything else → undefined.
+ */
+function coerceRichContentField(raw: unknown): string | undefined {
+  if (raw == null) return undefined
+  if (typeof raw === 'string') return raw
+  if (typeof raw !== 'object') return undefined
+  const obj = raw as Record<string, unknown>
+  if (obj.rich === true && Array.isArray(obj.runs)) {
+    try {
+      return JSON.stringify(obj)
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
 }
 
 function parseGradientDef(raw: unknown): GradientDef | undefined {
@@ -636,9 +667,16 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     width: coerceLayoutScalar(raw.width, 120),
     height: coerceLayoutScalar(raw.height, 24),
     style,
-    content: raw.content != null ? String(raw.content) : undefined,
+    content: coerceRichContentField(raw.content) ?? (raw.content != null ? String(raw.content) : undefined),
     src: raw.src != null ? String(raw.src) : undefined,
-    columns: Array.isArray(raw.columns) ? (raw.columns as TableColumn[]) : undefined,
+    columns: Array.isArray(raw.columns)
+      ? (raw.columns as Record<string, unknown>[]).map((c) => ({
+          ...c,
+          // Same defensive coercion: AI sometimes emits header as a raw
+          // rich-content object instead of the JSON-encoded string.
+          header: coerceRichContentField(c?.header) ?? (c?.header != null ? String(c.header) : ''),
+        })) as TableColumn[]
+      : undefined,
     columnWidths: (() => {
       const cols = Array.isArray(raw.columns) ? raw.columns.length : 0
       if (!cols || !Array.isArray(raw.columnWidths)) return undefined

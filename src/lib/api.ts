@@ -329,6 +329,226 @@ export async function measureLayout(
   return res.json() as Promise<MeasureLayoutResponse>
 }
 
+export interface ReflowFrameDto {
+  content: string
+  measuredHeight: number
+  paragraphStart: number
+  paragraphEnd: number
+}
+
+export interface ReflowResponseDto {
+  frames: ReflowFrameDto[]
+}
+
+/**
+ * Backend reflow — asks iText where the head element's content should split
+ * into linked frames. The frontend runs its own DOM-based reflow as an
+ * instant approximation immediately on paste; this endpoint's response
+ * arrives a moment later and overwrites the split with the authoritative
+ * iText decision so the editor matches the eventual PDF.
+ */
+export async function reflowText(
+  headElement: Record<string, unknown>,
+  pageSpec: Record<string, unknown>,
+  data?: Record<string, unknown>,
+): Promise<ReflowResponseDto> {
+  const cleanedData = data ? stripSystemVariableKeysFromData(data) : null
+  const res = await authFetch(`${API_BASE}/api/generate/measure/reflow`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ headElement, pageSpec, data: cleanedData }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || res.statusText)
+  }
+  return res.json() as Promise<ReflowResponseDto>
+}
+
+export interface AiGenerateStreamCallbacks {
+  /** Each text fragment streamed from the model. Accumulate to build the full JSON. */
+  onDelta: (chunk: string) => void
+  /** Stream completed cleanly. The accumulated text is the final JSON. */
+  onDone: () => void
+  /** Server-reported error (e.g. upstream 5xx, timeout). */
+  onError: (message: string) => void
+}
+
+export type AiClarifyQuestion = {
+  id: string
+  label: string
+  type: 'choice' | 'text'
+  options?: string[]
+  placeholder?: string
+}
+
+export type AiClarifyResponse =
+  | { ready: true; questions?: undefined }
+  | { ready?: undefined; questions: AiClarifyQuestion[] }
+
+export type AiOutlineSection = {
+  id: string
+  title: string
+  summary?: string
+  estimatedPages?: number
+}
+
+export type AiChunkContext = {
+  chunkIndex: number
+  totalChunks: number
+  /** Newline-separated list of section titles to generate this pass. */
+  sectionsToGenerate: string
+  /** Newline-separated list of section titles already generated; null on first pass. */
+  completedSectionTitles?: string
+}
+
+/**
+ * Ask the model to outline the sections of a long, structured document.
+ * Used by the chunked-generation flow — returns an empty array on any
+ * failure so the caller can fall back to single-pass generation.
+ */
+export async function outlineAi(
+  templateId: string,
+  body: { instruction: string; currentLayout: unknown; variables: unknown },
+): Promise<{ sections: AiOutlineSection[] }> {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/ai-outline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseJson<{ sections: AiOutlineSection[] }>(res)
+}
+
+/**
+ * Ask the model whether the user's instruction is specific enough to generate
+ * from. Returns either {@code {ready: true}} (skip directly to generation) or
+ * a list of follow-up questions for the user to answer first. The server
+ * always returns a 200 — on upstream failure it falls back to {@code ready:
+ * true} so the editor can still proceed.
+ */
+export async function clarifyAi(
+  templateId: string,
+  body: { instruction: string; currentLayout: unknown; variables: unknown },
+): Promise<AiClarifyResponse> {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/ai-clarify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseJson<AiClarifyResponse>(res)
+}
+
+/**
+ * Stream an AI template generation request. The server proxies DeepSeek and
+ * forwards each {@code delta} event as it arrives; the client accumulates
+ * the deltas into a JSON string and parses it on {@code done}. Returns an
+ * abort controller — call {@code .abort()} to cancel the in-flight stream.
+ */
+export function streamAiGenerate(
+  templateId: string,
+  body: {
+    instruction: string
+    currentLayout: unknown
+    variables: unknown
+    targetElementId?: string
+    chunkContext?: AiChunkContext
+  },
+  cb: AiGenerateStreamCallbacks,
+): AbortController {
+  const ctrl = new AbortController()
+  const store = useAuthStore.getState()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  }
+  if (store.accessToken) headers.Authorization = `Bearer ${store.accessToken}`
+  if (store.org?.id) headers['X-Org-Id'] = store.org.id
+
+  // Once the server has emitted `done`, the run is logically over. Some
+  // browsers / proxies surface a TypeError when the upstream connection
+  // drops *after* the response body is fully delivered — we mustn't bubble
+  // those up as "Generation failed" because the layout is already applied.
+  let doneReceived = false
+
+  ;(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/templates/${templateId}/ai-generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      })
+      if (!res.ok || !res.body) {
+        cb.onError(`Server returned ${res.status}`)
+        return
+      }
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffered = ''
+      // Track which named event we're inside; SseEmitter emits
+      //   event: delta
+      //   data: <text>
+      //   <blank line>
+      // Without an event line the default name is "message".
+      let currentEvent = 'message'
+      let currentData = ''
+      const flushEvent = () => {
+        if (currentData.length === 0 && currentEvent === 'message') return
+        if (currentEvent === 'delta') cb.onDelta(currentData)
+        else if (currentEvent === 'done') {
+          doneReceived = true
+          cb.onDone()
+        } else if (currentEvent === 'error') {
+          cb.onError(currentData || 'Generation failed')
+        }
+        currentEvent = 'message'
+        currentData = ''
+      }
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffered += decoder.decode(value, { stream: true })
+        // Process complete lines; SSE separates fields by \n and events by blank line.
+        let nl: number
+        while ((nl = buffered.indexOf('\n')) >= 0) {
+          let line = buffered.slice(0, nl)
+          buffered = buffered.slice(nl + 1)
+          if (line.endsWith('\r')) line = line.slice(0, -1)
+          if (line.length === 0) {
+            flushEvent()
+            continue
+          }
+          if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim()
+          } else if (line.startsWith('data:')) {
+            // Multiple data: lines on the same event get newline-joined per spec.
+            const seg = line.slice(5).trimStart()
+            currentData = currentData ? currentData + '\n' + seg : seg
+          }
+          // Ignore other field types (id:, retry:, comments).
+        }
+        // Once `done` has been delivered there's nothing left to wait for
+        // — bail out cleanly so a late connection drop doesn't flip into
+        // an onError that wipes the just-applied layout.
+        if (doneReceived) {
+          try { reader.cancel() } catch { /* noop */ }
+          break
+        }
+      }
+      // Flush any trailing event without a terminating blank line.
+      flushEvent()
+    } catch (err) {
+      if (ctrl.signal.aborted) return
+      // Suppress post-completion errors — the result has already been
+      // delivered; a teardown blip isn't a generation failure.
+      if (doneReceived) return
+      cb.onError(err instanceof Error ? err.message : String(err))
+    }
+  })()
+
+  return ctrl
+}
+
 export async function generatePdf(
   templateId: string,
   versionId: string,
