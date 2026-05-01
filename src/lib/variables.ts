@@ -54,9 +54,18 @@ export function uniqueTableDataKeys(elements: LayoutElement[]): string[] {
   return [...keys]
 }
 
-/** Default Variables value for a table's JSON array (editor + PDF row data). */
+/**
+ * Default Variables value for a table's JSON array (editor + PDF row data).
+ *
+ * Empty by design: the only rows that should appear in the preview or PDF
+ * are the ones the author typed into the canvas. Seeding a placeholder
+ * (`{name:"Item A",price:10}`) caused two bad surprises — the keys didn't
+ * match the table's actual columns so body cells rendered blank, and the
+ * raw JSON leaked into the preview-data panel when the dataKey had no
+ * matching TABLE element.
+ */
 export function defaultSampleTableRowsJson(): string {
-  return '[{"name":"Item A","price":"10"},{"name":"Item B","price":"20"}]'
+  return '[]'
 }
 
 export function uniqueListDataKeys(elements: LayoutElement[]): string[] {

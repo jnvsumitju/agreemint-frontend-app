@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, putDraft, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, measureLayout, putDraft, putDraftVariables, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { pixelParityEnabled } from '../../lib/features'
+import { findOverflowingElements, type Overflow } from '../../lib/overflowCheck'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
 import { editorDraftSyncIntervalMs, editorLocalSaveIntervalMs } from '../../lib/editorEnv'
 import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/editorLocalDraft'
@@ -227,6 +229,13 @@ export function Toolbar() {
   const [reviewModalVersion, setReviewModalVersion] = useState<{ id: string; number: number } | null>(null)
   /** Server-returned blockers when a commit hits 409 REVIEW_BLOCK. */
   const [commitBlockers, setCommitBlockers] = useState<TemplateReviewDto[] | null>(null)
+  /**
+   * Pixel-parity soft-assist — elements whose laid-out height exceeds their
+   * authored box height. Populated after a commit attempt so the author sees
+   * the problem and can one-click grow the boxes for the next save. Does not
+   * block the current commit (that's the soft-assist contract).
+   */
+  const [overflowWarnings, setOverflowWarnings] = useState<Overflow[] | null>(null)
 
   const lastLocalJson = useRef<string>('')
   const lastDraftPayload = useRef<string>('')
@@ -318,19 +327,86 @@ export function Toolbar() {
     return () => window.clearInterval(id)
   }, [templateId])
 
+  // Variable-values debounced persist.
+  //
+  // The collab op stream carries layout changes + variable DEFINITIONS, but
+  // not variable VALUES — so typed preview data (table body cells, list
+  // items, scalar placeholders) lived only in client memory. On refresh the
+  // bootstrap hydrated from the server draft, which never received these
+  // edits, so body-cell text disappeared.
+  //
+  // We debounce 800 ms and PUT only to the draft-variables endpoint, which
+  // preserves the collab-flushed layoutJson — no race with CollabFlushJob.
+  useEffect(() => {
+    const tid = templateId
+    if (!tid) return
+    let lastSaved = JSON.stringify(useEditorStore.getState().variableValues)
+    let timer: number | null = null
+    const flush = () => {
+      timer = null
+      const s = useEditorStore.getState()
+      if (s.templateId !== tid) return
+      const current = JSON.stringify(s.variableValues)
+      if (current === lastSaved) return
+      lastSaved = current
+      void putDraftVariables(tid, s.variableValues).catch(() => {
+        /* offline or server down — next change will retry */
+      })
+    }
+    const unsubscribe = useEditorStore.subscribe((state, prev) => {
+      if (state.templateId !== tid) return
+      if (state.variableValues === prev.variableValues) return
+      if (timer != null) window.clearTimeout(timer)
+      timer = window.setTimeout(flush, 800)
+    })
+    return () => {
+      unsubscribe()
+      if (timer != null) window.clearTimeout(timer)
+    }
+  }, [templateId])
+
   const commitVersion = async () => {
     if (!templateId) return
     setSaving(true)
     setError(null)
     setCommitBlockers(null)
+    setOverflowWarnings(null)
     try {
       const s = useEditorStore.getState()
       const snap = snapshotFromEditorState(s)
+
+      // Pixel-parity soft-assist: ask the backend measurement endpoint for the
+      // height iText will consume for every text element. If the authored box
+      // is smaller, the PDF will clip — flag it after the save completes so
+      // the author can one-click grow the boxes. We deliberately don't block
+      // the save (that's the "soft" part); the warning stays visible until
+      // the next successful commit without overflow.
+      let pendingOverflows: Overflow[] | null = null
+      if (pixelParityEnabled()) {
+        try {
+          // `snap.layout` is typed as Record<string, unknown> for wire-format
+          // parity with the local-draft store; we re-widen here to match the
+          // LayoutJson shape findOverflowingElements walks.
+          const layoutForCheck = snap.layout as unknown as import('../../types/layout').LayoutJson
+          const resp = await measureLayout(
+            snap.layout,
+            snap.variableValues as unknown as Record<string, unknown>,
+          )
+          const overflows = findOverflowingElements(layoutForCheck, resp.measurements)
+          if (overflows.length > 0) pendingOverflows = overflows
+        } catch (measureErr) {
+          // Measurement failures are non-fatal — the canvas preview is still
+          // a useful check, so we proceed with the save and skip the warning.
+          console.warn('Pixel-parity measurement failed; saving without overflow check', measureErr)
+        }
+      }
+
       await putDraft(templateId, snap.layout, snap.variableValues)
       const v = await commitDraft(templateId)
       setVersionInfo(v.id, v.versionNumber)
       lastDraftPayload.current = ''
       setMenuOpen(false)
+      if (pendingOverflows) setOverflowWarnings(pendingOverflows)
       // Capture thumbnail for gallery preview (fire-and-forget)
       captureCanvasThumbnail().then((dataUrl) => {
         if (dataUrl && templateId) setTemplateThumbnail(templateId, dataUrl)
@@ -372,6 +448,20 @@ export function Toolbar() {
       setError(err instanceof Error ? err.message : 'Reopen failed')
     }
   }, [templateId])
+
+  /**
+   * Soft-assist "Grow to fit" action. Walks every flagged overflow and expands
+   * the element's height to the measured value + 2pt breathing room. The next
+   * commit then ships the resized boxes without overflow.
+   */
+  const growOverflowingBoxes = useCallback(() => {
+    if (!overflowWarnings || overflowWarnings.length === 0) return
+    const store = useEditorStore.getState()
+    for (const o of overflowWarnings) {
+      store.updateElement(o.elementId, { height: Math.ceil(o.measuredHeight + 2) })
+    }
+    setOverflowWarnings(null)
+  }, [overflowWarnings])
 
   const generateFromLatestCommitted = async () => {
     if (!templateId || !currentVersionId) return
@@ -448,6 +538,29 @@ export function Toolbar() {
         <PresenceAvatars />
         <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           {error && <span className="max-w-xs truncate text-xs text-red-600">{error}</span>}
+          {overflowWarnings && overflowWarnings.length > 0 && (
+            <span
+              className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800 dark:border-amber-600/60 dark:bg-amber-900/30 dark:text-amber-200"
+              title={overflowWarnings.map((o) => `${o.elementId}: +${o.delta.toFixed(1)}pt`).join('\n')}
+            >
+              {overflowWarnings.length} text box{overflowWarnings.length === 1 ? '' : 'es'} clipped in PDF
+              <button
+                type="button"
+                className="rounded border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium hover:bg-amber-200 dark:border-amber-500 dark:bg-amber-800/50 dark:hover:bg-amber-700/50"
+                onClick={growOverflowingBoxes}
+              >
+                Grow to fit
+              </button>
+              <button
+                type="button"
+                aria-label="Dismiss overflow warning"
+                className="text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+                onClick={() => setOverflowWarnings(null)}
+              >
+                ×
+              </button>
+            </span>
+          )}
           {!viewOnly && (
             <button
               type="button"

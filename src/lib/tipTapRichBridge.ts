@@ -94,17 +94,26 @@ export function runsToTipTapJSON(runs: RichRun[]): JSONContent {
         type: 'layoutVariable',
         attrs: { name: normalizeVariableIdentifier(run.name) },
       }
+      // Propagate inline marks onto the atom so a subsequent edit session
+      // opens the chip with the same bold / italic / underline / colour
+      // styling the author left it with.
+      const marks: NonNullable<JSONContent['marks']> = []
+      if (run.bold) marks.push({ type: 'bold' })
+      if (run.italic) marks.push({ type: 'italic' })
+      if (run.underline) marks.push({ type: 'underline' })
+      if (run.strikethrough) marks.push({ type: 'strike' })
+      if (run.color) marks.push({ type: 'textStyle', attrs: { color: run.color } })
+      if (run.highlightColor) marks.push({ type: 'highlight', attrs: { color: run.highlightColor } })
       if (run.linkHref) {
         const href = sanitizeLinkHref(run.linkHref)
         if (href) {
-          varNode.marks = [
-            {
-              type: 'link',
-              attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
-            },
-          ]
+          marks.push({
+            type: 'link',
+            attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
+          })
         }
       }
+      if (marks.length) varNode.marks = marks
       current.push(varNode)
       continue
     }
@@ -156,16 +165,55 @@ export function pmDocToRuns(doc: PMNode): RichRun[] {
       if (node.type.name === 'layoutVariable') {
         const name = String(node.attrs.name ?? '').trim()
         if (!name) return
-        // A variable chip can carry the `link` mark just like a text node
-        // (applied via `setLink` when the cursor span covers it).
+        // Variable chips carry the same inline marks as text nodes — bold,
+        // italic, underline, strike, colour, highlight, and link — so a
+        // selection that covered the chip when the author toggled a mark
+        // survives the round-trip through storage + reload.
         let href: string | undefined
+        let varBold: boolean | undefined
+        let varItalic: boolean | undefined
+        let varUnderline: boolean | undefined
+        let varStrike: boolean | undefined
+        let varColor: string | undefined
+        let varHighlight: string | undefined
         for (const m of node.marks) {
-          if (m.type.name === 'link') {
-            const raw = typeof m.attrs.href === 'string' ? sanitizeLinkHref(m.attrs.href) : undefined
-            if (raw) href = raw
+          switch (m.type.name) {
+            case 'link': {
+              const raw = typeof m.attrs.href === 'string' ? sanitizeLinkHref(m.attrs.href) : undefined
+              if (raw) href = raw
+              break
+            }
+            case 'bold':
+              varBold = true
+              break
+            case 'italic':
+              varItalic = true
+              break
+            case 'underline':
+              varUnderline = true
+              break
+            case 'strike':
+              varStrike = true
+              break
+            case 'textStyle':
+              if (typeof m.attrs.color === 'string' && m.attrs.color) varColor = String(m.attrs.color)
+              break
+            case 'highlight':
+              if (typeof m.attrs.color === 'string' && m.attrs.color) varHighlight = String(m.attrs.color)
+              break
           }
         }
-        raw.push(href ? { type: 'var', name, linkHref: href } : { type: 'var', name })
+        raw.push({
+          type: 'var',
+          name,
+          ...(href ? { linkHref: href } : {}),
+          ...(varBold ? { bold: true } : {}),
+          ...(varItalic ? { italic: true } : {}),
+          ...(varUnderline ? { underline: true } : {}),
+          ...(varStrike ? { strikethrough: true } : {}),
+          ...(varColor ? { color: varColor } : {}),
+          ...(varHighlight ? { highlightColor: varHighlight } : {}),
+        })
         return
       }
       if (node.type.name === 'hardBreak') {

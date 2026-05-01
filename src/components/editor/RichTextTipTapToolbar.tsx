@@ -6,8 +6,7 @@ import {
   activeCanvasTipTapEditorByElementId,
   useEditorStore,
 } from '../../stores/editorStore'
-import { ColorToolbarSwatch } from './ColorPalettePopover'
-import { IconBold, IconItalic, IconUnderline, IconStrikethrough, IconSuperscript, IconSubscript, IconClearFormat, IconLink } from './ToolbarIcons'
+import { IconSuperscript, IconSubscript, IconClearFormat, IconLink } from './ToolbarIcons'
 import { LinkEditorPopover } from './LinkEditorPopover'
 
 /** Prefer per-element map (survives stale unmount), then Zustand, then prop. */
@@ -243,68 +242,28 @@ export function RichTextTipTapToolbar({
 
   return (
     <div
-      className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 px-1 py-1 dark:border-zinc-600 dark:bg-zinc-800/80"
+      // This toolbar is ONLY for format operations that don't already exist
+      // on the main FormatBar above. Bold / Italic / Underline / Strike /
+      // text-color / highlight used to be duplicated here and in the main
+      // bar, which was confusing — two rows with the same B button, both
+      // targeting the current TipTap selection. We removed the duplicates
+      // so the user sees one canonical set of those buttons (in the main
+      // bar, which is context-sensitive: targets element when not editing,
+      // targets selection when editing). This row now only carries
+      // selection-exclusive extras: superscript, subscript, link,
+      // clear-formatting — tools that wouldn't make sense at
+      // element level.
+      className="flex shrink-0 flex-nowrap items-center gap-1 overflow-x-auto border-b border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-800/80"
       data-agreemint-rich-format-toolbar
       onMouseDownCapture={toolbarMouseDownCapture}
       onMouseDown={(e) => e.preventDefault()}
       role="toolbar"
-      aria-label="Text formatting"
+      aria-label="Selected text — additional formatting"
     >
-      <ToolbarBtn
-        label="Bold"
-        active={fmtDisplay.bold}
-        onMouseDown={() =>
-          execToolbarCommand(editor, 'toggleBold', (ed) => ed.chain().focus().toggleBold().run())
-        }
-      >
-        <IconBold size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn
-        label="Italic"
-        active={fmtDisplay.italic}
-        onMouseDown={() =>
-          execToolbarCommand(editor, 'toggleItalic', (ed) => ed.chain().focus().toggleItalic().run())
-        }
-      >
-        <IconItalic size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn
-        label="Underline"
-        active={fmtDisplay.underline}
-        onMouseDown={() =>
-          execToolbarCommand(editor, 'toggleUnderline', (ed) => ed.chain().focus().toggleUnderline().run())
-        }
-      >
-        <IconUnderline size={14} />
-      </ToolbarBtn>
-      <ToolbarBtn
-        label="Strikethrough"
-        active={fmtDisplay.strike}
-        onMouseDown={() =>
-          execToolbarCommand(editor, 'toggleStrike', (ed) => ed.chain().focus().toggleStrike().run())
-        }
-      >
-        <IconStrikethrough size={14} />
-      </ToolbarBtn>
+      <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Selected text
+      </span>
       <span className="hidden h-4 w-px shrink-0 bg-zinc-300 dark:bg-zinc-600 sm:block" aria-hidden />
-      <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Text</span>
-      <ColorToolbarSwatch
-        title="Text color on selection"
-        value={undefined}
-        onChange={(v) => {
-          execToolbarCommand(editor, 'setColor', (ed) => ed.chain().focus().setColor(v).run())
-        }}
-      />
-      <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">HL</span>
-      <ColorToolbarSwatch
-        title="Highlight selection"
-        value={undefined}
-        onChange={(v) => {
-          execToolbarCommand(editor, 'toggleHighlight', (ed) =>
-            ed.chain().focus().toggleHighlight({ color: v }).run()
-          )
-        }}
-      />
       <ToolbarBtn
         label="Superscript"
         active={fmtDisplay.sup}

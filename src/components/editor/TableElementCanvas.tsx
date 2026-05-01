@@ -28,6 +28,7 @@ import {
   variableValuesToDataTree,
 } from '../../lib/layoutBehaviourResolve'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
+import { pixelParityEnabled } from '../../lib/features'
 import {
   TABLE_BLOCK_SELECTION_FILL,
   TABLE_HEADER_ROW,
@@ -88,16 +89,8 @@ function mergeBlockSelectionStyle(
 function tableCellEffectiveBackground(
   table: LayoutElement,
   row: number,
-  col: number,
-  structuredData?: TableVariableData | null
+  col: number
 ): string | undefined {
-  // When tableStyleFromVariable is enabled and structured data has cellStyle, use it
-  if (table.tableStyleFromVariable && structuredData?.cellStyle) {
-    // Map: row -1 (header) → cellStyle[0], row 0 (data row 0) → cellStyle[1], etc.
-    const styleRowIdx = row === -1 ? 0 : row + 1
-    const cs = structuredData.cellStyle[styleRowIdx]?.[col]
-    if (cs?.cellBgColor) return cs.cellBgColor
-  }
   const cellBg = table.tableCellBackgrounds?.[`${row},${col}`]?.trim()
   if (cellBg) return cellBg
   const colBg = table.tableColumnBackgrounds?.[String(col)]?.trim()
@@ -184,7 +177,19 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const showRowNumbers = pinnedRows || peekRows
   /** Cell grid only — letters/row gutters are absolutely positioned outside so toggles do not resize cells. */
   const gridTemplateColumns = colTemplate
-  /** All rows (header + body) share height via `fr` units from `rowWeights`. */
+  // Phase 2.5: when the backend measurement endpoint has returned row-heights
+  // for this table, use explicit pt tokens so canvas rows match the PDF rows
+  // Match the backend renderer's own distribution: `addTable` pins each
+  // row's height to {@code (authoredHeight / weightSum) × rowWeight}, so the
+  // rows STRETCH to fill the element box instead of collapsing to their
+  // minimum measured content height. Using pt-exact values from the
+  // measurement endpoint (phase 2.5's earlier attempt) left the bottom of
+  // the box empty — canvas and PDF disagreed because the PDF renderer uses
+  // weight-distribution, not minimum heights.
+  //
+  // Measurement still drives the overflow check via {@link findOverflowingElements}:
+  // when the sum of measured rows exceeds the authored height, the soft-
+  // assist warns that cells will clip in the PDF.
   const gridTemplateRows = rowWeights.map((w) => `minmax(10px, ${w}fr)`).join(' ')
 
   const gridRef = useRef<HTMLDivElement>(null)
@@ -345,9 +350,29 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
     [tableCellEdit, el.id, cols, updateElement, isStructured, parsedStructured, dk, setVariableValue]
   )
 
+  const loopEnabled = !!el.dataKey
+  const staticCells = el.tableStaticCells
+
   const onBodyTipTapChange = useCallback(
     (serialized: string) => {
       if (!tableCellEdit || tableCellEdit.tableId !== el.id || tableCellEdit.row === HEADER_ROW) return
+      if (!loopEnabled) {
+        // Loop-off TABLEs store body content ON the element so every table
+        // gets an independent store (the old fallback to variableValues["items"]
+        // collided between tables) and the backend can print the canvas-typed
+        // values directly in static mode.
+        const key = `${tableCellEdit.row},${tableCellEdit.col}`
+        const nextCells: Record<string, string> = { ...(staticCells ?? {}) }
+        if (serialized) {
+          nextCells[key] = serialized
+        } else {
+          delete nextCells[key]
+        }
+        updateElement(el.id, {
+          tableStaticCells: Object.keys(nextCells).length ? nextCells : undefined,
+        })
+        return
+      }
       if (isStructured && parsedStructured) {
         const next = setStructuredCellValue(parsedStructured, tableCellEdit.row, tableCellEdit.col, serialized)
         setVariableValue(dk, serializeTableVariableData(next))
@@ -358,7 +383,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
         setVariableValue(dk, nextJson)
       }
     },
-    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue, isStructured, parsedStructured]
+    [tableCellEdit, el.id, cols, rawJson, dk, setVariableValue, isStructured, parsedStructured, loopEnabled, staticCells, updateElement]
   )
 
   const tableCellEditorKey = tableCellEdit?.tableId === el.id ? `table-${el.id}-cell` : null
@@ -684,6 +709,16 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const cellBorder = 'border-r border-b border-zinc-400 dark:border-zinc-500'
   const sumW = weights.reduce((a, b) => a + b, 0) || 1
 
+  // Under parity the canvas cell inherits the element's text style so canvas
+  // and PDF render identical glyph widths. Off the flag we keep the legacy
+  // 9px / leading-tight pairing that tables have shipped with for years.
+  const parity = pixelParityEnabled()
+  const parityCellFontSize = el.style?.fontSize ?? 12
+  const cellTextSizeClass = parity ? '' : 'text-[9px] leading-tight'
+  const cellBodyFontSize = parity ? parityCellFontSize : 9
+  const cellBodyFontFamily = parity ? el.style?.fontFamily : undefined
+  const cellBodyLineHeight = parity ? (el.style?.lineHeight ?? 1.4) : undefined
+
   const colBoundaryLeftPct = (insertIndex: number) => {
     if (insertIndex <= 0) return 0
     if (insertIndex >= cols.length) return 100
@@ -826,7 +861,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           {cols.map((c, ci) => {
             const sel = tableSelection
             const isSel = highlight(sel, HEADER_ROW, ci)
-            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci, parsedStructured)
+            const fillBg = tableCellEffectiveBackground(el, HEADER_ROW, ci)
             const colBlockBorder =
               selected &&
               sel?.tableId === el.id &&
@@ -869,7 +904,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   if (ci === 0) headerRowRef.current = node
                   if (!showRowNumbers && ci === 0) headerGutterRef.current = node
                 }}
-                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left ${cellTextSizeClass} ${
                   fillBg ? '' : 'bg-white dark:bg-zinc-50'
                 } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
                 style={{ gridRow: 1, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
@@ -896,7 +931,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       autoFocus
                       editorClassName="bg-transparent"
                       editorStyle={{
-                        fontSize: 9,
+                        fontSize: cellBodyFontSize,
+                        fontFamily: cellBodyFontFamily,
+                        lineHeight: cellBodyLineHeight,
+                        fontWeight: 700,
                         textAlign: 'left',
                         color: el.style?.color?.trim() || undefined,
                         backgroundColor: 'transparent',
@@ -915,7 +953,10 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       content={headerContent}
                       variableValues={variableValues}
                       variableSurfaceLabelResolver={variableSurfaceLabelResolver}
-                      fontSize={9}
+                      fontSize={cellBodyFontSize}
+                      fontFamily={cellBodyFontFamily}
+                      lineHeight={cellBodyLineHeight}
+                      elementBold={true}
                       textAlign="left"
                       color={el.style?.color}
                     />
@@ -930,7 +971,11 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
           {Array.from({ length: previewBodyRows }, (_, ri) => {
             const zebra = 'bg-white dark:bg-zinc-50'
             const slot = visibleBodyRows[ri]
-            const dataRowIndex = slot?.rowIndex ?? -1
+            // Loop-off TABLEs don't have variable data backing them, so the
+            // row index is simply the render index `ri` — that's the same
+            // index the tableStaticCells map is keyed against and the index
+            // the backend uses when synthesizing rows in static mode.
+            const dataRowIndex = loopEnabled ? (slot?.rowIndex ?? -1) : ri
             const rowObj = slot?.row ?? {}
             return (
               <div key={`g-${ri}`} className="contents">
@@ -938,8 +983,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                   const fillBgRaw = tableCellEffectiveBackground(
                     el,
                     dataRowIndex >= 0 ? dataRowIndex : ri,
-                    ci,
-                    parsedStructured
+                    ci
                   )
                   const cellBeh = tableCellBehaviourStyle(
                     el.behaviour,
@@ -998,7 +1042,7 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                         if (ci === 0) bodyRowRefs.current[ri] = node
                         if (!showRowNumbers && ci === 0) dataGutterRefs.current[ri] = node
                       }}
-                      className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left text-[9px] leading-tight ${
+                      className={`relative flex min-w-0 items-center self-stretch ${cellBorder} px-1 py-0.5 text-left ${cellTextSizeClass} ${
                         fillBg ? '' : zebra
                       } ${colBlockBorder} ${rowBlockBorder} ${blockFillClass} ${ringCell}`}
                       style={{ gridRow: ri + 2, gridColumn: ci + 1, ...mergeBlockSelectionStyle(fillBg, blockOutline) }}
@@ -1006,9 +1050,11 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                       onClick={(e) => onGridCellClick(e, dataRowIndex, ci, dataRowIndex >= 0)}
                     >
                       {(() => {
-                        const cellContent = isStructured
-                          ? getStructuredCellValue(parsedStructured!, dataRowIndex, ci)
-                          : getDataCellStringValue(rawJson, dataRowIndex, c.key)
+                        const cellContent = !loopEnabled
+                          ? (staticCells?.[`${dataRowIndex},${ci}`] ?? '')
+                          : isStructured
+                            ? getStructuredCellValue(parsedStructured!, dataRowIndex, ci)
+                            : getDataCellStringValue(rawJson, dataRowIndex, c.key)
                         return editingHere ? (
                         <div
                           className="absolute inset-0 z-[5] box-border min-w-0 overflow-hidden ring-2 ring-violet-500"
@@ -1027,7 +1073,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                             autoFocus
                             editorClassName="bg-transparent"
                             editorStyle={{
-                              fontSize: 9,
+                              fontSize: cellBodyFontSize,
+                              fontFamily: cellBodyFontFamily,
+                              lineHeight: cellBodyLineHeight,
                               textAlign: 'left',
                               color: tc || undefined,
                               backgroundColor: 'transparent',
@@ -1046,7 +1094,9 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
                             content={cellContent}
                             variableValues={variableValues}
                             variableSurfaceLabelResolver={variableSurfaceLabelResolver}
-                            fontSize={9}
+                            fontSize={cellBodyFontSize}
+                            fontFamily={cellBodyFontFamily}
+                            lineHeight={cellBodyLineHeight}
                             textAlign="left"
                             color={tc}
                           />

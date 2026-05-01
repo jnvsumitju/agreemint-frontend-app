@@ -56,6 +56,12 @@ export interface TipTapRichEditorProps {
     onCommitShortcut: () => void
   }
   /**
+   * Called once for each paste event into the editor. The canvas uses this
+   * signal to schedule a backend-driven reflow on commit (the FE reflow is
+   * a fast approximation; iText is the source of truth for split points).
+   */
+  onPaste?: () => void
+  /**
    * When supplied, the editor document is backed by this Y.XmlFragment via the
    * Collaboration extension. Character-level concurrent edits merge through Yjs
    * CRDT. StarterKit's history module is disabled in this mode — Yjs owns undo.
@@ -94,16 +100,19 @@ export function TipTapRichEditor({
   onUnmount,
   canvasKeyboard,
   collabFragment,
+  onPaste,
 }: TipTapRichEditorProps) {
   const lastEmitted = useRef<string | null>(null)
   const onChangeRef = useRef(onChange)
   const onReadyRef = useRef(onReady)
   const onUnmountRef = useRef(onUnmount)
   const canvasKbRef = useRef(canvasKeyboard)
+  const onPasteRef = useRef(onPaste)
   onChangeRef.current = onChange
   onReadyRef.current = onReady
   onUnmountRef.current = onUnmount
   canvasKbRef.current = canvasKeyboard
+  onPasteRef.current = onPaste
 
   const emitAllowedRef = useRef(emitOnChange && !readOnly)
   emitAllowedRef.current = emitOnChange && !readOnly
@@ -161,7 +170,15 @@ export function TipTapRichEditor({
             target: '_blank',
             class: 'agreemint-link',
           },
+          // TipTap 3 splits URL validation into two hooks: `validate` runs
+          // on autolink / paste-detected URLs, while `isAllowedUri` is the
+          // gate for explicit `setLink()` calls. Earlier we only supplied
+          // `validate`, so `setLink` silently fell back to the built-in
+          // loose permission check. Configuring both against our single
+          // sanitiser keeps all code paths consistent and prevents a safe
+          // URL from being refused by setLink in some edge case.
           validate: (href: string) => sanitizeLinkHref(href) != null,
+          isAllowedUri: (href: string) => sanitizeLinkHref(href) != null,
         }),
         Placeholder.configure({
           placeholder,
@@ -214,6 +231,13 @@ export function TipTapRichEditor({
             }
             return false
           },
+        },
+        // Notify the parent that a paste happened — used by the canvas to
+        // schedule a backend reflow on commit. Returning false lets TipTap's
+        // default paste handling proceed (we only want to observe).
+        handlePaste: () => {
+          onPasteRef.current?.()
+          return false
         },
       },
       onCreate: ({ editor: ed }) => {

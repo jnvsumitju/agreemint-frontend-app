@@ -20,6 +20,7 @@ import {
   type PageGuides,
   pageDimensionsPt,
   snap,
+  type ListItemNode,
   type ParsedLayoutResult,
   type VariableDefinition,
 } from '../types/layout'
@@ -32,7 +33,8 @@ import {
 import { reorderIdsInList } from '../lib/layerOrder'
 import type { TableSelection } from '../types/tableSelection'
 import { shadowStorageKeysForCatalogCollisions } from '../lib/layoutBehaviourResolve'
-import { preferStoreRichContentIfEditorEmpty, serializeRunsToContent } from '../lib/richContent'
+import { parseContentToRuns, preferStoreRichContentIfEditorEmpty, serializeRunsToContent } from '../lib/richContent'
+import { segmentLowercaseConcat } from '../lib/lowercaseWordSplit'
 import { pmDocToRuns } from '../lib/tipTapRichBridge'
 import {
   filterPersistableVariableDefinitions,
@@ -275,8 +277,28 @@ function findElementLocation(
   return null
 }
 
+/**
+ * Last-line defense against duplicate elements in a page. Every store path
+ * that writes a new elements array (move, resize, add, delete, applyRemoteOp,
+ * reorder, etc.) funnels through here, so a stray duplicate introduced by a
+ * flaky collab echo or a mis-ordered op dispatch can never persist past one
+ * set() call. Order is preserved (first occurrence wins); non-string ids
+ * are dropped silently.
+ */
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const it of items) {
+    if (!it || typeof it.id !== 'string' || seen.has(it.id)) continue
+    seen.add(it.id)
+    out.push(it)
+  }
+  return out
+}
+
 function replacePageElements(s: EditorState, pageIndex: number, elements: LayoutElement[]): Partial<EditorState> {
-  const pages = s.pages.map((p, idx) => (idx === pageIndex ? { ...p, elements } : p))
+  const deduped = dedupeById(elements)
+  const pages = s.pages.map((p, idx) => (idx === pageIndex ? { ...p, elements: deduped } : p))
   return {
     pages,
     variableValues: mergeVariableValues(
@@ -299,6 +321,209 @@ function takeUndoBarrier(s: EditorState): Partial<Pick<EditorState, 'undoPast' |
     undoPast: [...s.undoPast, captureEditorUndoSnapshot(s)].slice(-MAX_UNDO_STEPS),
     undoFuture: [],
   }
+}
+
+/**
+ * Insert spaces at concatenation boundaries inside a single text fragment:
+ *   - lower → Upper (camelCase / PascalCase boundary)
+ *   - acronym → Word (HTTPRequest → HTTP Request)
+ *   - letter ↔ digit (Rs500 → Rs 500, address1 → address 1)
+ *   - punctuation tightly attached to the next word ("Amount:Rs" → "Amount: Rs")
+ *
+ * Punctuation rules only apply when the next char is a letter/digit, so URLs
+ * (`https://`) and decimals (`$10.50`) are left alone. Multiple spaces are
+ * collapsed at the end. The output is then trimmed.
+ *
+ * Lower-case glued blobs with no internal boundary (`borrowername`) cannot
+ * be split without a dictionary and pass through unchanged — the prompt
+ * tries to prevent those by demanding camelCase, and the chip humanizer
+ * handles them at display time when they slip through.
+ */
+function splitConcatenatedText(text: string): string {
+  if (!text) return text
+  const boundarySplit = text
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Za-z])(\d)/g, '$1 $2')
+    .replace(/(\d)([A-Za-z])/g, '$1 $2')
+    .replace(/([:;,!?])([A-Za-z0-9])/g, '$1 $2')
+    // Numbered list items often arrive as "1.Missionand Values" with no
+    // space after the period. Split when a digit-period precedes a letter
+    // (won't touch decimals like "3.14" since the follower must be a letter).
+    .replace(/(\d)\.([A-Za-z])/g, '$1. $2')
+    .replace(/[ \t]{2,}/g, ' ')
+  // Second pass: dictionary segmentation across three case patterns.
+  // The boundary regexes above can't split strings without internal case
+  // or digit transitions — "thankyouforyourorder" (lowercase glued),
+  // "Codeof" (CamelCase residue after a regex split), or "EMPLOYEEHANDBOOK"
+  // (all-caps glued). For each token we lowercase a copy, run the
+  // segmenter, and then restore the original case pattern on the result.
+  return boundarySplit
+    .split(/(\s+)/)
+    .map((tok) => {
+      if (!tok || /\s/.test(tok) || tok.length < 6 || !/^[A-Za-z]+$/.test(tok)) return tok
+      const lower = tok.toLowerCase()
+      const segs = segmentLowercaseConcat(lower)
+      if (segs.length < 2) return tok
+      const allUpper = tok === tok.toUpperCase()
+      const titleCase = /^[A-Z][a-z]+$/.test(tok)
+      if (allUpper) return segs.map((s) => s.toUpperCase()).join(' ')
+      if (titleCase) {
+        // "Codeof" → "Code of": capitalize the first segment, lowercase the rest.
+        return segs.map((s, i) => (i === 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s)).join(' ')
+      }
+      return segs.join(' ')
+    })
+    .join('')
+}
+
+/** Round-trip rich content JSON, applying the text splitter to every text run. */
+function splitConcatenatedRichContent(content: string | undefined): string {
+  if (!content) return content ?? ''
+  try {
+    const runs = parseContentToRuns(content)
+    if (runs.length === 0) return content
+    let changed = false
+    const next = runs.map((r) => {
+      if (r.type !== 'text' || !r.text) return r
+      const splitText = splitConcatenatedText(r.text)
+      if (splitText === r.text) return r
+      changed = true
+      return { ...r, text: splitText }
+    })
+    return changed ? serializeRunsToContent(next) : content
+  } catch {
+    return content
+  }
+}
+
+/** Apply the text splitter to every text-bearing field on a single element. */
+function splitConcatenatedTextOnElement(el: LayoutElement): LayoutElement {
+  let next = el
+  if (typeof el.content === 'string' && el.content) {
+    const split = splitConcatenatedRichContent(el.content)
+    if (split !== el.content) next = { ...next, content: split }
+  }
+  if (Array.isArray(el.columns) && el.columns.length > 0) {
+    let columnsChanged = false
+    const cols = el.columns.map((c) => {
+      if (typeof c.header !== 'string' || !c.header) return c
+      const split = splitConcatenatedRichContent(c.header)
+      if (split === c.header) return c
+      columnsChanged = true
+      return { ...c, header: split }
+    })
+    if (columnsChanged) next = { ...next, columns: cols }
+  }
+  if (el.tableStaticCells && Object.keys(el.tableStaticCells).length > 0) {
+    let cellsChanged = false
+    const cells: Record<string, string> = {}
+    for (const [k, v] of Object.entries(el.tableStaticCells)) {
+      const split = splitConcatenatedRichContent(v)
+      if (split !== v) cellsChanged = true
+      cells[k] = split
+    }
+    if (cellsChanged) next = { ...next, tableStaticCells: cells }
+  }
+  if (Array.isArray(el.listItems) && el.listItems.length > 0) {
+    const walkItems = (items: ListItemNode[]): { items: ListItemNode[]; changed: boolean } => {
+      let changed = false
+      const out = items.map((it) => {
+        const splitText = splitConcatenatedText(it.text ?? '')
+        const childWalk = it.children ? walkItems(it.children) : { items: undefined as ListItemNode[] | undefined, changed: false }
+        if (splitText !== it.text || childWalk.changed) {
+          changed = true
+          return { ...it, text: splitText, ...(it.children ? { children: childWalk.items } : {}) }
+        }
+        return it
+      })
+      return { items: out, changed }
+    }
+    const walk = walkItems(el.listItems)
+    if (walk.changed) next = { ...next, listItems: walk.items }
+  }
+  return next
+}
+
+/**
+ * Walk a page top-to-bottom and bump any element whose top edge collides
+ * with a previously-placed element's bottom edge (within an 8pt safety
+ * margin). Two elements that share y range but live in different x columns
+ * (e.g. a 2-column demographics layout) are NOT considered colliding —
+ * horizontal separation matters too. Used to clean up AI-generated layouts
+ * before they're shown to the author; sane input passes through unchanged.
+ *
+ * Heights come from the supplied {@code measuredHeight} map when present
+ * (DOM-measured rendered height) and fall back to the element's stored
+ * {@code height} otherwise. The DOM measurement catches cases where the
+ * AI under-estimated how tall a wrapped paragraph actually renders, which
+ * was leaving overlaps even after this pass ran.
+ *
+ * The pass preserves element order in the array so layer/z-order stays the
+ * same; only y values may shift downward.
+ */
+function deoverlapElementsVertically(
+  elements: LayoutElement[],
+  measuredHeights?: Map<string, number>,
+): LayoutElement[] {
+  if (elements.length < 2) return elements
+  // 16pt spacing — tighter than paragraph leading but visibly clear of
+  // the previous element's baseline + descender. Earlier values (8pt,
+  // then 12pt) were failing on dense AI-generated legal documents where
+  // multi-line paragraphs stacked too close and headings collided with
+  // body text. 16pt absorbs measurement-vs-render skew comfortably.
+  const SPACING = 16
+  // 4pt horizontal overlap tolerance — the AI sometimes places "side-by-
+  // side" elements with a 1-3pt seam between them that's well within the
+  // visual-overlap threshold; treating them as colliding correctly
+  // triggers a y-bump.
+  const HORIZ_TOLERANCE = 4
+  const heightOf = (e: LayoutElement) =>
+    Math.max(e.height, measuredHeights?.get(e.id) ?? 0)
+
+  // Iterate until the pass converges or we hit a small iteration cap.
+  // A single pass can leave residual collisions when bumping element B
+  // creates a new collision with element C that was already processed.
+  // Five iterations is enough for very dense pages; we bail out sooner
+  // once nothing moves.
+  let working = elements.slice()
+  for (let iter = 0; iter < 5; iter++) {
+    const indexed = working.map((e, i) => ({ e, i }))
+    indexed.sort((a, b) => a.e.y - b.e.y || a.e.x - b.e.x)
+    const next: LayoutElement[] = working.slice()
+    const placed: LayoutElement[] = []
+    let changedThisPass = false
+    for (const { e, i } of indexed) {
+      let newY = e.y
+      for (const prev of placed) {
+        const horizOverlap =
+          e.x < prev.x + prev.width - HORIZ_TOLERANCE &&
+          e.x + e.width > prev.x + HORIZ_TOLERANCE
+        if (!horizOverlap) continue
+        const requiredY = prev.y + heightOf(prev) + SPACING
+        if (newY < requiredY) newY = requiredY
+      }
+      const adjEl = newY === e.y ? e : { ...e, y: newY }
+      if (adjEl !== e) changedThisPass = true
+      placed.push(adjEl)
+      next[i] = adjEl
+    }
+    working = next
+    if (!changedThisPass) break
+  }
+  // Persist measured heights back into el.height so downstream renders
+  // (page-break logic, PDF generation, hit-testing) see the real
+  // wrapped height instead of the AI's stored under-estimate. Without
+  // this, follow-up edits in the editor reset to the stale height and
+  // the overlap returns the next time the page re-renders.
+  if (measuredHeights && measuredHeights.size > 0) {
+    return working.map((e) => {
+      const m = measuredHeights.get(e.id)
+      if (m == null || m <= e.height) return e
+      return { ...e, height: m }
+    })
+  }
+  return working
 }
 
 /** Persist open canvas TipTap doc into the active page before clearing inline edit. */
@@ -429,6 +654,13 @@ export interface EditorState {
   /** Show the horizontal + vertical rulers around the page. Defaults to true for
    *  editors; TemplateEditor flips it to false for VIEWER/REVIEWER on load. */
   showRulers: boolean
+  /**
+   * Show the small "Double-click to edit · … · ⌘/Ctrl+Enter to finish" label
+   * above a selected element AND the equivalent hover-tooltip on every
+   * element. Useful for first-time users; noisy once people know the app.
+   * Off by default so the canvas stays clean.
+   */
+  showEditorHints: boolean
   /** Grid spacing in pt (default 10). */
   gridSize: number
   /** Show alignment guides to margins, page center, and sibling elements while dragging. */
@@ -451,6 +683,51 @@ export interface EditorState {
   /** Block type used when Draw tool + click on empty page. */
   placementElementType: ElementType
   setPlacementElementType: (t: ElementType) => void
+  // ── AI generation (magic wand) ────────────────────────────────────────────
+  /** True while DeepSeek is streaming a response. Drives the blur overlay. */
+  aiGenerating: boolean
+  /** Accumulated streamed text from DeepSeek. Cleared when generation starts/finishes. */
+  aiStreamingText: string
+  /**
+   * Snapshot of pages/pageSpec/globalVars taken right before applying an
+   * AI-generated layout. Non-null = "preview mode": the live state shows
+   * the AI result; rejecting restores from this snapshot, accepting clears
+   * it (with a single undo barrier so undo returns to pre-AI state in one
+   * step). The modal title also keys off this for "Modify" vs "Generate".
+   */
+  aiPendingSnapshot: {
+    pages: LayoutDocumentPage[]
+    pageSpec: PageSpec
+    globalVariableDefinitions: VariableDefinition[]
+  } | null
+  /** True when the magic-wand modal is open. */
+  aiModalOpen: boolean
+  setAiModalOpen: (v: boolean) => void
+  /**
+   * When the AI modal was opened via right-click → "Modify with AI" on a
+   * single element, this is that element's id. Null for the broader
+   * generate flow. Cleared whenever the modal closes.
+   */
+  aiModalTargetElementId: string | null
+  /** Open the modal with a specific element scoped as the edit target. */
+  openAiModalForElement: (elementId: string) => void
+  setAiGenerating: (v: boolean) => void
+  appendAiStreamingText: (chunk: string) => void
+  resetAiStreamingText: () => void
+  /**
+   * Progress signal for chunked long-document generation. Null for the
+   * normal single-pass flow; populated when the modal is orchestrating
+   * a sequence of section-batched calls so the overlay can show
+   * "Section X of Y — <label>".
+   */
+  aiChunkProgress: { current: number; total: number; label: string } | null
+  setAiChunkProgress: (p: { current: number; total: number; label: string } | null) => void
+  /** Apply a fully-parsed AI layout as preview, snapshotting current state. */
+  applyAiPendingLayout: (parsed: ParsedLayoutResult) => void
+  /** Keep the AI-generated layout (one undo step back to pre-AI). */
+  acceptAiPending: () => void
+  /** Discard the AI-generated layout, restore from snapshot. */
+  rejectAiPending: () => void
   reset: () => void
   setTemplateMeta: (id: string, name: string) => void
   setVersionInfo: (versionId: string | null, versionNumber: number | null) => void
@@ -470,6 +747,7 @@ export interface EditorState {
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
   setShowRulers: (v: boolean) => void
+  setShowEditorHints: (v: boolean) => void
   setGridSize: (v: number) => void
   setSmartGuidesEnabled: (v: boolean) => void
   setDragGuides: (guides: DragGuideState) => void
@@ -654,7 +932,17 @@ export interface EditorState {
    * Linked text frame reflow: redistribute content across a linked chain of TEXT elements.
    * Automatically creates continuation elements/pages for overflow and removes empty ones.
    */
-  reflowLinkedText: (elementId: string) => void
+  reflowLinkedText: (
+    elementId: string,
+    /**
+     * Optional pre-computed split (one entry per frame, content + height in pt).
+     * When provided, the action skips its DOM-based {@link distributeContent}
+     * pass and applies these frames to the chain directly. Used by the
+     * paste-time backend reflow which uses iText to decide where to split so
+     * the editor preview matches the eventual PDF.
+     */
+    precomputedFrames?: { content: string; measuredHeight: number }[]
+  ) => void
   /** Coalesce move/resize: first call pushes one undo point; paired with `endHistoryBatch`. */
   beginHistoryBatch: () => void
   endHistoryBatch: () => void
@@ -729,6 +1017,12 @@ const clearEditorUi = {
   spaceMoveTool: false,
   canvasTool: 'select' as EditorCanvasTool,
   placementElementType: 'TEXT' as ElementType,
+  aiGenerating: false,
+  aiStreamingText: '',
+  aiPendingSnapshot: null as EditorState['aiPendingSnapshot'],
+  aiModalOpen: false,
+  aiModalTargetElementId: null as string | null,
+  aiChunkProgress: null as EditorState['aiChunkProgress'],
 }
 
 /**
@@ -772,8 +1066,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   editorSidebarTab: 'properties',
   pageSpec: defaultPageSpec(),
   snapToGrid: true,
-  showGrid: true,
+  // Grid is off by default — the ruler + smart guides carry most of the
+  // alignment affordance, and the visible gridlines add visual noise on a
+  // fresh canvas. Users can flip it back on from the status bar.
+  showGrid: false,
   showRulers: true,
+  // Editor hints (the floating "Double-click to edit · …" hint strip on a
+  // selected element and the equivalent hover-tooltip on every element)
+  // are OFF by default — they teach but also crowd the canvas. Users can
+  // flip them back on from the status bar's "Hints" toggle.
+  showEditorHints: false,
   gridSize: 10,
   smartGuidesEnabled: true,
   dragGuides: { vertical: [], horizontal: [] },
@@ -782,6 +1084,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   spaceMoveTool: false,
   canvasTool: 'select',
   placementElementType: 'TEXT',
+  aiGenerating: false,
+  aiStreamingText: '',
+  aiPendingSnapshot: null,
+  aiModalOpen: false,
+  aiModalTargetElementId: null,
+  aiChunkProgress: null,
   pathEditingElementId: null,
   pathEditingSelectedVertex: null,
   pathEditingSmartGuides: { vertical: [], horizontal: [] },
@@ -792,6 +1100,154 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSpaceMoveTool: (v) => set({ spaceMoveTool: v }),
   setCanvasTool: (tool) => set({ canvasTool: tool }),
   setPlacementElementType: (placementElementType) => set({ placementElementType }),
+
+  // ── AI generation ────────────────────────────────────────────────────────
+  setAiModalOpen: (v) => set({ aiModalOpen: v, aiModalTargetElementId: v ? get().aiModalTargetElementId : null }),
+  openAiModalForElement: (elementId) => set({ aiModalOpen: true, aiModalTargetElementId: elementId }),
+  setAiGenerating: (v) => set({ aiGenerating: v, aiStreamingText: v ? '' : '', aiChunkProgress: v ? get().aiChunkProgress : null }),
+  appendAiStreamingText: (chunk) =>
+    set((s) => ({ aiStreamingText: s.aiStreamingText + chunk })),
+  resetAiStreamingText: () => set({ aiStreamingText: '' }),
+  setAiChunkProgress: (p) => set({ aiChunkProgress: p }),
+
+  applyAiPendingLayout: (parsed) =>
+    set((s) => {
+      // Snapshot the live state so reject can restore it. Accept will fold
+      // the snapshot into the undo stack as a single barrier.
+      const snapshot = {
+        pages: s.pages.map((p) => ({ ...p, elements: [...p.elements] })),
+        pageSpec: { ...s.pageSpec, margins: { ...s.pageSpec.margins } },
+        globalVariableDefinitions: [...s.globalVariableDefinitions],
+      }
+      // Auto-register variables the AI introduced but didn't declare.
+      // Without this, fresh chips render as "{{name}}" instead of the
+      // expected "Page.Name" / "Global.Name" surface label and the
+      // template's "Also used in this template" panel lists them as
+      // orphans that the user has to manually add.
+      const registeredKeys = new Set<string>()
+      for (const def of parsed.globalVariables) {
+        if (def.key) registeredKeys.add(def.key.trim().toLowerCase())
+      }
+      for (const p of parsed.pages) {
+        for (const def of p.localVariables ?? []) {
+          if (def.key) registeredKeys.add(def.key.trim().toLowerCase())
+        }
+      }
+      const variableAugmentedPages = parsed.pages.map((p) => {
+        const orphansOnPage: VariableDefinition[] = []
+        const seenOnPage = new Set<string>()
+        for (const name of extractVariableKeys(p.elements)) {
+          const norm = name.trim().toLowerCase()
+          if (!norm || registeredKeys.has(norm) || seenOnPage.has(norm)) continue
+          // System tokens (Global.currentDate / Global.pageNumber etc.)
+          // are resolved without explicit registration — skip those.
+          if (isSystemGlobalVariableKey(norm)) continue
+          seenOnPage.add(norm)
+          orphansOnPage.push({ key: name.trim() })
+        }
+        if (orphansOnPage.length === 0) return p
+        const existing = p.localVariables ?? []
+        return { ...p, localVariables: [...existing, ...orphansOnPage] }
+      })
+      // ── Text safety net ────────────────────────────────────────────────
+      // DeepSeek frequently emits glued strings like "BorrowerDetails" or
+      // "Thankyouforyourorder" despite the prompt's no-concat examples.
+      // Walk every element and split text content at camelCase / PascalCase
+      // / digit boundaries before showing it to the user. Lower-case glued
+      // blobs with no internal boundary still pass through (no dictionary
+      // lookup) — those rely on the prompt's camelCase rule and the chip
+      // humanizer's display-time split.
+      const textFixedPages = variableAugmentedPages.map((p) => ({
+        ...p,
+        elements: p.elements.map(splitConcatenatedTextOnElement),
+      }))
+      // ── Geometry safety net ────────────────────────────────────────────
+      // The AI is *usually* close on x/y/w/h but commonly (a) leaves
+      // overlapping elements and (b) places things past the page bottom.
+      // Run three fixups so the user doesn't open the canvas to a pile-up
+      // of stacked text:
+      //   1. Margin clamp pulls every element back inside the printable
+      //      area — picks up the off-page-signature symptom for free.
+      //   2. Measure each text-bearing element's actual rendered height
+      //      (the AI under-counts when text wraps to multiple lines).
+      //   3. Vertical de-overlap walks the page top→bottom using those
+      //      measured heights and bumps any element that horizontally
+      //      overlaps a previous one's bottom edge (8pt spacing).
+      // This is *defensive* — sane AI output sails through unchanged.
+      const geometryFixedPages = textFixedPages.map((p) => {
+        const clamped = p.elements.map((e) =>
+          clampElementLayoutToPrintMargins(e, parsed.page, undefined)
+        )
+        // Measure rendered heights for text-bearing elements so wrapped
+        // paragraphs are accounted for during de-overlap. iText is
+        // expensive; we use the same DOM measurement the FE-fallback
+        // reflow uses, which is cheap (a single off-screen layout).
+        const measured = new Map<string, number>()
+        for (const e of clamped) {
+          if (e.type !== 'TEXT' && e.type !== 'HEADER' && e.type !== 'FOOTER' && e.type !== 'FLOATING') continue
+          if (!e.content) continue
+          try {
+            const h = measureContentHeight(e.content, e.width, e.style ?? {})
+            if (Number.isFinite(h) && h > 0) measured.set(e.id, h)
+          } catch {
+            // measurement failed — fall back to the stored height
+          }
+        }
+        const fixed = deoverlapElementsVertically(clamped, measured)
+        return { ...p, elements: fixed }
+      })
+      return {
+        pages: geometryFixedPages,
+        pageSpec: parsed.page,
+        globalVariableDefinitions: parsed.globalVariables,
+        activePageIndex: 0,
+        selectedIds: [],
+        canvasInlineEditId: null,
+        bandCanvasEditElementId: null,
+        aiPendingSnapshot: snapshot,
+        aiGenerating: false,
+        aiStreamingText: '',
+        aiModalOpen: false,
+        aiModalTargetElementId: null,
+      }
+    }),
+
+  acceptAiPending: () =>
+    set((s) => {
+      const snap = s.aiPendingSnapshot
+      if (!snap) return {}
+      // Fold the snapshot into the undo stack so a single ⌘Z reverts to
+      // pre-AI state. We push a synthesized snapshot built from the
+      // pre-AI fields rather than capturing the current (AI-generated)
+      // state.
+      const preAiSnapshot = captureEditorUndoSnapshot({
+        ...s,
+        pages: snap.pages,
+        pageSpec: snap.pageSpec,
+        globalVariableDefinitions: snap.globalVariableDefinitions,
+      })
+      return {
+        aiPendingSnapshot: null,
+        undoPast: [...s.undoPast, preAiSnapshot].slice(-MAX_UNDO_STEPS),
+        undoFuture: [],
+      }
+    }),
+
+  rejectAiPending: () =>
+    set((s) => {
+      const snap = s.aiPendingSnapshot
+      if (!snap) return { aiPendingSnapshot: null }
+      return {
+        pages: snap.pages,
+        pageSpec: snap.pageSpec,
+        globalVariableDefinitions: snap.globalVariableDefinitions,
+        activePageIndex: 0,
+        selectedIds: [],
+        canvasInlineEditId: null,
+        bandCanvasEditElementId: null,
+        aiPendingSnapshot: null,
+      }
+    }),
 
   reset: () =>
     withUndoSuppressed(() => {
@@ -820,8 +1276,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         editorSidebarTab: 'properties',
         pageSpec: defaultPageSpec(),
         snapToGrid: true,
-        showGrid: true,
+        // Match the initial-state default in the `create()` call above —
+        // `reset()` should land users in the same "clean canvas" state
+        // they get on first load.
+        showGrid: false,
         showRulers: true,
+        showEditorHints: false,
         gridSize: 10,
         smartGuidesEnabled: true,
         dragGuides: { vertical: [], horizontal: [] },
@@ -1057,12 +1517,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   addElement: (el) =>
     set((s) => {
       if (s.viewOnly) return {}
+      // Idempotent by id. With multiple tabs open, a drop in one tab ops-
+      // broadcasts through STOMP back to collab peers; reconnect snapshots and
+      // in-flight-op races can cause the same op to reach the same tab twice
+      // ({@link applyRemoteOp} shares the same id-dedupe safeguard below).
+      // Appending duplicates silently produced 2×, 3×, 4× copies of a single
+      // drop — the "dropped one table, got three" symptom. A no-op return is
+      // safe: the original placement already selected the element, so skipping
+      // the duplicate leaves UX unchanged.
       if (s.bandNestedEditorMounted && s.bandCanvasEditElementId) {
         if (el.type === 'HEADER' || el.type === 'FOOTER') return {}
         const loc = findElementLocation(s, s.bandCanvasEditElementId)
         if (!loc) return {}
         const c = loc.el
         if (c.type !== 'HEADER' && c.type !== 'FOOTER') return {}
+        if ((c.bandElements ?? []).some((e) => e.id === el.id)) return {}
         const { w, h } = bandViewportDims(s, c)
         const placed = placeBandElementOnDrop(el, w, h)
         const nested = [...(c.bandElements ?? []), placed]
@@ -1072,6 +1541,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           selectedIds: [placed.id],
         }
       }
+      if (activeElements(s).some((e) => e.id === el.id)) return {}
       const placed = clampElementLayoutToPrintMargins(el, s.pageSpec, s.gridSize)
       const elements = [...activeElements(s), placed]
       return {
@@ -1221,11 +1691,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
       const loc = findElementLocation(s, id)
       if (!loc) return {}
+      const removed = loc.elements.find((e) => e.id === id)
       const elements = loc.elements.filter((e) => e.id !== id)
       const wasInSelection = s.selectedIds.includes(id)
+
+      // Purge the table's dataKey from global/local variable definitions
+      // when the last TABLE using it is the one being deleted. Without
+      // this the orphaned def lingers and the Preview data panel shows
+      // the raw JSON under TEXT FIELDS (scalarVariableKeys sweeps it up).
+      // `removeElements` already does the same thing for batch deletes —
+      // single-delete needed parity.
+      const removedKey =
+        removed?.type === 'TABLE' && removed.dataKey ? removed.dataKey : null
+      const nextPagesAfterDelete = s.pages.map((p, pi) =>
+        pi === loc.pageIndex ? { ...p, elements } : p
+      )
+      const stillUsed =
+        removedKey
+          ? nextPagesAfterDelete.some((p) =>
+              p.elements.some((e) => e.type === 'TABLE' && e.dataKey === removedKey)
+            )
+          : false
+      const globalDefs =
+        removedKey && !stillUsed
+          ? s.globalVariableDefinitions.filter((d) => d.key !== removedKey)
+          : s.globalVariableDefinitions
+      const pagesWithLocalsCleaned =
+        removedKey && !stillUsed
+          ? nextPagesAfterDelete.map((p) => {
+              const locals = p.localVariables
+              if (!locals?.length) return p
+              const cleaned = locals.filter((d) => d.key !== removedKey)
+              return cleaned.length === locals.length
+                ? p
+                : { ...p, localVariables: cleaned.length ? cleaned : undefined }
+            })
+          : nextPagesAfterDelete
+
       return {
         ...takeUndoBarrier(s),
-        ...replacePageElements(s, loc.pageIndex, elements),
+        ...replacePageElements(
+          { ...s, pages: pagesWithLocalsCleaned, globalVariableDefinitions: globalDefs },
+          loc.pageIndex,
+          elements
+        ),
+        globalVariableDefinitions: globalDefs,
         selectedIds: s.selectedIds.filter((i) => i !== id),
         canvasInlineEditId: s.canvasInlineEditId === id ? null : s.canvasInlineEditId,
         bandCanvasEditElementId: s.bandCanvasEditElementId === id ? null : s.bandCanvasEditElementId,
@@ -1904,6 +2414,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSnapToGrid: (v) => set({ snapToGrid: v }),
   setShowGrid: (v) => set({ showGrid: v }),
   setShowRulers: (v) => set({ showRulers: v }),
+  setShowEditorHints: (v) => set({ showEditorHints: v }),
   setGridSize: (v) => set({ gridSize: Math.max(2, Math.round(v)) }),
   setSmartGuidesEnabled: (v) => set({ smartGuidesEnabled: v }),
 
@@ -2770,7 +3281,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }),
 
-  reflowLinkedText: (elementId: string) =>
+  reflowLinkedText: (elementId: string, precomputedFrames?: { content: string; measuredHeight: number }[]) =>
     set((s) => {
       // Only TEXT elements support linked flow
       const loc = findElementLocation(s, elementId)
@@ -2831,20 +3342,42 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const containerWidth = headEl.width
 
       // Quick check: does head content even overflow?
-      const headMeasured = measureContentHeight(allContent, containerWidth, headEl.style ?? {})
-      if (headMeasured <= headMaxH && chain.length === 1) {
-        // Everything fits in one frame, nothing to do
-        return {}
+      // Skip when the caller pre-computed frames (e.g. backend reflow) — the
+      // caller already decided the split, so reapplying it is the goal even
+      // when the head happens to fit; the BE result may still affect height.
+      if (!precomputedFrames) {
+        const headMeasured = measureContentHeight(allContent, containerWidth, headEl.style ?? {})
+        if (headMeasured <= headMaxH && chain.length === 1) {
+          // Everything fits in one frame, nothing to do
+          return {}
+        }
       }
 
       // ── Distribute across frames ──
-      const frames = distributeContent(
-        paragraphs,
-        headMaxH,
-        contMaxH,
-        containerWidth,
-        headEl.style ?? {}
-      )
+      // Backend-precomputed frames win when supplied (they reflect iText's
+      // actual layout). Fall back to the local DOM-based distributor for
+      // synchronous reflows or when offline.
+      const frames = precomputedFrames && precomputedFrames.length > 0
+        ? precomputedFrames
+        : distributeContent(
+            paragraphs,
+            headMaxH,
+            contMaxH,
+            containerWidth,
+            headEl.style ?? {}
+          )
+
+      // The backend returns iText's bare paragraph height. The editor's box
+      // chrome adds container padding (~4pt vertical) plus a descender pad
+      // (~font_size × 0.2) to keep the bottom row of glyphs from clipping —
+      // the same convention {@link distributeContent} measures with. Without
+      // this pad, BE-applied heights are 5–8pt shorter than the DOM render
+      // of the same content, so the box visibly contracts the moment the
+      // backend response lands. Apply the pad only to BE frames; FE frames
+      // already include their own padding via measureContentHeight.
+      const fontSize = typeof headEl.style?.fontSize === 'number' ? headEl.style.fontSize : 12
+      const beHeightPad = precomputedFrames ? Math.max(2, fontSize * 0.2) + 4 : 0
+      const padHeight = (h: number, max: number) => Math.min(h + beHeightPad, max)
 
       // ── Build new pages array ──
       let newPages = s.pages.map((p) => ({ ...p, elements: [...p.elements] }))
@@ -2860,7 +3393,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       newPages[headPage].elements[headIdx] = {
         ...headEl,
         content: frames[0].content,
-        height: Math.min(frames[0].measuredHeight, headMaxH),
+        height: padHeight(frames[0].measuredHeight, headMaxH),
         linkedPrevId: undefined,
         linkedNextId: undefined, // set after all frames are created
       }
@@ -2875,7 +3408,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           newPages[existing.pageIndex].elements[existing.elementIndex] = {
             ...existing.element,
             content: frames[fi].content,
-            height: Math.min(frames[fi].measuredHeight, contMaxH),
+            height: padHeight(frames[fi].measuredHeight, contMaxH),
             linkedPrevId: undefined,
             linkedNextId: undefined,
           }
@@ -2900,7 +3433,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             x: headEl.x,
             y: margins.top,
             width: headEl.width,
-            height: Math.min(frames[fi].measuredHeight, contMaxH),
+            height: padHeight(frames[fi].measuredHeight, contMaxH),
             content: frames[fi].content,
             style: headEl.style ? { ...headEl.style } : undefined,
             linkedPrevId: undefined,
@@ -3051,9 +3584,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       switch (op.type) {
         case 'addElement': {
-          pages = s.pages.map((p, i) =>
-            i === op.pageIndex ? { ...p, elements: [...p.elements, op.element] } : p
-          )
+          // Idempotent by id — see comment in the public addElement action.
+          // Multi-tab collab rebroadcasts + reconnect snapshots can deliver the
+          // same addElement op more than once to the same tab; appending blindly
+          // was the root of the "dropped one table, got three" regression.
+          const incoming = op.element as LayoutElement
+          pages = s.pages.map((p, i) => {
+            if (i !== op.pageIndex) return p
+            if (p.elements.some((e) => e.id === incoming.id)) return p
+            return { ...p, elements: [...p.elements, incoming] }
+          })
           break
         }
         case 'deleteElements': {
@@ -3139,8 +3679,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // Clamp activePageIndex in case a page was removed.
       const activePageIndex = Math.min(s.activePageIndex, Math.max(0, pages.length - 1))
+      // Final dedupe sweep so a mis-ordered remote op stream (e.g. an
+      // addElement echo that somehow raced past the `p.elements.some(...)`
+      // guard in the case above, or an updatePage op whose patch included
+      // a full elements array with duplicates) can never persist.
+      const dedupedPages = pages.map((p) => ({
+        ...p,
+        elements: dedupeById(p.elements.map((el) => (
+          el.bandElements && el.bandElements.length
+            ? { ...el, bandElements: dedupeById(el.bandElements) }
+            : el
+        ))),
+      }))
       return {
-        pages,
+        pages: dedupedPages,
         globalVariableDefinitions,
         pageSpec,
         activePageIndex,
@@ -3180,15 +3732,29 @@ export function createDefaultElement(
         height: 32,
         style: { fontSize: 12, bold: false, align: 'left' },
       }
+    case 'FLOATING':
+      return {
+        ...base,
+        type: 'FLOATING',
+        width: 200,
+        height: 60,
+        content: serializeRunsToContent([]),
+        style: { fontSize: 12, bold: false, align: 'left' },
+      }
     case 'TABLE':
       return {
         ...base,
         type: 'TABLE',
         width: 200,
         height: 88,
+        // Keys match the `col_${n}` pattern used by the add-column paths in
+        // TableElementCanvas / TableContextToolbar so every column in the
+        // table has a consistent key shape. Headers start blank — the author
+        // fills them in on the canvas (or in the Preview data panel's
+        // editable header row).
         columns: [
-          { header: serializeRunsToContent([]), key: 'c0' },
-          { header: serializeRunsToContent([]), key: 'c1' },
+          { header: serializeRunsToContent([]), key: 'col_1' },
+          { header: serializeRunsToContent([]), key: 'col_2' },
         ],
         columnWidths: [1, 1],
         tablePreviewBodyRows: 2,

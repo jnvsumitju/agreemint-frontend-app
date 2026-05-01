@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import type { LayoutElement } from '../../types/layout'
 import { getTableColumnsForDataKey, humanizeVariableKey } from '../../lib/previewFormData'
+import { richContentToPlainText } from '../../lib/richContent'
 
 function idSafeKey(s: string) {
   return s.replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -11,11 +12,15 @@ function TableDataEditor({
   columns,
   rows,
   onChange,
+  onColumnHeaderChange,
 }: {
   dataKey: string
   columns: { header: string; key: string }[]
   rows: Record<string, string>[]
   onChange: (next: Record<string, string>[]) => void
+  /** Called when the user edits a column header inline in the data panel.
+   * The callback writes plain text back to {@code el.columns[i].header}. */
+  onColumnHeaderChange?: (colIndex: number, header: string) => void
 }) {
   const colKeys = columns.map((c) => c.key)
 
@@ -54,12 +59,22 @@ function TableDataEditor({
         <table className="w-full min-w-[200px] border-collapse text-left text-[11px]">
           <thead>
             <tr className="border-b border-zinc-200 bg-zinc-100/90 dark:border-zinc-600 dark:bg-zinc-900/50">
-              {columns.map((c) => (
+              {columns.map((c, ci) => (
                 <th
                   key={c.key}
-                  className="whitespace-nowrap px-2 py-1.5 font-semibold text-zinc-700 dark:text-zinc-200"
+                  className="px-1 py-1 text-left font-semibold text-zinc-700 dark:text-zinc-200"
                 >
-                  {c.header}
+                  <input
+                    id={`ag-preview-table-${idSafeKey(dataKey)}-hdr-c${idSafeKey(c.key)}`}
+                    name={`ag-preview-table-${idSafeKey(dataKey)}-hdr-c${idSafeKey(c.key)}`}
+                    type="text"
+                    className="w-full min-w-[3.5rem] rounded border border-zinc-300 bg-white px-1.5 py-1 text-[11px] font-semibold text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    value={richContentToPlainText(c.header)}
+                    placeholder={`Column ${ci + 1}`}
+                    onChange={(e) => onColumnHeaderChange?.(ci, e.target.value)}
+                    disabled={!onColumnHeaderChange}
+                    aria-label={`Column ${ci + 1} header`}
+                  />
                 </th>
               ))}
               <th className="w-8 px-1 py-1.5" aria-label="Row actions" />
@@ -78,9 +93,9 @@ function TableDataEditor({
                       name={`ag-preview-table-${idSafeKey(dataKey)}-r${ri}-c${idSafeKey(c.key)}`}
                       type="text"
                       className="w-full min-w-[3.5rem] rounded border border-zinc-300 bg-white px-1.5 py-1 text-[11px] text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
-                      value={row[c.key] ?? ''}
+                      value={richContentToPlainText(row[c.key])}
                       onChange={(e) => setCell(ri, c.key, e.target.value)}
-                      aria-label={`${c.header} row ${ri + 1}`}
+                      aria-label={`${richContentToPlainText(c.header) || c.key} row ${ri + 1}`}
                     />
                   </td>
                 ))}
@@ -114,6 +129,7 @@ export function PreviewDataPanel({
   tableKeys,
   tableRows,
   onTableRowsChange,
+  onTableColumnHeaderChange,
   onGenerate,
   loading,
   err,
@@ -126,6 +142,9 @@ export function PreviewDataPanel({
   tableKeys: string[]
   tableRows: Record<string, Record<string, string>[]>
   onTableRowsChange: (dataKey: string, rows: Record<string, string>[]) => void
+  /** Optional: when provided, the header row becomes editable inputs that
+   * write the typed plain text back to the TABLE element's columns. */
+  onTableColumnHeaderChange?: (dataKey: string, colIndex: number, header: string) => void
   onGenerate: () => void
   loading: boolean
   err: string | null
@@ -187,6 +206,11 @@ export function PreviewDataPanel({
                   columns={cols}
                   rows={tableRows[tk] ?? empty}
                   onChange={(next) => onTableRowsChange(tk, next)}
+                  onColumnHeaderChange={
+                    onTableColumnHeaderChange
+                      ? (ci, header) => onTableColumnHeaderChange(tk, ci, header)
+                      : undefined
+                  }
                 />
               )
             })}

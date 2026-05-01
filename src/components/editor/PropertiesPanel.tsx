@@ -11,7 +11,7 @@ import {
   resolveVariableChipInfo,
   variableMergeFieldSurfaceLabel,
 } from '../../lib/layoutBehaviourResolve'
-import type { ElementStyle, LayoutElement } from '../../types/layout'
+import type { ElementStyle, LayoutElement, PageVisibility } from '../../types/layout'
 import { LABEL_CLASS } from './uiClasses'
 import { FieldInput } from './ui/FieldInput'
 import { FieldSelect } from './ui/FieldSelect'
@@ -26,8 +26,6 @@ import type { ListStyle } from '../../types/layout'
 import { buildListTree, flattenListTree } from '../../types/layout'
 import {
   buildInitialStructuredData,
-  parseTableVariableData,
-  seedCellStyleFromCanvasMaps,
   serializeTableVariableData,
 } from '../../lib/tableDataFormat'
 import { tablePreviewBodyRowCount } from '../../lib/tablePreview'
@@ -46,7 +44,7 @@ import {
   ElementVisualFields,
   BorderStyleFields,
 } from './elementAppearanceFields'
-import { FONT_LIST, loadFont } from '../../lib/fontLoader'
+import { allFontFamilies, coerceToSupportedFamily, loadFont } from '../../lib/fontLoader'
 import { ElementBehaviourEditor } from './ElementBehaviourEditor'
 import { DocumentPageSection } from './DocumentPageSection'
 import { MultiSelectionPanel } from './MultiSelectionPanel'
@@ -137,8 +135,12 @@ function StyleFields({
         id="ag-editor-style-font-family"
         value={s.fontFamily ?? ''}
         onChange={(e) => {
-          const v = e.target.value
-          if (v) {
+          const raw = e.target.value
+          if (raw) {
+            // Under pixel-parity, non-curated families are silently coerced
+            // to the default sans so canvas and PDF agree on glyph bytes.
+            // Off the flag, coerce is a pass-through.
+            const v = coerceToSupportedFamily(raw) ?? raw
             loadFont(v)
             onChange({ ...s, fontFamily: v })
           } else {
@@ -147,10 +149,23 @@ function StyleFields({
             onChange(rest)
           }
         }}
-        options={[
-          { value: '', label: 'Default' },
-          ...FONT_LIST.map((f) => ({ value: f.family, label: f.family })),
-        ]}
+        options={(() => {
+          const families = allFontFamilies()
+          const curr = s.fontFamily
+          const isCurrentUnlisted = curr && curr.trim() && !families.includes(curr)
+          return [
+            { value: '', label: 'Default' },
+            // Surface a legacy/non-parity value if the layout stored one —
+            // otherwise the picker silently shows no selection while the
+            // renderer falls back to Inter. Making it selectable lets the
+            // author see + replace it, and the trailing "(renders as Inter)"
+            // is the visibility fix for the previously-silent coerce.
+            ...(isCurrentUnlisted
+              ? [{ value: curr!, label: `${curr} (renders as Inter)` }]
+              : []),
+            ...families.map((family) => ({ value: family, label: family })),
+          ]
+        })()}
         labelAdornment={
           element ? <BindingIndicator element={element} target="fontFamily" /> : undefined
         }
@@ -160,7 +175,14 @@ function StyleFields({
         id="ag-editor-style-font-size"
         type="number"
         value={s.fontSize ?? 12}
-        onChange={(e) => onChange({ ...s, fontSize: Number(e.target.value) || 12 })}
+        onChange={(e) => {
+          const raw = Number(e.target.value)
+          // Clamp to a sane range: 6pt floor reads safely even on a print,
+          // 400pt ceiling prevents a stray 9999 from blowing up layout
+          // measurement. Matches the authoring conventions in most editors.
+          const next = Number.isFinite(raw) ? Math.max(6, Math.min(400, Math.round(raw))) : 12
+          onChange({ ...s, fontSize: next })
+        }}
         labelAdornment={
           element ? <BindingIndicator element={element} target="fontSize" /> : undefined
         }
@@ -173,7 +195,10 @@ function StyleFields({
         value={s.lineHeight ?? 1.4}
         onChange={(e) => {
           const v = Number(e.target.value)
-          if (Number.isFinite(v) && v >= 0.5 && v <= 5) onChange({ ...s, lineHeight: Math.round(v * 10) / 10 })
+          // Minimum 1.0 — values below collapse descenders into the next
+          // line on both canvas and PDF. Maximum 5.0 keeps the typography
+          // from visibly exploding when somebody enters 50 by accident.
+          if (Number.isFinite(v) && v >= 1 && v <= 5) onChange({ ...s, lineHeight: Math.round(v * 10) / 10 })
         }}
         labelAdornment={
           element ? <BindingIndicator element={element} target="lineHeight" /> : undefined
@@ -278,7 +303,7 @@ function TableDataSection({ el, patch }: { el: LayoutElement; patch: (p: Partial
       setVariableValue(key, serializeTableVariableData(tvd))
     } else {
       if (dataKey) removeVarDef(dataKey)
-      patch({ dataKey: undefined, tableStyleFromVariable: undefined })
+      patch({ dataKey: undefined })
     }
   }
 
@@ -342,41 +367,6 @@ function TableDataSection({ el, patch }: { el: LayoutElement; patch: (p: Partial
     committedKeyRef.current = next
   }
 
-  const handleTableStyleToggle = (checked: boolean) => {
-    if (checked) {
-      patch({ tableStyleFromVariable: true })
-      if (dataKey) {
-        const raw = useEditorStore.getState().variableValues[dataKey]
-        const parsed = parseTableVariableData(raw)
-        if (parsed) {
-          // Seed cellStyle from canvas background maps (all-null if no backgrounds set)
-          const cellStyle = seedCellStyleFromCanvasMaps(
-            parsed.data,
-            el.tableRowBackgrounds,
-            el.tableColumnBackgrounds,
-            el.tableCellBackgrounds
-          )
-          const updated = {
-            ...parsed,
-            cellStyle,
-            borderStyle: parsed.borderStyle ?? { width: 1, color: '#e5e7eb', style: 'solid' as const },
-          }
-          setVariableValue(dataKey, serializeTableVariableData(updated))
-        }
-      }
-    } else {
-      patch({ tableStyleFromVariable: undefined })
-      // Strip cellStyle and borderStyle from the variable — keep only data
-      if (dataKey) {
-        const raw = useEditorStore.getState().variableValues[dataKey]
-        const parsed = parseTableVariableData(raw)
-        if (parsed) {
-          setVariableValue(dataKey, serializeTableVariableData({ data: parsed.data }))
-        }
-      }
-    }
-  }
-
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-600">
       <FieldCheckbox
@@ -402,22 +392,6 @@ function TableDataSection({ el, patch }: { el: LayoutElement; patch: (p: Partial
             checked={isGlobal}
             onChange={(e) => handleGlobalToggle(e.target.checked)}
           />
-          <FieldCheckbox
-            label="Enable table style (styles from variable data)"
-            id={`ag-beh-table-style-var-${el.id}`}
-            checked={!!el.tableStyleFromVariable}
-            onChange={(e) => handleTableStyleToggle(e.target.checked)}
-          />
-          <p className="text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
-            Data is stored as a structured object with{' '}
-            <code className="rounded bg-zinc-100 px-0.5 font-mono text-[8px] lg:text-[9px] dark:bg-zinc-700">data</code>{' '}
-            (2D array including headers),{' '}
-            <code className="rounded bg-zinc-100 px-0.5 font-mono text-[8px] lg:text-[9px] dark:bg-zinc-700">cellStyle</code>, and{' '}
-            <code className="rounded bg-zinc-100 px-0.5 font-mono text-[8px] lg:text-[9px] dark:bg-zinc-700">borderStyle</code>.
-            {el.tableStyleFromVariable
-              ? ' Cell styles are read from the variable data.'
-              : ' Cell styles use canvas-set values.'}
-          </p>
         </>
       )}
     </div>
@@ -709,6 +683,81 @@ function ListDataSection({ el, patch }: { el: LayoutElement; patch: (p: Partial<
   )
 }
 
+const PAGE_VISIBILITY_OPTIONS: { value: PageVisibility; label: string }[] = [
+  { value: 'current', label: 'This page only' },
+  { value: 'all', label: 'Every page' },
+  { value: 'odd', label: 'Odd pages (1, 3, 5…)' },
+  { value: 'even', label: 'Even pages (2, 4, 6…)' },
+  { value: 'specific', label: 'Specific pages…' },
+]
+
+function parsePageList(raw: string): number[] {
+  const out: number[] = []
+  for (const tok of raw.split(/[,\s]+/)) {
+    if (!tok) continue
+    const n = Number(tok)
+    if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && !out.includes(n)) {
+      out.push(n)
+    }
+  }
+  return out.sort((a, b) => a - b)
+}
+
+function PageVisibilityFields({
+  el,
+  patch,
+}: {
+  el: LayoutElement
+  patch: (p: Partial<LayoutElement>) => void
+}) {
+  const visibility: PageVisibility = el.pageVisibility ?? 'current'
+  const [specificDraft, setSpecificDraft] = useState<string>(
+    (el.pageVisibilitySpecific ?? []).join(', ')
+  )
+  // When the underlying element changes (e.g. via undo), resync the textbox.
+  useEffect(() => {
+    setSpecificDraft((el.pageVisibilitySpecific ?? []).join(', '))
+  }, [el.id, el.pageVisibilitySpecific])
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-600">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Page visibility
+      </p>
+      <FieldSelect
+        label="Show on"
+        id={`ag-pagevis-${el.id}`}
+        value={visibility}
+        onChange={(e) => {
+          const next = e.target.value as PageVisibility
+          const p: Partial<LayoutElement> = { pageVisibility: next }
+          if (next !== 'specific') p.pageVisibilitySpecific = undefined
+          patch(p)
+        }}
+        options={PAGE_VISIBILITY_OPTIONS}
+      />
+      {visibility === 'specific' && (
+        <FieldInput
+          label="Page numbers (comma-separated)"
+          id={`ag-pagevis-list-${el.id}`}
+          type="text"
+          value={specificDraft}
+          placeholder="e.g. 1, 3, 5"
+          onChange={(e) => setSpecificDraft(e.target.value)}
+          onBlur={() => {
+            const parsed = parsePageList(specificDraft)
+            patch({ pageVisibilitySpecific: parsed.length > 0 ? parsed : undefined })
+            setSpecificDraft(parsed.join(', '))
+          }}
+        />
+      )}
+      <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+        Always shown on the page where placed; this controls extra repetitions on other pages.
+      </p>
+    </div>
+  )
+}
+
 function BehaviourBody() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const pages = useEditorStore((s) => s.pages)
@@ -936,6 +985,10 @@ function PropertiesBody() {
           </p>
         )}
       </div>
+
+      {el.type === 'FLOATING' && (
+        <PageVisibilityFields el={el} patch={patch} />
+      )}
 
       {(isRichTextElement(el) || el.type === 'LIST') && (
         <div className="border-t border-zinc-200 pt-3 dark:border-zinc-600">

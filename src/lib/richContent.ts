@@ -55,6 +55,8 @@ export type RichRun =
       strikethrough?: boolean
       superscript?: boolean
       subscript?: boolean
+      /** Per-run font size override in pt — overrides the element-level fontSize for this run. */
+      fontSize?: number
       /** CSS text color (e.g. #0f172a, rgb(...)). */
       color?: string
       /** CSS background behind text (highlight). */
@@ -72,6 +74,13 @@ export type RichRun =
       name: string
       /** A variable chip can itself be a hyperlink (e.g. `{{ticketUrl}}` shown as "Open ticket"). */
       linkHref?: string
+      /** Inline marks applied when a selection covering the var chip was styled. */
+      bold?: boolean
+      italic?: boolean
+      underline?: boolean
+      strikethrough?: boolean
+      color?: string
+      highlightColor?: string
     }
 
 /** Run-level keys toggled from the formatting toolbar (Properties mode). */
@@ -100,7 +109,20 @@ function isRichDoc(o: unknown): o is RichContentDoc {
 function normalizeRun(r: RichRun): RichRun {
   const link = typeof r.linkHref === 'string' ? sanitizeLinkHref(r.linkHref) : undefined
   if (r.type === 'var') {
-    return link ? { type: 'var', name: r.name, linkHref: link } : { type: 'var', name: r.name }
+    const color = typeof r.color === 'string' && r.color.trim() ? r.color.trim() : undefined
+    const highlightColor =
+      typeof r.highlightColor === 'string' && r.highlightColor.trim() ? r.highlightColor.trim() : undefined
+    return {
+      type: 'var',
+      name: r.name,
+      ...(link ? { linkHref: link } : {}),
+      ...(r.bold ? { bold: true } : {}),
+      ...(r.italic ? { italic: true } : {}),
+      ...(r.underline ? { underline: true } : {}),
+      ...(r.strikethrough ? { strikethrough: true } : {}),
+      ...(color ? { color } : {}),
+      ...(highlightColor ? { highlightColor } : {}),
+    }
   }
   let sup = !!r.superscript
   let sub = !!r.subscript
@@ -110,15 +132,33 @@ function normalizeRun(r: RichRun): RichRun {
     typeof r.highlightColor === 'string' && r.highlightColor.trim()
       ? r.highlightColor.trim()
       : undefined
+  const fontSize =
+    typeof r.fontSize === 'number' && Number.isFinite(r.fontSize) && r.fontSize > 0
+      ? r.fontSize
+      : undefined
+  // Tri-state for the four common marks (bold / italic / underline /
+  // strikethrough). Persisting `undefined` when the run has no explicit mark
+  // lets `asText?.bold ?? elementBold` treat the element-level style as the
+  // default AND lets a run explicitly override to either `true` or `false`.
+  // Old layouts that wrote `bold: false` into every run (the prior `!!r.bold`
+  // behaviour) are handled by the strict-boolean check below: only concrete
+  // booleans survive, everything else collapses to undefined.
+  const triBool = (v: unknown): boolean | undefined =>
+    typeof v === 'boolean' ? v : undefined
+  const bold = triBool(r.bold)
+  const italic = triBool(r.italic)
+  const underline = triBool(r.underline)
+  const strikethrough = triBool(r.strikethrough)
   return {
     type: 'text',
     text: r.text ?? '',
-    bold: !!r.bold,
-    italic: !!r.italic,
-    underline: !!r.underline,
-    strikethrough: !!r.strikethrough,
+    ...(bold !== undefined ? { bold } : {}),
+    ...(italic !== undefined ? { italic } : {}),
+    ...(underline !== undefined ? { underline } : {}),
+    ...(strikethrough !== undefined ? { strikethrough } : {}),
     superscript: sup,
     subscript: sub,
+    ...(fontSize != null ? { fontSize } : {}),
     ...(color ? { color } : {}),
     ...(highlightColor ? { highlightColor } : {}),
     ...(link ? { linkHref: link } : {}),
@@ -214,6 +254,18 @@ export function runsToPlainTemplate(runs: RichRun[]): string {
     .join('')
 }
 
+/**
+ * Flatten any stored cell/header content (rich JSON doc OR legacy plain
+ * string) down to plain text with `{{var}}` placeholders preserved. Used by
+ * surfaces that should only expose data — not formatting — e.g. the preview
+ * PDF data input panel, where row/column/cell styling already comes from the
+ * template's own style rules and showing `{"rich":true,"runs":[...]}` in a
+ * form field is just noise.
+ */
+export function richContentToPlainText(content: string | undefined): string {
+  return runsToPlainTemplate(parseContentToRuns(content))
+}
+
 /** Persist runs as JSON (rich text). */
 export function serializeRunsToContent(runs: RichRun[]): string {
   const doc: RichContentDoc = {
@@ -225,18 +277,29 @@ export function serializeRunsToContent(runs: RichRun[]): string {
           type: 'var',
           name: normalizeVariableIdentifier(run.name),
           ...(link ? { linkHref: link } : {}),
+          ...(run.bold ? { bold: true } : {}),
+          ...(run.italic ? { italic: true } : {}),
+          ...(run.underline ? { underline: true } : {}),
+          ...(run.strikethrough ? { strikethrough: true } : {}),
+          ...(run.color?.trim() ? { color: run.color.trim() } : {}),
+          ...(run.highlightColor?.trim() ? { highlightColor: run.highlightColor.trim() } : {}),
         }
       }
       const link = run.linkHref ? sanitizeLinkHref(run.linkHref) : undefined
       return {
         type: 'text',
         text: run.text,
-        ...(run.bold ? { bold: true } : {}),
-        ...(run.italic ? { italic: true } : {}),
-        ...(run.underline ? { underline: true } : {}),
-        ...(run.strikethrough ? { strikethrough: true } : {}),
+        // Tri-state: persist both true AND false so a run can explicitly
+        // un-bold text inside an element whose style.bold is on. The older
+        // truthy-only filter dropped `bold: false`, which made element-level
+        // styles the permanent floor (no way to override).
+        ...(typeof run.bold === 'boolean' ? { bold: run.bold } : {}),
+        ...(typeof run.italic === 'boolean' ? { italic: run.italic } : {}),
+        ...(typeof run.underline === 'boolean' ? { underline: run.underline } : {}),
+        ...(typeof run.strikethrough === 'boolean' ? { strikethrough: run.strikethrough } : {}),
         ...(run.superscript ? { superscript: true } : {}),
         ...(run.subscript ? { subscript: true } : {}),
+        ...(typeof run.fontSize === 'number' && run.fontSize > 0 ? { fontSize: run.fontSize } : {}),
         ...(run.color?.trim() ? { color: run.color.trim() } : {}),
         ...(run.highlightColor?.trim() ? { highlightColor: run.highlightColor.trim() } : {}),
         ...(link ? { linkHref: link } : {}),

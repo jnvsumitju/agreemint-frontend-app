@@ -20,8 +20,11 @@ function renderTextWithBreaks(text: string): ReactNode {
   ))
 }
 
+// `font-medium` intentionally dropped: the chip now inherits the
+// containing textbox's weight (and other typography) so element-level
+// bold / italic / underline / strikethrough apply to vars too.
 const varChipClass =
-  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
+  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
 
 /** Read-only rich text for canvas / table cells (variables as chips; preview in title). */
 export function RichTextBlockPreview({
@@ -32,6 +35,8 @@ export function RichTextBlockPreview({
   textAlign,
   elementBold,
   elementItalic,
+  elementUnderline,
+  elementStrikethrough,
   color,
   backgroundColor,
   fontFamily,
@@ -45,6 +50,8 @@ export function RichTextBlockPreview({
   textAlign: CSSProperties['textAlign']
   elementBold?: boolean
   elementItalic?: boolean
+  elementUnderline?: boolean
+  elementStrikethrough?: boolean
   color?: string
   backgroundColor?: string
   fontFamily?: string
@@ -83,8 +90,26 @@ export function RichTextBlockPreview({
           titleParts.push(`Token: {{${r.name.trim()}}}`)
           if (preview.trim()) titleParts.push(`Variables tab preview: ${preview}`)
           if (r.linkHref) titleParts.push(`Link: ${r.linkHref}`)
+          // Run-level marks on the var (from a selection that covered the
+          // chip when the author toggled bold/etc.) take precedence; fall
+          // back to the element-level mark otherwise. Matches the
+          // behaviour of text runs in the same renderer.
+          const chipBold = r.bold ?? elementBold
+          const chipItalic = r.italic ?? elementItalic
+          const chipUnderlined = r.underline ?? elementUnderline
+          const chipStruck = r.strikethrough ?? elementStrikethrough
+          const chipDeco: string[] = []
+          if (chipUnderlined) chipDeco.push('underline')
+          if (chipStruck) chipDeco.push('line-through')
+          const chipStyle: CSSProperties = {
+            fontWeight: chipBold ? 700 : undefined,
+            fontStyle: chipItalic ? 'italic' : undefined,
+            textDecoration: chipDeco.length ? chipDeco.join(' ') : undefined,
+            color: r.color?.trim() || undefined,
+            backgroundColor: r.highlightColor?.trim() || undefined,
+          }
           const chip = (
-            <span className={varChipClass} data-am-var={k}>
+            <span className={varChipClass} data-am-var={k} style={chipStyle}>
               {label}
             </span>
           )
@@ -109,22 +134,27 @@ export function RichTextBlockPreview({
           )
         }
         const deco: string[] = []
-        if (r.underline) deco.push('underline')
-        if (r.strikethrough) deco.push('line-through')
+        // Tri-state precedence: the run's explicit true/false overrides the
+        // element default in either direction; undefined falls through.
+        if ((r.underline ?? elementUnderline)) deco.push('underline')
+        if ((r.strikethrough ?? elementStrikethrough)) deco.push('line-through')
         // Linked runs get the underline by default unless the author has
         // explicitly set a different text-decoration state (strike stays).
         if (resolvedHref && !deco.includes('underline')) deco.push('underline')
+        // Per-run size override; super/sub scale applies on top. When a run
+        // has no explicit size, inherit the element-level `fontSize`.
+        const baseRunSize = typeof r.fontSize === 'number' && r.fontSize > 0 ? r.fontSize : fontSize
+        const effectiveRunSize = r.superscript || r.subscript
+          ? Math.round((baseRunSize * 0.75 + Number.EPSILON) * 10) / 10
+          : baseRunSize
         const spanNode = (
           <span
             style={{
-              fontWeight: r.bold || elementBold ? 700 : 400,
-              fontStyle: r.italic || elementItalic ? 'italic' : 'normal',
+              fontWeight: (r.bold ?? elementBold) ? 700 : 400,
+              fontStyle: (r.italic ?? elementItalic) ? 'italic' : 'normal',
               textDecoration: deco.length ? deco.join(' ') : undefined,
               verticalAlign: r.superscript ? 'super' : r.subscript ? 'sub' : undefined,
-              fontSize:
-                r.superscript || r.subscript
-                  ? `${Math.round((fontSize * 0.75 + Number.EPSILON) * 10) / 10}px`
-                  : undefined,
+              fontSize: effectiveRunSize !== fontSize ? `${effectiveRunSize}px` : undefined,
               // If no explicit color, linked text falls back to a link-blue.
               color: r.color?.trim() || (resolvedHref ? '#2563eb' : undefined),
               backgroundColor: r.highlightColor?.trim() || undefined,

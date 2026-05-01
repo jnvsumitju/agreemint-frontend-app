@@ -18,6 +18,7 @@ export type ElementType =
   | 'RING'
   | 'MERGED_SHAPE'
   | 'LIST'
+  | 'FLOATING'
 
 export type ListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'number' | 'alpha' | 'roman' | 'none'
 
@@ -84,6 +85,10 @@ export interface ElementStyle {
   fontSize?: number
   bold?: boolean
   italic?: boolean
+  /** Draws an underline across the whole textbox. Run marks can still layer independently. */
+  underline?: boolean
+  /** Draws a line-through across the whole textbox. Run marks can still layer independently. */
+  strikethrough?: boolean
   align?: 'left' | 'center' | 'right'
   /** CSS color (e.g. #0f172a, rgb(15,23,42)). Text for rich text / table cells; stroke for LINE; border for BOX. */
   color?: string
@@ -188,14 +193,21 @@ export interface LayoutElement {
   tableColumnBackgrounds?: Record<string, string>
   /** Per-cell fill: keys "row,col" e.g. "-1,0" (header col 0), "0,2" (data row 0, col 2). Highest priority. */
   tableCellBackgrounds?: Record<string, string>
+  /**
+   * Static body-cell content for TABLEs with Loop OFF. Keys are `"row,col"`
+   * using the same coordinate convention as {@link tableCellBackgrounds}:
+   * `row` is the data-row index (0..previewBodyRows-1), `col` is the column
+   * position. Values are serialized rich-run JSON (same shape the canvas
+   * editor produces). Loop-on tables don't write here — their body comes
+   * from `variableValues[dataKey]`.
+   */
+  tableStaticCells?: Record<string, string>
   /** TABLE canvas: when true, column letters (A, B, …) stay visible; omitted/false = off by default, show on hover. */
   tableShowColumnLetters?: boolean
   /** TABLE canvas: when true, row gutter (1, 2, …) stays visible; omitted/false = off by default, show on hover. */
   tableShowRowNumbers?: boolean
   /** TABLE editor canvas: body preview row count (default 3). */
   tablePreviewBodyRows?: number
-  /** TABLE: when true + loop enabled, cell/border styles come from the variable data rather than canvas maps. */
-  tableStyleFromVariable?: boolean
   strokeWidth?: number
   marginTop?: number
   marginBottom?: number
@@ -245,11 +257,43 @@ export interface LayoutElement {
   linkedNextId?: string
   /** Linked text frame: ID of the preceding element on the previous page. */
   linkedPrevId?: string
+  /**
+   * FLOATING: which pages this element should also be rendered on, beyond
+   * its origin page. The element always appears on the page it was placed
+   * on; this prop controls extra repetition. Default `'current'` = origin only.
+   */
+  pageVisibility?: PageVisibility
+  /** FLOATING: 1-indexed page numbers when {@link pageVisibility} is `'specific'`. */
+  pageVisibilitySpecific?: number[]
+}
+
+/** Where a {@link LayoutElement} appears across the document's pages. */
+export type PageVisibility = 'current' | 'all' | 'odd' | 'even' | 'specific'
+
+/**
+ * True when the element should be rendered on `pageIndex` *as a cross-page
+ * repeat* (i.e. its origin page is somewhere else). Always returns false for
+ * the origin page — origin-page rendering is handled by the regular page
+ * elements path. The element is always shown on its origin regardless of
+ * visibility, so authors don't lose track of where they placed it.
+ */
+export function shouldRepeatOnPage(
+  el: LayoutElement,
+  pageIndex: number
+): boolean {
+  const v = el.pageVisibility ?? 'current'
+  if (v === 'current') return false
+  if (v === 'all') return true
+  const pageNumber = pageIndex + 1
+  if (v === 'odd') return pageNumber % 2 === 1
+  if (v === 'even') return pageNumber % 2 === 0
+  if (v === 'specific') return (el.pageVisibilitySpecific ?? []).includes(pageNumber)
+  return false
 }
 
 /** Elements with rich `content` + `style` (inline edit on canvas like TEXT). */
 export function isRichTextElement(el: LayoutElement): boolean {
-  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
+  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
 }
 
 /** Per-side page margins in pt (PDF points). */
@@ -478,6 +522,9 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   if (el.tableCellBackgrounds && Object.keys(el.tableCellBackgrounds).length > 0) {
     base.tableCellBackgrounds = el.tableCellBackgrounds
   }
+  if (el.tableStaticCells && Object.keys(el.tableStaticCells).length > 0) {
+    base.tableStaticCells = el.tableStaticCells
+  }
   if (el.tableShowColumnLetters === true) base.tableShowColumnLetters = true
   if (el.tableShowRowNumbers === true) base.tableShowRowNumbers = true
   if (
@@ -488,7 +535,6 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   ) {
     base.tablePreviewBodyRows = el.tablePreviewBodyRows
   }
-  if (el.tableStyleFromVariable === true) base.tableStyleFromVariable = true
   if (el.comments?.length) base.comments = el.comments
   if (el.strokeWidth != null) base.strokeWidth = el.strokeWidth
   if (el.marginTop != null) base.marginTop = el.marginTop
@@ -517,6 +563,10 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   // Linked text frame fields
   if (el.linkedNextId?.trim()) base.linkedNextId = el.linkedNextId
   if (el.linkedPrevId?.trim()) base.linkedPrevId = el.linkedPrevId
+  if (el.pageVisibility && el.pageVisibility !== 'current') base.pageVisibility = el.pageVisibility
+  if (el.pageVisibilitySpecific?.length) {
+    base.pageVisibilitySpecific = [...el.pageVisibilitySpecific]
+  }
   return base
 }
 
@@ -527,6 +577,52 @@ function parseCssColorRecord(raw: unknown): Record<string, string> | undefined {
     if (typeof v === 'string' && v.trim()) out[k] = v.trim()
   }
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * Less-strict {@link parseCssColorRecord}: accepts any string value (not
+ * just trimmed non-empty ones) and preserves it verbatim. Used for fields
+ * like {@code tableStaticCells} where an empty-rich-doc placeholder is a
+ * legitimate cleared-cell value, not garbage to discard.
+ */
+function parseStringRecord(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const coerced = coerceRichContentField(v)
+    if (typeof coerced === 'string') out[k] = coerced
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/**
+ * Defensive coercion for fields that are SUPPOSED to hold a JSON-encoded
+ * rich-content envelope as a string but sometimes arrive as the raw object.
+ * The AI output, in particular, occasionally emits {@code "content": {rich:
+ * true, runs: [...]}} (object) instead of {@code "content": "{\"rich\":true,...}"}
+ * (string) — without this coercion the rich-content parser fails its first
+ * JSON.parse and the entire envelope leaks onto the page as visible prose.
+ *
+ * Behaviour:
+ *   - String → returned unchanged.
+ *   - Object that LOOKS like a rich envelope ({rich, runs}) → JSON.stringify.
+ *   - Object that doesn't match the envelope shape → undefined (we'd rather
+ *     drop a malformed value than render junk).
+ *   - Anything else → undefined.
+ */
+function coerceRichContentField(raw: unknown): string | undefined {
+  if (raw == null) return undefined
+  if (typeof raw === 'string') return raw
+  if (typeof raw !== 'object') return undefined
+  const obj = raw as Record<string, unknown>
+  if (obj.rich === true && Array.isArray(obj.runs)) {
+    try {
+      return JSON.stringify(obj)
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
 }
 
 function parseGradientDef(raw: unknown): GradientDef | undefined {
@@ -571,9 +667,16 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     width: coerceLayoutScalar(raw.width, 120),
     height: coerceLayoutScalar(raw.height, 24),
     style,
-    content: raw.content != null ? String(raw.content) : undefined,
+    content: coerceRichContentField(raw.content) ?? (raw.content != null ? String(raw.content) : undefined),
     src: raw.src != null ? String(raw.src) : undefined,
-    columns: Array.isArray(raw.columns) ? (raw.columns as TableColumn[]) : undefined,
+    columns: Array.isArray(raw.columns)
+      ? (raw.columns as Record<string, unknown>[]).map((c) => ({
+          ...c,
+          // Same defensive coercion: AI sometimes emits header as a raw
+          // rich-content object instead of the JSON-encoded string.
+          header: coerceRichContentField(c?.header) ?? (c?.header != null ? String(c.header) : ''),
+        })) as TableColumn[]
+      : undefined,
     columnWidths: (() => {
       const cols = Array.isArray(raw.columns) ? raw.columns.length : 0
       if (!cols || !Array.isArray(raw.columnWidths)) return undefined
@@ -591,6 +694,7 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     tableRowBackgrounds: parseCssColorRecord(raw.tableRowBackgrounds),
     tableColumnBackgrounds: parseCssColorRecord(raw.tableColumnBackgrounds),
     tableCellBackgrounds: parseCssColorRecord(raw.tableCellBackgrounds),
+    tableStaticCells: parseStringRecord(raw.tableStaticCells),
     tableShowColumnLetters: raw.tableShowColumnLetters === true ? true : undefined,
     tableShowRowNumbers: raw.tableShowRowNumbers === true ? true : undefined,
     tablePreviewBodyRows: (() => {
@@ -600,7 +704,6 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
       if (!Number.isFinite(n)) return undefined
       return Math.max(1, Math.min(30, Math.floor(n)))
     })(),
-    tableStyleFromVariable: raw.tableStyleFromVariable === true ? true : undefined,
     comments: Array.isArray(raw.comments) && raw.comments.length > 0
       ? (raw.comments as ElementComment[])
       : undefined,
@@ -685,6 +788,19 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     // Linked text frame fields
     linkedNextId: typeof raw.linkedNextId === 'string' && raw.linkedNextId.trim() ? raw.linkedNextId : undefined,
     linkedPrevId: typeof raw.linkedPrevId === 'string' && raw.linkedPrevId.trim() ? raw.linkedPrevId : undefined,
+    pageVisibility: (() => {
+      const v = raw.pageVisibility
+      if (typeof v !== 'string') return undefined
+      const valid: PageVisibility[] = ['current', 'all', 'odd', 'even', 'specific']
+      return valid.includes(v as PageVisibility) ? (v as PageVisibility) : undefined
+    })(),
+    pageVisibilitySpecific: (() => {
+      if (!Array.isArray(raw.pageVisibilitySpecific)) return undefined
+      const arr = (raw.pageVisibilitySpecific as unknown[])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && Number.isInteger(n) && n >= 1)
+      return arr.length > 0 ? arr : undefined
+    })(),
   }
 }
 
@@ -908,6 +1024,30 @@ export type ParsedLayoutResult = {
   globalVariables: VariableDefinition[]
 }
 
+/**
+ * Collapse duplicate elements (by id) down to the first occurrence. Guards
+ * against corrupted server state where the same element was somehow
+ * persisted into the pages array multiple times — the layers panel and
+ * canvas-render path both iterate over the raw array, so every duplicate
+ * showed up as a ghost entry until the underlying JSON was fixed. Also
+ * filters band-nested children so a header/footer child can't get
+ * double-inserted for the same reason.
+ */
+function dedupeElementsById(elements: LayoutElement[]): LayoutElement[] {
+  const seen = new Set<string>()
+  const out: LayoutElement[] = []
+  for (const el of elements) {
+    if (!el || typeof el.id !== 'string' || seen.has(el.id)) continue
+    seen.add(el.id)
+    if (el.bandElements && el.bandElements.length > 0) {
+      out.push({ ...el, bandElements: dedupeElementsById(el.bandElements) })
+    } else {
+      out.push(el)
+    }
+  }
+  return out
+}
+
 export function parseLayoutJson(layout: LayoutJson | Record<string, unknown>): ParsedLayoutResult {
   const root = layout as Record<string, unknown>
   const pageRaw = root.page as Record<string, unknown> | undefined
@@ -921,9 +1061,11 @@ export function parseLayoutJson(layout: LayoutJson | Record<string, unknown>): P
       const id = typeof r.id === 'string' && r.id ? r.id : newPageId()
       const name = typeof r.name === 'string' && r.name.trim() ? r.name.trim() : `Page ${i + 1}`
       const rawEls = r.elements
-      const elements = Array.isArray(rawEls)
-        ? rawEls.map((e) => jsonToElement(e as Record<string, unknown>))
-        : []
+      const elements = dedupeElementsById(
+        Array.isArray(rawEls)
+          ? rawEls.map((e) => jsonToElement(e as Record<string, unknown>))
+          : []
+      )
       const localVariables = filterPersistableVariableDefinitions(parseVariableDefinitionList(r.localVariables))
       const guides = parsePageGuides((r as LayoutJsonPage & { guides?: unknown }).guides)
       return {
@@ -938,9 +1080,11 @@ export function parseLayoutJson(layout: LayoutJson | Record<string, unknown>): P
   }
 
   const els = (layout as LayoutJson).elements
-  const elements = Array.isArray(els)
-    ? els.map((e) => jsonToElement(e as Record<string, unknown>))
-    : []
+  const elements = dedupeElementsById(
+    Array.isArray(els)
+      ? els.map((e) => jsonToElement(e as Record<string, unknown>))
+      : []
+  )
   return {
     pages: [{ id: LEGACY_SINGLE_PAGE_ID, name: 'Page 1', elements }],
     page,

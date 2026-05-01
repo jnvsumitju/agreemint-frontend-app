@@ -142,10 +142,12 @@ export function EditorStatusBar() {
   const canvasPointerPt = useEditorStore((s) => s.canvasPointerPt)
   const showGrid = useEditorStore((s) => s.showGrid)
   const showRulers = useEditorStore((s) => s.showRulers)
+  const showEditorHints = useEditorStore((s) => s.showEditorHints)
   const gridSize = useEditorStore((s) => s.gridSize)
   const smartGuidesEnabled = useEditorStore((s) => s.smartGuidesEnabled)
   const setShowGrid = useEditorStore((s) => s.setShowGrid)
   const setShowRulers = useEditorStore((s) => s.setShowRulers)
+  const setShowEditorHints = useEditorStore((s) => s.setShowEditorHints)
   const setGridSize = useEditorStore((s) => s.setGridSize)
   const setSmartGuidesEnabled = useEditorStore((s) => s.setSmartGuidesEnabled)
   const canvasZoom = useEditorStore((s) => s.canvasZoom)
@@ -223,6 +225,11 @@ export function EditorStatusBar() {
             </select>
           )}
           <ToggleSwitch checked={smartGuidesEnabled} onChange={setSmartGuidesEnabled} label="Guides" />
+          <Tooltip content="Show the 'Double-click to edit · …' hint strip + hover tooltips on selected elements">
+            <span>
+              <ToggleSwitch checked={showEditorHints} onChange={setShowEditorHints} label="Hints" />
+            </span>
+          </Tooltip>
         </div>
       </div>
     </footer>

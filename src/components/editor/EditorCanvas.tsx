@@ -24,9 +24,18 @@ import { useAuthStore } from '../../stores/authStore'
 import { usePresenceStore } from '../../stores/presenceStore'
 import { getYFragment } from '../../collab/yDocProvider'
 import { computeDragSnap, computeResizeSnap } from '../../lib/canvasGuides'
+import { coerceToSupportedFamily } from '../../lib/fontLoader'
+import { useLayoutMeasurement } from '../../lib/useLayoutMeasurement'
+import { MeasurementProvider, useElementMeasurement } from './MeasurementContext'
+import { RichTextAbsoluteLines } from './RichTextAbsoluteLines'
+import { buildLayoutJson } from '../../types/layout'
 import { CANVAS_ZOOM_MAX, CANVAS_ZOOM_MIN } from '../../lib/editorConstants'
-import { isHeaderOrFooterType } from '../../lib/layoutMargins'
-import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
+import { isMarginExemptType } from '../../lib/layoutMargins'
+import {
+  findElementByIdInDocument,
+  mergeDocumentBandsIntoPageElements,
+  mergeFloatingRepeatsIntoPage,
+} from '../../lib/documentPageMerge'
 import { findBandNestedChild, findElementByIdInDocumentDeep } from '../../lib/bandNestedLayout'
 import { editorDiagLogOnce } from '../../lib/editorDiagnostics'
 import {
@@ -48,6 +57,8 @@ import {
 import { TipTapRichEditor } from './TipTapRichEditor'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
+import { RemoteSelectionBadge } from './RemoteSelectionBadge'
+import { TableSelectHandle } from './TableSelectHandle'
 import { TableElementCanvas, type LayoutTableElement } from './TableElementCanvas'
 import { ListElementCanvas } from './ListElementCanvas'
 import { AddImageModal } from './AddImageModal'
@@ -64,6 +75,7 @@ import {
 } from '../../lib/layoutBehaviourResolve'
 import type { Editor as TipTapEditor } from '@tiptap/core'
 import { copyElementsToClipboard, pasteElementsFromClipboard } from '../../lib/clipboard'
+import { reflowText as reflowTextApi } from '../../lib/api'
 import { gradientToCss, isValidGradient, svgGradientId, svgLinearGradientProps } from '../../lib/gradientUtils'
 import type { GradientDef } from '../../types/layout'
 
@@ -134,6 +146,13 @@ function CanvasElement({
   const inlineEditorRef = useRef<HTMLDivElement>(null)
   /** Survives brief store/zustand timing gaps vs TipTap destroy order. */
   const inlineTipTapLocalRef = useRef<TipTapEditor | null>(null)
+  /**
+   * True when the user pasted into the inline editor at least once during
+   * the current edit session. Reset on every fresh edit. On commit, when
+   * set, the canvas schedules a backend-driven reflow so the eventual PDF's
+   * split point is what the editor preview shows.
+   */
+  const pasteSeenInEditRef = useRef(false)
   const select = useEditorStore((s) => s.select)
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const updateElement = useEditorStore((s) => s.updateElement)
@@ -151,8 +170,15 @@ function CanvasElement({
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
+  const showEditorHints = useEditorStore((s) => s.showEditorHints)
   const commentHighlightId = useEditorStore((s) => s.commentHighlightId)
   const isCommentHighlighted = commentHighlightId === el.id
+  // TABLE-specific cell state — used to distinguish "whole table selected"
+  // from "a cell inside the table is active". The visual selection style
+  // differs: whole-table selection draws a purple ring + light tint,
+  // while cell-level activity hands off the ring to the cell itself.
+  const tableSelection = useEditorStore((s) => s.tableSelection)
+  const tableCellEdit = useEditorStore((s) => s.tableCellEdit)
   const templateId = useEditorStore((s) => s.templateId)
   const authUserId = useAuthStore((s) => s.user?.id ?? null)
   // Remote selections: the first presence user (other than me) whose selection
@@ -199,8 +225,24 @@ function CanvasElement({
 
   const selected = selectedIds.includes(el.id)
   const soleSelected = selectedIds.length === 1 && selectedIds[0] === el.id
-  /** TABLE: never use the outer violet ring — selection is shown on cells inside the table. */
-  const hideTableOuterSelectionRing = el.type === 'TABLE' && selected && !el.locked
+  /**
+   * True when this TABLE has an active cell selection or a cell in edit
+   * mode — in that case the violet outer-wrapper ring would collide with
+   * the cell's own selection ring, so we suppress it and let the inner
+   * cell chrome tell the story. If the TABLE is selected at the element
+   * level with NO cell activity (user just clicked the new table-select
+   * handle, or the whole table is picked from the Layers panel), we
+   * still render the outer ring so the user sees that the table as a
+   * whole is the selection target.
+   */
+  const tableCellActive =
+    el.type === 'TABLE' &&
+    !el.locked &&
+    (tableSelection?.tableId === el.id || tableCellEdit?.tableId === el.id)
+  const hideTableOuterSelectionRing = tableCellActive
+  /** TABLE selected at the element level (not a cell) → add a subtle violet tint. */
+  const tableElementLevelSelected =
+    el.type === 'TABLE' && selected && !el.locked && !tableCellActive
   const bandNested = useMemo(() => findBandNestedChild(pages, el.id), [pages, el.id])
 
   const persistCanvasTextContent = useCallback(
@@ -250,6 +292,65 @@ function CanvasElement({
   const inlineOpenedRef = useRef(false)
   const commitGuardRef = useRef(false)
 
+  /**
+   * Ask the backend to recompute the linked-frame split for `headId`'s chain
+   * using iText measurement, then apply the response to the chain. The
+   * frontend has already done a local reflow at this point — this overwrites
+   * it with the authoritative result. Errors are swallowed (we keep the FE
+   * approximation rather than reverting to single-frame state).
+   */
+  const scheduleBackendReflow = useCallback(async (headId: string) => {
+    try {
+      const st = useEditorStore.getState()
+      // The element id passed in might be mid-chain after the FE reflow ran;
+      // walk back to the actual head before sending.
+      let actualHeadId = headId
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let found: LayoutElement | undefined
+        for (const page of st.pages) {
+          found = page.elements.find((e) => e.id === actualHeadId)
+          if (found) break
+        }
+        if (!found?.linkedPrevId) break
+        actualHeadId = found.linkedPrevId
+      }
+      let headEl: LayoutElement | undefined
+      for (const page of st.pages) {
+        headEl = page.elements.find((e) => e.id === actualHeadId)
+        if (headEl) break
+      }
+      if (!headEl || headEl.type !== 'TEXT') return
+
+      // Build the request payload mirroring elementToJson — the backend reads
+      // `content`, `style`, `width`, `y`, `type`. Send the rich content as a
+      // string so the backend's existing rich-runs parser handles it.
+      const headPayload: Record<string, unknown> = {
+        id: headEl.id,
+        type: 'TEXT',
+        x: headEl.x,
+        y: headEl.y,
+        width: headEl.width,
+        height: headEl.height,
+        content: headEl.content ?? '',
+      }
+      if (headEl.style) headPayload.style = headEl.style
+      const pagePayload: Record<string, unknown> = {
+        size: st.pageSpec.size,
+      }
+      if (st.pageSpec.margins) pagePayload.margins = st.pageSpec.margins
+      if (st.pageSpec.margin != null) pagePayload.margin = st.pageSpec.margin
+      if (st.pageSpec.orientation) pagePayload.orientation = st.pageSpec.orientation
+
+      const resp = await reflowTextApi(headPayload, pagePayload)
+      if (!resp || !Array.isArray(resp.frames) || resp.frames.length === 0) return
+      const frames = resp.frames.map((f) => ({ content: f.content, measuredHeight: f.measuredHeight }))
+      reflowLinkedText(actualHeadId, frames)
+    } catch {
+      // Backend offline / network blip / 5xx: keep the FE approximation.
+    }
+  }, [reflowLinkedText])
+
   const commitInlineEdit = useCallback(() => {
     if (commitGuardRef.current) return
     const st0 = useEditorStore.getState()
@@ -292,16 +393,30 @@ function CanvasElement({
       const nh = Math.max(16, Math.min(phCap - cur.y, Math.ceil(outer.getBoundingClientRect().height)))
       if (Math.abs(nh - cur.height) > 0.5) height = nh
     }
+    // Detect any actual content change so we know whether to ask the backend
+    // to re-split. A no-op edit (open + close without typing) shouldn't burn
+    // a network round-trip.
+    const contentChanged = (cur?.content ?? '') !== content
     updateElement(el.id, height !== undefined ? { content, height } : { content })
     setCanvasInlineEdit(null)
+    pasteSeenInEditRef.current = false
     queueMicrotask(() => {
       commitGuardRef.current = false
       // Trigger linked text reflow for TEXT elements after commit
       if (el.type === 'TEXT' && !nested) {
         reflowLinkedText(el.id)
+        // Ask the backend (iText) for the authoritative split whenever the
+        // content actually changed — paste, type, delete, all of them. The
+        // local reflow above is an instant approximation; the BE response
+        // may pick a slightly different paragraph boundary so the editor
+        // matches what the eventual PDF will render. Failures are silent —
+        // the FE result stays and the editor remains usable.
+        if (contentChanged) {
+          void scheduleBackendReflow(el.id)
+        }
       }
     })
-  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText])
+  }, [el.id, el.type, updateElement, setCanvasInlineEdit, reflowLinkedText, scheduleBackendReflow])
 
   const escapeInlineEdit = useCallback(() => {
     const u = inlineUndoRef.current
@@ -330,21 +445,43 @@ function CanvasElement({
       inlineOpenedRef.current = true
       inlineUndoRef.current = { content: el.content ?? '', height: el.height }
       contentSnapshotRef.current = el.content
+      // Fresh edit session — reset the paste flag. A paste from a previous
+      // edit shouldn't kick off a backend reflow on this commit.
+      pasteSeenInEditRef.current = false
     }
   }, [isInlineEditing, el.id, el.content, el.height])
+
+  // True while the inline-editing box is rendering taller than the available
+  // height between its top edge and the page's bottom margin. The box is
+  // allowed to grow visually past that point ({@link growWithText} sets
+  // `height: auto`), but the stored height is clamped — so without a
+  // signal the author can keep typing/pasting and never realise their
+  // bottom paragraphs are overflowing the printable area.
+  const [editOverflowing, setEditOverflowing] = useState(false)
 
   /** Grow frame with text (PDF-style); keep stored height in sync for save / layout. */
   useLayoutEffect(() => {
     if (!isInlineEditing || !canInlineEdit) return
     // Linked frames keep their reflow-assigned height — skip auto-grow
-    if (isLinkedFrame) return
+    if (isLinkedFrame) {
+      setEditOverflowing(false)
+      return
+    }
     const root = outerRef.current
     if (!root) return
     let raf = 0
     const syncHeight = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        const h = Math.ceil(root.getBoundingClientRect().height)
+        // Browser bounding rect ≈ iText's ascender+descender region. iText
+        // adds a small tail of trailing leading below the last baseline
+        // (~fontSize × 0.2 for most Latin fonts) that shows up as the
+        // bottom row of descenders clipping in the generated PDF when the
+        // canvas and element height agree exactly. Pad the stored height
+        // by one descender-row so the PDF has room to render the tail.
+        const fontSize = typeof el.style?.fontSize === 'number' ? el.style.fontSize : 12
+        const descenderPad = Math.max(2, fontSize * 0.2)
+        const h = Math.ceil(root.getBoundingClientRect().height + descenderPad)
         const st = useEditorStore.getState()
         const cur = findElementByIdInDocumentDeep(st.pages, el.id)
         if (!cur) return
@@ -356,6 +493,10 @@ function CanvasElement({
         if (Math.abs(next - cur.height) > 0.5) {
           st.updateElement(el.id, { height: next }, { skipHistory: true })
         }
+        // Overflow signal: rendered DOM height exceeds the available room.
+        // Small tolerance so the indicator doesn't flicker right at the
+        // boundary while typing inserts a single extra descender row.
+        setEditOverflowing(h > maxH + 1)
       })
     }
     const ro = new ResizeObserver(syncHeight)
@@ -366,6 +507,49 @@ function CanvasElement({
       ro.disconnect()
     }
   }, [isInlineEditing, canInlineEdit, isLinkedFrame, el.id])
+
+  // Reset the overflow flag when leaving edit so a stale "true" doesn't
+  // linger after the author commits and the frame snaps back to its clamped
+  // height.
+  useEffect(() => {
+    if (!isInlineEditing) setEditOverflowing(false)
+  }, [isInlineEditing])
+
+  // View-mode auto-grow — fires whenever the backend measurement disagrees
+  // with the authored height. Runs OUTSIDE inline edit so that content
+  // changes from variable resolution, remote collab ops, or rule-driven
+  // mutations reflow the box without the author re-entering edit mode.
+  // Gated on TEXT-like + non-linked + non-edit so we don't race the
+  // inline ResizeObserver above (that one drives growth from DOM bbox;
+  // this one drives growth from iText's ground truth).
+  const measuredForGrow = useElementMeasurement(el.id)
+  const lastAppliedMeasuredHeightRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (isInlineEditing || isLinkedFrame) return
+    if (el.type !== 'TEXT' && el.type !== 'HEADER' && el.type !== 'FOOTER') return
+    const m = measuredForGrow?.measuredHeight
+    if (!m || m <= 0) return
+    // Skip if this measurement value was already applied — the measurement
+    // endpoint can return the same `measuredHeight` on every tick while
+    // the author is doing unrelated work. Each run of this effect would
+    // otherwise trigger a re-render.
+    if (lastAppliedMeasuredHeightRef.current === m) return
+    // Only grow, never shrink — if the author intentionally sized the box
+    // taller than the content, we don't want to collapse it just because
+    // the measurement fits.
+    if (m > el.height + 0.5) {
+      const st = useEditorStore.getState()
+      const n = findBandNestedChild(st.pages, el.id)
+      const phPage = pageDimensionsPt(st.pageSpec).height
+      const bottomMargin = st.pageSpec.margins?.bottom ?? 40
+      const maxH = (n ? bandViewportDims(st, n.container).h : phPage - bottomMargin) - el.y
+      const next = Math.max(16, Math.min(maxH, Math.ceil(m)))
+      if (Math.abs(next - el.height) > 0.5) {
+        st.updateElement(el.id, { height: next }, { skipHistory: true })
+      }
+    }
+    lastAppliedMeasuredHeightRef.current = m
+  }, [isInlineEditing, isLinkedFrame, el.type, el.id, el.height, el.y, measuredForGrow?.measuredHeight])
 
   useEffect(() => {
     if (!isInlineEditing) return
@@ -613,6 +797,92 @@ function CanvasElement({
     const startY = e.clientY
     const startW = Math.max(1, coerceLayoutScalar(el.width, 20))
     const startH = Math.max(1, coerceLayoutScalar(el.height, 16))
+
+    // TEXT content-min floor: a textbox can't be shrunk below the size its
+    // current content needs to render without clipping. Uses a hidden
+    // "mirror" div cloned from the live rendered content — during drag, we
+    // set mirror.style.width = target, read its scrollHeight, and clamp the
+    // resize height to that value. This gives the "shrink one, grow the
+    // other" UX: narrowing width forces height to stretch (because text
+    // rewraps to more lines), and the clamp refuses to let both shrink
+    // past the area the content needs. Replaces the earlier static
+    // drag-start snapshot, which couldn't reflow when width changed.
+    const isTextEl = el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
+    let mirror: HTMLElement | null = null
+    let widestWordPx = 20
+    if (isTextEl && outerRef.current) {
+      const root = outerRef.current
+      // Widest unbreakable token via Canvas 2D — this is the absolute width
+      // floor. No amount of taller-height can make a word narrower.
+      try {
+        const text = root.innerText ?? ''
+        const words = text.split(/\s+/).filter(Boolean)
+        if (words.length > 0) {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            const fs = typeof el.style?.fontSize === 'number' ? el.style.fontSize : 12
+            const ff = coerceToSupportedFamily(el.style?.fontFamily) || 'sans-serif'
+            const weight = el.style?.bold ? '700' : '400'
+            const slant = el.style?.italic ? 'italic' : 'normal'
+            ctx.font = `${slant} ${weight} ${fs}px ${ff}`
+            let max = 0
+            for (const w of words) {
+              const m = ctx.measureText(w).width
+              if (m > max) max = m
+            }
+            widestWordPx = Math.max(20, Math.ceil(max) + 4)
+          }
+        }
+      } catch {
+        /* leave widestWordPx at 20px absolute floor */
+      }
+      // Mirror: positioned off-screen, populated with a clone of the live
+      // inner content. We re-size its width each frame and read back
+      // scrollHeight to get the required height at that width. Using a
+      // clone of the actual rendered DOM means font, weight, color, and
+      // decoration all carry over without us re-deriving them.
+      try {
+        const inner = root.firstElementChild as HTMLElement | null
+        if (inner) {
+          const clone = inner.cloneNode(true) as HTMLElement
+          // Strip absolute-positioned line wrappers — they don't reflow.
+          // The simplest way: fall through to flowed text by forcing the
+          // container into CSS-flow and dropping children with `position:
+          // absolute`. In practice the cloned subtree from
+          // RichTextAbsoluteLines has many absolute children; copying the
+          // plain text as a single paragraph gives us a reliable reflow.
+          const text = root.innerText ?? ''
+          clone.innerHTML = ''
+          const p = document.createElement('div')
+          p.textContent = text
+          // Inherit the visible element's typography so measurement
+          // matches what the user sees.
+          const cs = window.getComputedStyle(inner)
+          p.style.fontFamily = cs.fontFamily
+          p.style.fontSize = cs.fontSize
+          p.style.fontWeight = cs.fontWeight
+          p.style.fontStyle = cs.fontStyle
+          p.style.lineHeight = cs.lineHeight
+          p.style.letterSpacing = cs.letterSpacing
+          p.style.whiteSpace = 'pre-wrap'
+          p.style.wordBreak = 'normal'
+          p.style.overflowWrap = 'break-word'
+          clone.appendChild(p)
+          clone.style.position = 'absolute'
+          clone.style.left = '-99999px'
+          clone.style.top = '0'
+          clone.style.visibility = 'hidden'
+          clone.style.pointerEvents = 'none'
+          clone.style.width = `${startW}px`
+          clone.style.height = 'auto'
+          document.body.appendChild(clone)
+          mirror = clone
+        }
+      } catch {
+        /* mirror setup failed — onMove falls back to the widestWordPx floor */
+      }
+    }
     // MERGED_SHAPE's outline lives in per-vertex data. Snapshot it at
     // drag start so each frame can scale from the ORIGINAL (snapshot →
     // target) rather than from whatever the store holds after the
@@ -657,7 +927,8 @@ function CanvasElement({
       const dx = (ev.clientX - startX) / z
       const dy = (ev.clientY - startY) / z
       const others = activeEls.filter((x) => x.id !== el.id)
-      const { width, height, guides, violatesMargins } = computeResizeSnap(
+      // eslint-disable-next-line prefer-const
+      let { width, height, guides, violatesMargins } = computeResizeSnap(
         startW + dx,
         startH + dy,
         current,
@@ -671,6 +942,21 @@ function CanvasElement({
         },
         viewportPt
       )
+      if (isTextEl) {
+        // Dynamic content-min: the widest unbreakable word is a hard
+        // width floor, and the mirror div's scrollHeight at the proposed
+        // width gives the height floor at that width. If the author
+        // narrows the box, the mirror rewraps, scrollHeight goes up,
+        // and we clamp the height to match — so "shrink width, grow
+        // height" works; "shrink both" is refused.
+        if (width < widestWordPx) width = widestWordPx
+        let contentMinH = 16
+        if (mirror) {
+          mirror.style.width = `${Math.max(1, Math.floor(width))}px`
+          contentMinH = Math.ceil(mirror.scrollHeight)
+        }
+        if (height < contentMinH) height = contentMinH
+      }
       setMarginClampHighlight(violatesMargins)
       st.setDragGuides(guides)
       if (isMergedShape) {
@@ -705,6 +991,10 @@ function CanvasElement({
       setMarginClampHighlight(false)
       useEditorStore.getState().setDragGuides({ vertical: [], horizontal: [] })
       useEditorStore.getState().endHistoryBatch()
+      if (mirror && mirror.parentNode) {
+        mirror.parentNode.removeChild(mirror)
+        mirror = null
+      }
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
@@ -766,14 +1056,20 @@ function CanvasElement({
       className={`group absolute box-border select-none transition-shadow ${
         isCommentHighlighted
           ? 'ring-2 ring-amber-400 ring-offset-1 shadow-[0_0_8px_2px_rgba(251,191,36,0.35)]'
-          : marginClampHighlight && !isHeaderOrFooterType(el.type)
+          : marginClampHighlight && !isMarginExemptType(el.type)
             ? 'ring-2 ring-red-500/85 ring-offset-1 shadow-[0_0_0_3px_rgba(248,113,113,0.22)]'
             : selected
               ? locked
                 ? 'ring-2 ring-amber-500 ring-offset-1'
                 : hideTableOuterSelectionRing
                   ? 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
-                  : 'ring-2 ring-violet-500 ring-offset-1'
+                  // A TABLE picked at element-level gets the normal violet
+                  // ring PLUS a soft violet tint, so it reads as "the whole
+                  // table is the selection target" even though each cell
+                  // draws its own chrome inside.
+                  : tableElementLevelSelected
+                    ? 'ring-2 ring-violet-500 ring-offset-1 bg-violet-50/40 dark:bg-violet-950/30'
+                    : 'ring-2 ring-violet-500 ring-offset-1'
               : 'hover:ring-1 hover:ring-violet-400 dark:hover:ring-violet-500'
       } ${isDragging ? 'z-10' : isInlineEditing ? 'z-20' : 'z-[1]'}`}
       style={
@@ -788,7 +1084,10 @@ function CanvasElement({
       onPointerDownCapture={onPointerDownCapture}
       onPointerDown={onPointerDownBubble}
       title={
-        locked
+        // Native hover-tooltip. Gated on the same `showEditorHints` flag
+        // as the floating hint strip below so both can be toggled from
+        // the status bar's "Hints" switch.
+        !showEditorHints || locked
           ? undefined
           : canInlineEdit
             ? bandNested && bandCanvasEditElementId !== bandNested.container.id
@@ -843,10 +1142,19 @@ function CanvasElement({
             }`}
             style={{
               fontSize: el.style?.fontSize ?? 12,
-              // Do not inherit element bold/italic onto the editor — it hides TipTap marks (B/I/sub/sup).
-              fontWeight: 400,
-              fontStyle: 'normal',
-              fontFamily: el.style?.fontFamily || undefined,
+              // Inherit element-level bold/italic/underline/strikethrough
+              // into the inline editor so the visual weight + slant +
+              // decoration match `RichTextBlockPreview`. Otherwise
+              // double-clicking e.g. a bold-underlined element appears to
+              // unbold/undecoreate the text even though nothing changed in
+              // the data. TipTap run-level marks still layer on top.
+              fontWeight: el.style?.bold ? 700 : 400,
+              fontStyle: el.style?.italic ? 'italic' : 'normal',
+              textDecoration: [
+                el.style?.underline ? 'underline' : null,
+                el.style?.strikethrough ? 'line-through' : null,
+              ].filter(Boolean).join(' ') || undefined,
+              fontFamily: coerceToSupportedFamily(el.style?.fontFamily),
               textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
               color: el.style?.color?.trim() || undefined,
               background: resolveBgStyle(el) || undefined,
@@ -866,14 +1174,20 @@ function CanvasElement({
               mode="canvas"
               sessionKey={el.id}
               autoFocus
+              onPaste={() => { pasteSeenInEditRef.current = true }}
               // Collaborative TEXT: bind to a Y.XmlFragment keyed by element id so
               // concurrent typing from multiple users merges CRDT-style.
               collabFragment={templateId ? getYFragment(templateId, el.id) : undefined}
-              editorClassName="bg-transparent font-normal not-italic"
+              // `bg-transparent` so the editor never paints its own background
+              // on top of the element's (possibly gradient) fill. NO
+              // `font-normal` / `not-italic` here — we WANT the inherited
+              // weight/style from the wrapper above so edit mode matches
+              // the preview render of element-level bold/italic.
+              editorClassName="bg-transparent"
               editorStyle={{
                 fontSize: el.style?.fontSize ?? 12,
-                fontWeight: 400,
-                fontStyle: 'normal',
+                fontWeight: el.style?.bold ? 700 : 400,
+                fontStyle: el.style?.italic ? 'italic' : 'normal',
                 textAlign: (el.style?.align ?? 'left') as React.CSSProperties['textAlign'],
                 color: el.style?.color?.trim() || undefined,
                 backgroundColor: 'transparent',
@@ -925,6 +1239,19 @@ function CanvasElement({
           Group
         </span>
       )}
+      {/* Remote-selection presence badge. Same condition as the coloured
+          outline above — when another user has this element in their
+          active selection, show a tiny avatar chip at the top-right with
+          a hover tooltip naming them. Lets people tell at-a-glance who's
+          poking at which element, MS-Excel-style. */}
+      {remoteSelector && <RemoteSelectionBadge user={remoteSelector} />}
+      {/* Table-select handle: a hover-revealed grid-icon button pinned
+          outside the top-left corner of a TABLE element. Click it to
+          select the whole table (bypassing the cell-level selection the
+          table interior would otherwise route clicks into). Also doubles
+          as an escape hatch when any cell inside is selected or in edit
+          mode — the handle stays persistently visible then. */}
+      {el.type === 'TABLE' && !locked && !viewOnly && <TableSelectHandle tableId={el.id} />}
       {locked && (
         <span
           className="pointer-events-none absolute right-1 top-1 z-30 rounded bg-amber-100 px-1 py-px text-[9px] font-bold text-amber-900 dark:bg-amber-950/80 dark:text-amber-100"
@@ -957,7 +1284,15 @@ function CanvasElement({
           Continues &#x2193;
         </span>
       )}
-      {canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
+      {editOverflowing && !el.linkedNextId && (
+        <span
+          className="pointer-events-none absolute -bottom-4 left-1/2 z-30 -translate-x-1/2 rounded bg-amber-100 px-1.5 py-px text-[8px] font-semibold text-amber-800 ring-1 ring-amber-300 dark:bg-amber-900/60 dark:text-amber-100 dark:ring-amber-600"
+          title="This text overflows the page. When you finish editing, it will be split across pages automatically."
+        >
+          Overflows page · will split when you finish
+        </span>
+      )}
+      {showEditorHints && canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
         <span className={`pointer-events-none absolute left-0 max-w-[min(100%,280px)] text-[9px] leading-tight text-zinc-500 dark:text-zinc-400 ${el.linkedPrevId ? '-top-9' : '-top-5'}`}>
           {el.type === 'TEXT' && bandNested && bandCanvasEditElementId !== bandNested.container.id
             ? 'Double-click opens band editor — text edits only there · toolbar Page / Header / Footer · Esc when done'
@@ -1075,8 +1410,10 @@ function ElementPreview({ el }: { el: LayoutElement }) {
           textAlign={align}
           elementBold={el.style?.bold}
           elementItalic={el.style?.italic}
+          elementUnderline={el.style?.underline}
+          elementStrikethrough={el.style?.strikethrough}
           color={el.style?.color}
-          fontFamily={el.style?.fontFamily}
+          fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
           lineHeight={el.style?.lineHeight}
         />
       </div>
@@ -1328,23 +1665,29 @@ function ElementPreview({ el }: { el: LayoutElement }) {
   // Gradient text colour (or solid)
   const hasColorGrad = isValidGradient(el.style?.colorGradient)
   const textColorStyle = resolveTextColorStyle(el)
+  // Phase 1.5: when we have a measurement for this element id, absolute-position
+  // each line; otherwise fall back to CSS flow via RichTextBlockPreview.
+  const measurement = useElementMeasurement(el.id)
 
   return (
     <div
       className={`pointer-events-none h-full w-full overflow-hidden ${el.style?.color?.trim() || hasColorGrad ? '' : 'text-zinc-900 dark:text-zinc-100'}`}
-      style={{ fontFamily: el.style?.fontFamily || undefined, background: bgCss, ...textColorStyle }}
+      style={{ fontFamily: coerceToSupportedFamily(el.style?.fontFamily), background: bgCss, ...textColorStyle }}
     >
-      <RichTextBlockPreview
+      <RichTextAbsoluteLines
         content={el.content}
+        measurement={measurement}
         variableValues={variableValues}
         variableSurfaceLabelResolver={variableSurfaceLabelResolver}
         fontSize={fs}
         textAlign={align}
         elementBold={el.style?.bold}
         elementItalic={el.style?.italic}
+        elementUnderline={el.style?.underline}
+        elementStrikethrough={el.style?.strikethrough}
         color={hasColorGrad ? undefined : el.style?.color}
         backgroundColor={isValidGradient(el.style?.bgGradient) ? undefined : el.style?.backgroundColor}
-        fontFamily={el.style?.fontFamily}
+        fontFamily={coerceToSupportedFamily(el.style?.fontFamily)}
         lineHeight={el.style?.lineHeight}
       />
     </div>
@@ -1581,11 +1924,25 @@ export function EditorCanvas({
 
   const variableValues = useEditorStore((s) => s.variableValues)
   const previewData = useMemo(() => variableValuesToDataTree(variableValues), [variableValues])
-  const mergedElements = useMemo(
-    () =>
-      bandContainerEl ? elements : mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements),
-    [bandContainerEl, elements, pages, activePageIndex, activePageElements]
-  )
+
+  // Phase 1.5: drive the backend measurement endpoint from the currently
+  // rendered layout. The hook debounces 250ms + caches results by element id;
+  // ElementPreview consumes the per-id entry via MeasurementContext and
+  // switches to absolute-positioned line rendering when present.
+  const measurement = useLayoutMeasurement()
+  const editorGlobalVars = useEditorStore((s) => s.globalVariableDefinitions)
+  const editorPageSpec = useEditorStore((s) => s.pageSpec)
+  useEffect(() => {
+    const layoutJson = buildLayoutJson(pages, editorPageSpec, editorGlobalVars) as unknown as Record<string, unknown>
+    measurement.requestMeasurement(layoutJson, variableValues as unknown as Record<string, unknown>)
+    // Dependency intent: remeasure whenever the document shape or preview data
+    // changes. `requestMeasurement` is stable across renders (useCallback).
+  }, [pages, editorPageSpec, editorGlobalVars, variableValues, measurement.requestMeasurement])
+  const mergedElements = useMemo(() => {
+    if (bandContainerEl) return elements
+    const withBands = mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements)
+    return mergeFloatingRepeatsIntoPage(pages, activePageIndex, withBands)
+  }, [bandContainerEl, elements, pages, activePageIndex, activePageElements])
   const displayElements = useMemo(() => {
     return mergedElements.flatMap((el) => {
       const { visible, element } = resolveLayoutElement(el, previewData, null)
@@ -1858,6 +2215,33 @@ export function EditorCanvas({
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [bandCanvasEditElementId])
+
+  // ── Escape = step up inside a TABLE ──
+  // Figma/Google-Sheets-style hierarchy escape:
+  //   cell-edit → cell-selection (handled by TipTap inside the cell editor)
+  //   cell-selection → table-element-only selection (this handler)
+  // Without this, Escape inside a selected cell (not editing) is a no-op
+  // and the user has to mouse over to the new corner handle to get out.
+  // Kept as its own effect so the guard is explicit — doesn't fire
+  // when a TipTap inline / cell editor has focus, doesn't fire when
+  // no table cell is selected.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (isEditableTarget(document.activeElement)) return
+      const st = useEditorStore.getState()
+      // Let the cell editor's own Escape handler run first for cell-edit.
+      if (st.tableCellEdit) return
+      if (st.canvasInlineEditId) return
+      const sel = st.tableSelection
+      if (!sel) return
+      e.preventDefault()
+      // Keep the table element selected but drop the cell-level selection.
+      st.setTableSelection(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   // ── Phase 3: arrow-key nudge, Tab cycle, Delete/Backspace ──
   useEffect(() => {
@@ -2845,6 +3229,7 @@ export function EditorCanvas({
   )
 
   return (
+    <MeasurementProvider value={measurement.byId}>
     <>
     <div
       ref={scrollRef}
@@ -3180,6 +3565,25 @@ export function EditorCanvas({
               <button
                 type="button"
                 role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                onClick={() => {
+                  const st = useEditorStore.getState()
+                  const elId = st.selectedIds[st.selectedIds.length - 1]
+                  setElementContextMenu(null)
+                  if (elId) st.openAiModalForElement(elId)
+                }}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M14.5 9.5L4 20" />
+                  <path d="M14.5 9.5l5-5" />
+                  <path d="M13 8l3 3" />
+                </svg>
+                Modify with AI…
+              </button>
+              <div className="border-t border-zinc-100 dark:border-zinc-700" />
+              <button
+                type="button"
+                role="menuitem"
                 className="block w-full px-3 py-2 text-left font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
                 onClick={() => {
                   const name = window.prompt('Component name', 'My component')
@@ -3235,5 +3639,6 @@ export function EditorCanvas({
       </>
     ) : null}
     </>
+    </MeasurementProvider>
   )
 }

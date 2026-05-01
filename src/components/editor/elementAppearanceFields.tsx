@@ -3,6 +3,7 @@ import type { ElementShadow, ElementStyle, GradientDef, LayoutElement } from '..
 import { ColorToolbarSwatch } from './ColorPalettePopover'
 import { INPUT_CLASS, MONO_INPUT_CLASS } from './uiClasses'
 import { BindingIndicator } from './BindingIndicator'
+import { isParityFeatureEnabled } from '../../lib/features'
 
 const inputClass = `min-w-0 flex-1 ${MONO_INPUT_CLASS}`
 const numInputSmClass = `${INPUT_CLASS} min-w-0 flex-1`
@@ -257,66 +258,83 @@ export function ElementVisualFields({
 }) {
   const s = style ?? {}
   const set = (patch: Partial<ElementStyle>) => onChange({ ...s, ...patch })
+  // Parity gating — hide controls the backend doesn't render yet. When the
+  // parity flag is off, `isParityFeatureEnabled` returns true for everything
+  // so legacy editor behaviour is preserved byte-for-byte.
+  const showOpacity = isParityFeatureEnabled('opacity')
+  const showRotation = isParityFeatureEnabled('rotation')
+  const showShadow = isParityFeatureEnabled('shadow')
+  if (!showOpacity && !showRotation && !showShadow) return null
 
   return (
     <div className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-600">
       <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Visual</p>
 
       {/* Opacity slider */}
-      <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-        <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
-          Opacity: {Math.round((s.opacity ?? 1) * 100)}%
-          {element && <BindingIndicator element={element} target="opacity" />}
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round((s.opacity ?? 1) * 100)}
-          className="h-1.5 w-full cursor-pointer accent-violet-600"
-          onChange={(e) => {
-            const v = Number(e.target.value) / 100
-            set({ opacity: v >= 1 ? undefined : Math.max(0, v) })
-          }}
-        />
-      </label>
-
-      {/* Rotation */}
-      <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
-        <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
-          Rotation (deg)
-          {element && <BindingIndicator element={element} target="rotation" />}
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className={stepBtnClass}
-            title="Rotate −15°"
-            onClick={() => set({ rotation: ((s.rotation ?? 0) - 15) % 360 })}
-          >
-            −15
-          </button>
+      {showOpacity && (
+        <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
+          <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+            Opacity: {Math.round((s.opacity ?? 1) * 100)}%
+            {element && <BindingIndicator element={element} target="opacity" />}
+          </span>
           <input
-            type="number"
-            className={numInputSmClass}
-            value={s.rotation ?? 0}
+            type="range"
+            min={0}
+            max={100}
+            value={Math.round((s.opacity ?? 1) * 100)}
+            className="h-1.5 w-full cursor-pointer accent-violet-600"
             onChange={(e) => {
-              const v = Number(e.target.value) || 0
-              set({ rotation: v === 0 ? undefined : v })
+              const v = Number(e.target.value) / 100
+              set({ opacity: v >= 1 ? undefined : Math.max(0, v) })
             }}
           />
-          <button
-            type="button"
-            className={stepBtnClass}
-            title="Rotate +15°"
-            onClick={() => set({ rotation: ((s.rotation ?? 0) + 15) % 360 })}
-          >
-            +15
-          </button>
-        </div>
-      </label>
+        </label>
+      )}
 
-      <ShadowSubfields style={s} onChange={onChange} element={element} />
+      {/* Rotation */}
+      {showRotation && (
+        <label className="flex flex-col gap-1 text-[10px] lg:text-xs">
+          <span className="flex items-center gap-1 font-medium text-zinc-600 dark:text-zinc-400">
+            Rotation (deg)
+            {element && <BindingIndicator element={element} target="rotation" />}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className={stepBtnClass}
+              title="Rotate −15°"
+              onClick={() => set({ rotation: ((s.rotation ?? 0) - 15) % 360 })}
+            >
+              −15
+            </button>
+            <input
+              type="number"
+              className={numInputSmClass}
+              value={s.rotation ?? 0}
+              min={-360}
+              max={360}
+              onChange={(e) => {
+                const raw = Number(e.target.value) || 0
+                // Normalize stray inputs (e.g. 9999) into [-360, 360]. The
+                // canvas + PDF renderers take the modulo naturally but
+                // storing it clamped keeps the input box well-behaved.
+                const v = Math.max(-360, Math.min(360, Math.round(raw))) % 360
+                set({ rotation: v === 0 ? undefined : v })
+              }}
+            />
+            <button
+              type="button"
+              className={stepBtnClass}
+              title="Rotate +15°"
+              onClick={() => set({ rotation: ((s.rotation ?? 0) + 15) % 360 })}
+            >
+              +15
+            </button>
+          </div>
+        </label>
+      )}
+
+      {showShadow && <ShadowSubfields style={s} onChange={onChange} element={element} />}
     </div>
   )
 }

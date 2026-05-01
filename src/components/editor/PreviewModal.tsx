@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/shallow'
-import { generatePreviewPdf } from '../../lib/api'
-import { buildLayoutJson } from '../../types/layout'
+import { generatePreviewPdf, measureLayout } from '../../lib/api'
+import { buildLayoutJson, type LayoutJson } from '../../types/layout'
 import {
   getTableColumnsForDataKey,
   parseTableRowsFromJson,
@@ -15,6 +15,9 @@ import {
   uniqueTableDataKeys,
 } from '../../lib/variables'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
+import { serializeRunsToContent } from '../../lib/richContent'
+import { findOverflowingElements, type Overflow } from '../../lib/overflowCheck'
+import { pixelParityEnabled } from '../../lib/features'
 import { PdfCustomViewer } from './PdfCustomViewer'
 import { PreviewDataPanel } from './PreviewDataPanel'
 
@@ -50,6 +53,10 @@ export function PreviewModal({ open, onClose, templateId }: PreviewModalProps) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [pdfSrc, setPdfSrc] = useState<string | null>(null)
+  // Overflow banner state — populated after each preview-render by asking
+  // the measurement endpoint where iText would clip. Surfaced as a yellow
+  // banner above the PDF so the author notices silent clipping immediately.
+  const [overflowWarnings, setOverflowWarnings] = useState<Overflow[] | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -93,16 +100,31 @@ export function PreviewModal({ open, onClose, templateId }: PreviewModalProps) {
   const runGenerate = async () => {
     setLoading(true)
     setErr(null)
+    setOverflowWarnings(null)
     try {
-      const layout = buildLayoutJson(pages, pageSpec, globalVariableDefinitions) as unknown as Record<
+      const layoutRec = buildLayoutJson(pages, pageSpec, globalVariableDefinitions) as unknown as Record<
         string,
         unknown
       >
-      const blob = await generatePreviewPdf(layout, buildData())
+      const dataRec = buildData()
+      const blob = await generatePreviewPdf(layoutRec, dataRec)
       setPdfSrc((prev) => {
         if (prev) URL.revokeObjectURL(prev)
         return URL.createObjectURL(blob)
       })
+      // Post-render overflow check — ask the measurement endpoint where
+      // iText clipped. Previously this only ran on Commit; a user could
+      // stare at a silently-clipped preview PDF with no signal. Now a
+      // banner appears above the PDF naming each over-sized element.
+      if (pixelParityEnabled()) {
+        try {
+          const resp = await measureLayout(layoutRec, dataRec as Record<string, unknown>)
+          const overflows = findOverflowingElements(layoutRec as unknown as LayoutJson, resp.measurements)
+          setOverflowWarnings(overflows.length ? overflows : null)
+        } catch {
+          /* measurement is a soft-assist — failures don't block the preview */
+        }
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Generation failed')
     } finally {
@@ -150,11 +172,57 @@ export function PreviewModal({ open, onClose, templateId }: PreviewModalProps) {
             onTableRowsChange={(dataKey, rows) =>
               setTableRows((t) => ({ ...t, [dataKey]: rows }))
             }
+            onTableColumnHeaderChange={(dataKey, colIndex, header) => {
+              // Locate the TABLE element bound to this dataKey and rewrite the
+              // indexed column's header. The PDF renderer reads
+              // col.header for the header row, so this keeps preview-panel
+              // edits consistent with what prints. We store the header as a
+              // single-run rich doc so downstream `parseContentToRuns` paths
+              // continue to work (mixed plain + rich are both accepted, but
+              // rich is the canonical shape written by the canvas editor).
+              const tableEl = elements.find(
+                (e) => e.type === 'TABLE' && e.dataKey === dataKey
+              )
+              if (!tableEl || !tableEl.columns?.length) return
+              const nextCols = tableEl.columns.map((c, i) =>
+                i === colIndex
+                  ? {
+                      ...c,
+                      header: header
+                        ? serializeRunsToContent([{ type: 'text', text: header }])
+                        : serializeRunsToContent([]),
+                    }
+                  : c
+              )
+              useEditorStore.getState().updateElement(tableEl.id, { columns: nextCols })
+            }}
             onGenerate={() => void runGenerate()}
             loading={loading}
             err={err}
           />
-          <div className="relative min-h-[min(52vh,420px)] min-w-0 flex-1 overflow-hidden md:min-h-0">
+          <div className="relative flex min-h-[min(52vh,420px)] min-w-0 flex-1 flex-col overflow-hidden md:min-h-0">
+            {overflowWarnings && overflowWarnings.length > 0 ? (
+              <div className="mb-2 shrink-0 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                <div className="font-semibold">
+                  Content clipped in PDF ({overflowWarnings.length}
+                  {' '}
+                  element{overflowWarnings.length === 1 ? '' : 's'})
+                </div>
+                <div className="mt-0.5 opacity-80">
+                  {overflowWarnings
+                    .slice(0, 3)
+                    .map(
+                      (o) =>
+                        `${o.elementType ?? 'TEXT'} ${o.elementId.slice(0, 6)} overflows by ${Math.round(o.delta)}pt`
+                    )
+                    .join(' · ')}
+                  {overflowWarnings.length > 3 ? ` · +${overflowWarnings.length - 3} more` : ''}
+                </div>
+                <div className="mt-1 text-[10px] opacity-70">
+                  Grow the box height(s) on canvas to fit the content before committing.
+                </div>
+              </div>
+            ) : null}
             {pdfSrc ? (
               <PdfCustomViewer
                 blobUrl={pdfSrc}

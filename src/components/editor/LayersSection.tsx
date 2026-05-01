@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { documentBandElementsFromFirstPage, findElementByIdInDocument } from '../../lib/documentPageMerge'
+import {
+  documentBandElementsFromFirstPage,
+  findElementByIdInDocument,
+  mergeFloatingRepeatsIntoPage,
+} from '../../lib/documentPageMerge'
 import { editorDiagLogOnce } from '../../lib/editorDiagnostics'
 import { selectActivePageElements, useEditorStore } from '../../stores/editorStore'
 import type { LayoutElement } from '../../types/layout'
@@ -45,6 +49,7 @@ function layerSubtitle(el: LayoutElement): string {
     case 'TEXT':
     case 'HEADER':
     case 'FOOTER':
+    case 'FLOATING':
       return formatLayerPt(el)
     default:
       return formatLayerPt(el)
@@ -73,6 +78,7 @@ const typeStyle: Record<LayoutElement['type'], string> = {
   LIST: 'bg-lime-200 text-lime-950 dark:bg-lime-900/50 dark:text-lime-100',
   MERGED_SHAPE: 'bg-teal-200 text-teal-950 dark:bg-teal-900/50 dark:text-teal-100',
   RING: 'bg-cyan-200 text-cyan-950 dark:bg-cyan-900/50 dark:text-cyan-100',
+  FLOATING: 'bg-fuchsia-200 text-fuchsia-950 dark:bg-fuchsia-900/50 dark:text-fuchsia-100',
 }
 
 type DropHint = { targetId: string; side: 'before' | 'after' }
@@ -82,6 +88,8 @@ const DOCUMENT_BAND_PAGE_INDEX = 0
 
 export function LayersSection() {
   const pages = useEditorStore((s) => s.pages)
+  const activePageIndex = useEditorStore((s) => s.activePageIndex)
+  const setActivePageIndex = useEditorStore((s) => s.setActivePageIndex)
   const bandCanvasEditElementId = useEditorStore((s) => s.bandCanvasEditElementId)
   const bandNestedEditorMounted = useEditorStore((s) => s.bandNestedEditorMounted)
   const bandEditorMode = bandCanvasEditElementId != null
@@ -91,11 +99,28 @@ export function LayersSection() {
   const bandContainer = bandNestedMode
     ? findElementByIdInDocument(pages, bandCanvasEditElementId)
     : undefined
-  const elements = bandNestedMode
+  const baseElements = bandNestedMode
     ? bandContainer?.bandElements ?? []
     : bandEditorMode
       ? bandsOnPage1.filter((e) => e.id !== bandCanvasEditElementId)
       : activePageElements
+  // In normal page mode, append cross-page FLOATING ghosts so the user
+  // sees the full visual stack on this page — including elements that
+  // physically live elsewhere but render here via pageVisibility.
+  const elements = useMemo(() => {
+    if (bandEditorMode || bandNestedMode) return baseElements
+    return mergeFloatingRepeatsIntoPage(pages, activePageIndex, baseElements)
+  }, [bandEditorMode, bandNestedMode, baseElements, pages, activePageIndex])
+  /** Map element id → 0-indexed origin page (where the element physically lives). */
+  const elementOriginPage = useMemo(() => {
+    const map = new Map<string, number>()
+    for (let i = 0; i < pages.length; i++) {
+      for (const el of pages[i]?.elements ?? []) {
+        if (!map.has(el.id)) map.set(el.id, i)
+      }
+    }
+    return map
+  }, [pages])
   const layerPageIndex = bandEditorMode && !bandNestedMode ? DOCUMENT_BAND_PAGE_INDEX : undefined
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const select = useEditorStore((s) => s.select)
@@ -230,16 +255,34 @@ export function LayersSection() {
           const isBack = stackIndex === 0
           const isSelected = selectedIds.includes(el.id)
           const locked = !!el.locked
+          const originPage = elementOriginPage.get(el.id)
+          const isGhost =
+            !bandEditorMode &&
+            !bandNestedMode &&
+            originPage !== undefined &&
+            originPage !== activePageIndex
+          const ghostTooltip = isGhost
+            ? `Repeats here from Page ${(originPage as number) + 1}. Click to open that page and edit.`
+            : undefined
           return (
             <li key={el.id}>
               <div
                 className={`relative flex flex-col rounded-lg border transition-colors ${
-                  isSelected
-                    ? 'border-violet-500 bg-violet-50 dark:border-violet-500 dark:bg-violet-950/40'
-                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:hover:border-zinc-500'
+                  isGhost
+                    ? 'border-zinc-200 bg-zinc-50 opacity-70 dark:border-zinc-700 dark:bg-zinc-900/40'
+                    : isSelected
+                      ? 'border-violet-500 bg-violet-50 dark:border-violet-500 dark:bg-violet-950/40'
+                      : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:hover:border-zinc-500'
                 }`}
-                onDragOver={(e) => handleRowDragOver(el, e)}
-                onDrop={(e) => handleRowDrop(el, e)}
+                title={ghostTooltip}
+                onDragOver={(e) => {
+                  if (isGhost) return
+                  handleRowDragOver(el, e)
+                }}
+                onDrop={(e) => {
+                  if (isGhost) return
+                  handleRowDrop(el, e)
+                }}
               >
                 {dropHint?.targetId === el.id && dropHint.side === 'before' && (
                   <div
@@ -254,29 +297,47 @@ export function LayersSection() {
                   />
                 )}
                 <div className="flex items-center gap-1 px-2 py-1.5">
-                  <div
-                    draggable
-                    title="Drag to reorder"
-                    aria-label="Drag to reorder layer"
-                    className="flex shrink-0 cursor-grab touch-none flex-col justify-center gap-0.5 rounded px-0.5 py-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(LAYER_DRAG_TYPE, el.id)
-                      e.dataTransfer.effectAllowed = 'move'
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="block h-0.5 w-3 rounded-full bg-current" />
-                    <span className="block h-0.5 w-3 rounded-full bg-current" />
-                    <span className="block h-0.5 w-3 rounded-full bg-current" />
-                  </div>
+                  {isGhost ? (
+                    <div
+                      aria-hidden
+                      title={ghostTooltip}
+                      className="flex shrink-0 flex-col justify-center gap-0.5 rounded px-0.5 py-1 text-zinc-300 dark:text-zinc-600"
+                    >
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                    </div>
+                  ) : (
+                    <div
+                      draggable
+                      title="Drag to reorder"
+                      aria-label="Drag to reorder layer"
+                      className="flex shrink-0 cursor-grab touch-none flex-col justify-center gap-0.5 rounded px-0.5 py-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData(LAYER_DRAG_TYPE, el.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                      <span className="block h-0.5 w-3 rounded-full bg-current" />
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="min-w-0 flex-1 truncate text-left"
-                    onClick={(e) =>
+                    title={ghostTooltip}
+                    onClick={(e) => {
+                      if (isGhost && originPage !== undefined) {
+                        setActivePageIndex(originPage)
+                        select(el.id)
+                        return
+                      }
                       bandEditorMode
                         ? select(el.id)
                         : select(el.id, e.metaKey || e.ctrlKey || e.shiftKey ? { additive: true } : undefined)
-                    }
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -292,6 +353,11 @@ export function LayersSection() {
                               (locked)
                             </span>
                           ) : null}
+                          {isGhost && originPage !== undefined ? (
+                            <span className="ml-1.5 rounded bg-zinc-200 px-1 py-px text-[9px] font-normal text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                              from Page {originPage + 1}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="truncate text-[10px] text-zinc-500 dark:text-zinc-400">
                           {layerSubtitle(el)}
@@ -301,12 +367,14 @@ export function LayersSection() {
                   </button>
                   <button
                     type="button"
-                    title={locked ? 'Unlock layer' : 'Lock layer'}
-                    className={`shrink-0 rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 ${
+                    title={isGhost ? ghostTooltip : locked ? 'Unlock layer' : 'Lock layer'}
+                    disabled={isGhost}
+                    className={`shrink-0 rounded p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 ${
                       locked ? 'text-amber-700 dark:text-amber-300' : ''
                     }`}
                     onClick={(e) => {
                       e.stopPropagation()
+                      if (isGhost) return
                       select(el.id)
                       updateElement(el.id, { locked: locked ? false : true })
                     }}
@@ -323,10 +391,12 @@ export function LayersSection() {
                   </button>
                   <button
                     type="button"
-                    title="Delete layer"
-                    className="shrink-0 rounded p-1 text-zinc-500 hover:bg-red-50 hover:text-red-700 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                    title={isGhost ? ghostTooltip : 'Delete layer'}
+                    disabled={isGhost}
+                    className="shrink-0 rounded p-1 text-zinc-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                     onClick={(e) => {
                       e.stopPropagation()
+                      if (isGhost) return
                       removeElement(el.id)
                     }}
                   >
@@ -338,11 +408,12 @@ export function LayersSection() {
                   <div className="flex shrink-0 flex-col gap-0.5 border-l border-zinc-200 pl-1 dark:border-zinc-600">
                     <button
                       type="button"
-                      title="Bring forward (one step)"
-                      disabled={isFront}
+                      title={isGhost ? ghostTooltip : 'Bring forward (one step)'}
+                      disabled={isFront || isGhost}
                       className="rounded px-1 py-0.5 text-[10px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       onClick={(e) => {
                         e.stopPropagation()
+                        if (isGhost) return
                         if (bandNestedMode) moveBandNestedLayer(el.id, 'forward')
                         else moveLayer(el.id, 'forward', layerPageIndex)
                       }}
@@ -351,11 +422,12 @@ export function LayersSection() {
                     </button>
                     <button
                       type="button"
-                      title="Send backward (one step)"
-                      disabled={isBack}
+                      title={isGhost ? ghostTooltip : 'Send backward (one step)'}
+                      disabled={isBack || isGhost}
                       className="rounded px-1 py-0.5 text-[10px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
                       onClick={(e) => {
                         e.stopPropagation()
+                        if (isGhost) return
                         if (bandNestedMode) moveBandNestedLayer(el.id, 'backward')
                         else moveLayer(el.id, 'backward', layerPageIndex)
                       }}
