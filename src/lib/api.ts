@@ -428,7 +428,7 @@ export async function outlineAi(
  */
 export async function clarifyAi(
   templateId: string,
-  body: { instruction: string; currentLayout: unknown; variables: unknown },
+  body: { instruction: string; currentLayout: unknown; variables: unknown; targetElementId?: string },
 ): Promise<AiClarifyResponse> {
   const res = await authFetch(`${API_BASE}/api/templates/${templateId}/ai-clarify`, {
     method: 'POST',

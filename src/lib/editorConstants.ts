@@ -26,6 +26,7 @@ export const DEFAULT_ELEMENT_DIMENSIONS: Record<ElementType, { width: number; he
   TEXT: { width: 400, height: 80 },
   HEADER: { width: 500, height: 32 },
   FOOTER: { width: 500, height: 32 },
+  FLOATING: { width: 240, height: 60 },
   TABLE: { width: 200, height: 88 },
   IMAGE: { width: 120, height: 120 },
   LINE: { width: 400, height: 4 },

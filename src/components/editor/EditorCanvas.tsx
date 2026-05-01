@@ -808,7 +808,7 @@ function CanvasElement({
     // past the area the content needs. Replaces the earlier static
     // drag-start snapshot, which couldn't reflow when width changed.
     const isTextEl = el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
-    let mirror: HTMLDivElement | null = null
+    let mirror: HTMLElement | null = null
     let widestWordPx = 20
     if (isTextEl && outerRef.current) {
       const root = outerRef.current
