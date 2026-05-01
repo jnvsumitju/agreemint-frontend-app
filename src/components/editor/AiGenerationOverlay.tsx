@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
+import { buildLayoutJson } from '../../types/layout'
+import { putDraft } from '../../lib/api'
 
 /**
  * Full-page blur backdrop shown while DeepSeek is streaming a response.
@@ -104,6 +106,28 @@ export function AiPendingBar() {
   const accept = useEditorStore((s) => s.acceptAiPending)
   const reject = useEditorStore((s) => s.rejectAiPending)
   if (!pending) return null
+
+  /**
+   * The collab op stream propagates the AI-applied layout to the backend
+   * Redis cache, but the {@code GET /draft} response reads from Postgres
+   * — and Postgres only catches up when CollabFlushJob runs (every 5s).
+   * If the user clicks Accept and navigates away within that 5s window,
+   * the next visit reloads the stale (pre-AI) layout from Postgres and
+   * looks empty. Force a synchronous {@code putDraft} on accept so the
+   * AI layout lands in Postgres immediately, regardless of the flush
+   * timing. Fire-and-forget — we don't block the optimistic UI update.
+   */
+  const handleAccept = () => {
+    accept()
+    const s = useEditorStore.getState()
+    if (!s.templateId) return
+    const layout = buildLayoutJson(s.pages, s.pageSpec, s.globalVariableDefinitions) as unknown as Record<string, unknown>
+    const variableValues = (s.variableValues ?? {}) as Record<string, string>
+    void putDraft(s.templateId, layout, variableValues).catch((err) => {
+      console.warn('[ai-accept] putDraft failed', err)
+    })
+  }
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-7 z-40 flex justify-center px-4">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-fuchsia-300 bg-white/95 px-4 py-2 shadow-lg backdrop-blur dark:border-fuchsia-700 dark:bg-zinc-900/95">
@@ -128,7 +152,7 @@ export function AiPendingBar() {
         </button>
         <button
           type="button"
-          onClick={accept}
+          onClick={handleAccept}
           className="rounded-md bg-gradient-to-br from-fuchsia-500 to-violet-600 px-3 py-1 text-sm font-medium text-white shadow-sm hover:opacity-95"
         >
           Accept
