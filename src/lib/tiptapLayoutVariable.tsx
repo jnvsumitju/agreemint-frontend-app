@@ -15,6 +15,49 @@ function LayoutVariableChip(props: NodeViewProps) {
   const display = surface.trim() ? surface : `{{${name}}}`
   const detailEnabled = !!storage?.chipDetailEnabled && typeof storage?.resolveChipInfo === 'function'
 
+  // Inline marks (bold / italic / underline / strike) apply to the chip so a
+  // selection that covered the var when the author toggled the mark shows
+  // up on the chip too. The Node spec's `marks: '_'` lets the atom carry
+  // these; we read them off `props.node.marks` and emit matching CSS.
+  let markBold = false
+  let markItalic = false
+  let markUnderline = false
+  let markStrike = false
+  let markTextColor: string | undefined
+  let markHighlight: string | undefined
+  for (const m of props.node.marks) {
+    switch (m.type.name) {
+      case 'bold':
+        markBold = true
+        break
+      case 'italic':
+        markItalic = true
+        break
+      case 'underline':
+        markUnderline = true
+        break
+      case 'strike':
+        markStrike = true
+        break
+      case 'textStyle':
+        if (typeof m.attrs.color === 'string' && m.attrs.color) markTextColor = m.attrs.color
+        break
+      case 'highlight':
+        if (typeof m.attrs.color === 'string' && m.attrs.color) markHighlight = m.attrs.color
+        break
+    }
+  }
+  const markDeco: string[] = []
+  if (markUnderline) markDeco.push('underline')
+  if (markStrike) markDeco.push('line-through')
+  const chipMarkStyle: React.CSSProperties = {
+    fontWeight: markBold ? 700 : undefined,
+    fontStyle: markItalic ? 'italic' : undefined,
+    textDecoration: markDeco.length ? markDeco.join(' ') : undefined,
+    color: markTextColor,
+    backgroundColor: markHighlight,
+  }
+
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const wrapRef = useRef<HTMLSpanElement>(null)
@@ -62,8 +105,15 @@ function LayoutVariableChip(props: NodeViewProps) {
   const chipInfo: VariableChipInfo | null =
     open && detailEnabled && storage?.resolveChipInfo ? storage.resolveChipInfo(name) : null
 
-  const onChipClick = (e: React.MouseEvent) => {
+  // Right-click opens the details popover. Left-click is intentionally NOT
+  // hijacked any more — it falls through to ProseMirror so the chip becomes
+  // selected (a NodeSelection of the atom), which lets the format bar or
+  // keyboard shortcut toggle inline marks on the selected chip. Previously
+  // the onClick here called stopPropagation + opened the popover, which
+  // meant a user had no way to click a chip and then press Cmd-B / etc.
+  const onChipContextMenu = (e: React.MouseEvent) => {
     if (!detailEnabled) return
+    e.preventDefault()
     e.stopPropagation()
     setOpen((v) => !v)
   }
@@ -111,7 +161,10 @@ function LayoutVariableChip(props: NodeViewProps) {
         tabIndex={detailEnabled ? 0 : undefined}
         aria-expanded={detailEnabled ? open : undefined}
         aria-haspopup={detailEnabled ? 'dialog' : undefined}
-        onClick={onChipClick}
+        onContextMenu={onChipContextMenu}
+        // Keyboard shortcut preserved for accessibility: when the chip has
+        // keyboard focus, Enter or Space opens the details popover (the
+        // equivalent of right-click).
         onKeyDown={(e) => {
           if (!detailEnabled) return
           if (e.key === 'Enter' || e.key === ' ') {
@@ -119,17 +172,24 @@ function LayoutVariableChip(props: NodeViewProps) {
             setOpen((v) => !v)
           }
         }}
-        className={`am-inline-var inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80 ${
+        // `font-medium` removed intentionally: the chip inherits the
+        // element-level `fontWeight` / `fontStyle` / `textDecoration` from
+        // the containing textbox wrapper in edit mode, so a bold textbox
+        // renders bold chips (matching the view-mode preview). A
+        // Tailwind weight class on the chip would lock it to 500 and
+        // defeat the inheritance.
+        className={`am-inline-var inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80 ${
           detailEnabled
             ? 'cursor-pointer select-none hover:ring-violet-500/90 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:hover:ring-violet-500/80'
             : 'cursor-default select-none'
         }`}
+        style={chipMarkStyle}
         title={
           (() => {
             const parts: string[] = []
             if (name) parts.push(`Token: {{${name}}}`)
             if (preview.trim()) parts.push(`Variables tab preview: ${preview}`)
-            if (detailEnabled) parts.push('Click for scope and description.')
+            if (detailEnabled) parts.push('Click to select · right-click for scope + description · Cmd/Ctrl+B to style.')
             return parts.length ? parts.join('\n') : 'Merge field'
           })()
         }
@@ -148,6 +208,13 @@ export const LayoutVariable = Node.create({
   atom: true,
   selectable: true,
   draggable: false,
+  // Allow inline marks on the atom. Without this, applying bold/italic/
+  // underline/strike to a selection that covers a variable chip would
+  // only mark the surrounding text — the chip would stay unstyled.
+  // With `marks: '_'` (ProseMirror "any mark") TipTap's `toggleMark`
+  // applies to the atom too, and the NodeView reads `node.marks` to
+  // render the chip with the matching typography.
+  marks: '_',
   addAttributes() {
     return {
       name: {

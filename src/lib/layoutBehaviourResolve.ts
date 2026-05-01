@@ -298,7 +298,7 @@ function applyTextOverflow(el: LayoutElement, b: ElementBehaviour | undefined): 
 }
 
 function isRichTextLike(el: LayoutElement): boolean {
-  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
+  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
 }
 
 export function resolveLayoutElement(

@@ -3290,6 +3290,15 @@ export function createDefaultElement(
         height: 32,
         style: { fontSize: 12, bold: false, align: 'left' },
       }
+    case 'FLOATING':
+      return {
+        ...base,
+        type: 'FLOATING',
+        width: 200,
+        height: 60,
+        content: serializeRunsToContent([]),
+        style: { fontSize: 12, bold: false, align: 'left' },
+      }
     case 'TABLE':
       return {
         ...base,

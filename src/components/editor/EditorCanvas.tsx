@@ -30,8 +30,12 @@ import { MeasurementProvider, useElementMeasurement } from './MeasurementContext
 import { RichTextAbsoluteLines } from './RichTextAbsoluteLines'
 import { buildLayoutJson } from '../../types/layout'
 import { CANVAS_ZOOM_MAX, CANVAS_ZOOM_MIN } from '../../lib/editorConstants'
-import { isHeaderOrFooterType } from '../../lib/layoutMargins'
-import { findElementByIdInDocument, mergeDocumentBandsIntoPageElements } from '../../lib/documentPageMerge'
+import { isMarginExemptType } from '../../lib/layoutMargins'
+import {
+  findElementByIdInDocument,
+  mergeDocumentBandsIntoPageElements,
+  mergeFloatingRepeatsIntoPage,
+} from '../../lib/documentPageMerge'
 import { findBandNestedChild, findElementByIdInDocumentDeep } from '../../lib/bandNestedLayout'
 import { editorDiagLogOnce } from '../../lib/editorDiagnostics'
 import {
@@ -363,11 +367,22 @@ function CanvasElement({
     }
   }, [isInlineEditing, el.id, el.content, el.height])
 
+  // True while the inline-editing box is rendering taller than the available
+  // height between its top edge and the page's bottom margin. The box is
+  // allowed to grow visually past that point ({@link growWithText} sets
+  // `height: auto`), but the stored height is clamped — so without a
+  // signal the author can keep typing/pasting and never realise their
+  // bottom paragraphs are overflowing the printable area.
+  const [editOverflowing, setEditOverflowing] = useState(false)
+
   /** Grow frame with text (PDF-style); keep stored height in sync for save / layout. */
   useLayoutEffect(() => {
     if (!isInlineEditing || !canInlineEdit) return
     // Linked frames keep their reflow-assigned height — skip auto-grow
-    if (isLinkedFrame) return
+    if (isLinkedFrame) {
+      setEditOverflowing(false)
+      return
+    }
     const root = outerRef.current
     if (!root) return
     let raf = 0
@@ -394,6 +409,10 @@ function CanvasElement({
         if (Math.abs(next - cur.height) > 0.5) {
           st.updateElement(el.id, { height: next }, { skipHistory: true })
         }
+        // Overflow signal: rendered DOM height exceeds the available room.
+        // Small tolerance so the indicator doesn't flicker right at the
+        // boundary while typing inserts a single extra descender row.
+        setEditOverflowing(h > maxH + 1)
       })
     }
     const ro = new ResizeObserver(syncHeight)
@@ -404,6 +423,13 @@ function CanvasElement({
       ro.disconnect()
     }
   }, [isInlineEditing, canInlineEdit, isLinkedFrame, el.id])
+
+  // Reset the overflow flag when leaving edit so a stale "true" doesn't
+  // linger after the author commits and the frame snaps back to its clamped
+  // height.
+  useEffect(() => {
+    if (!isInlineEditing) setEditOverflowing(false)
+  }, [isInlineEditing])
 
   // View-mode auto-grow — fires whenever the backend measurement disagrees
   // with the authored height. Runs OUTSIDE inline edit so that content
@@ -697,7 +723,7 @@ function CanvasElement({
     // rewraps to more lines), and the clamp refuses to let both shrink
     // past the area the content needs. Replaces the earlier static
     // drag-start snapshot, which couldn't reflow when width changed.
-    const isTextEl = el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
+    const isTextEl = el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
     let mirror: HTMLDivElement | null = null
     let widestWordPx = 20
     if (isTextEl && outerRef.current) {
@@ -946,7 +972,7 @@ function CanvasElement({
       className={`group absolute box-border select-none transition-shadow ${
         isCommentHighlighted
           ? 'ring-2 ring-amber-400 ring-offset-1 shadow-[0_0_8px_2px_rgba(251,191,36,0.35)]'
-          : marginClampHighlight && !isHeaderOrFooterType(el.type)
+          : marginClampHighlight && !isMarginExemptType(el.type)
             ? 'ring-2 ring-red-500/85 ring-offset-1 shadow-[0_0_0_3px_rgba(248,113,113,0.22)]'
             : selected
               ? locked
@@ -1171,6 +1197,14 @@ function CanvasElement({
           title="Continues on next page"
         >
           Continues &#x2193;
+        </span>
+      )}
+      {editOverflowing && !el.linkedNextId && (
+        <span
+          className="pointer-events-none absolute -bottom-4 left-1/2 z-30 -translate-x-1/2 rounded bg-amber-100 px-1.5 py-px text-[8px] font-semibold text-amber-800 ring-1 ring-amber-300 dark:bg-amber-900/60 dark:text-amber-100 dark:ring-amber-600"
+          title="This text overflows the page. When you finish editing, it will be split across pages automatically."
+        >
+          Overflows page · will split when you finish
         </span>
       )}
       {showEditorHints && canInlineEdit && !isInlineEditing && soleSelected && !locked && !viewOnly && (
@@ -1819,11 +1853,11 @@ export function EditorCanvas({
     // Dependency intent: remeasure whenever the document shape or preview data
     // changes. `requestMeasurement` is stable across renders (useCallback).
   }, [pages, editorPageSpec, editorGlobalVars, variableValues, measurement.requestMeasurement])
-  const mergedElements = useMemo(
-    () =>
-      bandContainerEl ? elements : mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements),
-    [bandContainerEl, elements, pages, activePageIndex, activePageElements]
-  )
+  const mergedElements = useMemo(() => {
+    if (bandContainerEl) return elements
+    const withBands = mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements)
+    return mergeFloatingRepeatsIntoPage(pages, activePageIndex, withBands)
+  }, [bandContainerEl, elements, pages, activePageIndex, activePageElements])
   const displayElements = useMemo(() => {
     return mergedElements.flatMap((el) => {
       const { visible, element } = resolveLayoutElement(el, previewData, null)

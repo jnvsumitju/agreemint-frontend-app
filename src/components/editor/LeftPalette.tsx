@@ -15,6 +15,7 @@ const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'TEXT', label: 'Text' },
   { type: 'HEADER', label: 'Header' },
   { type: 'FOOTER', label: 'Footer' },
+  { type: 'FLOATING', label: 'Floating' },
   { type: 'TABLE', label: 'Table' },
   { type: 'LIST', label: 'List' },
   { type: 'IMAGE', label: 'Image' },
@@ -66,7 +67,7 @@ const TOOLS: {
 function IconSelect() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M4 3l7 7v12l4-6 6-1-18-18z" strokeLinejoin="round" />
+      <path d="M4 4l7.07 17 2.51-7.39 7.39-2.51L4 4z" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -82,17 +83,19 @@ function IconMove() {
 function IconPlace() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 19h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M12 8v8M8 12h8" />
     </svg>
   )
 }
 
 function IconPan() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-      <path d="M12 5v3m0 8v3M5 12h3m8 0h3" />
-      <circle cx="12" cy="12" r="2" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M18 11V6a2 2 0 0 0-4 0v5" />
+      <path d="M14 10V4a2 2 0 0 0-4 0v10" />
+      <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
+      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
     </svg>
   )
 }
@@ -259,6 +262,13 @@ function BlockIcon({ type }: { type: ElementType }) {
         <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M5 6h14M5 10h10" strokeLinecap="round" />
           <rect x="3" y="14" width="18" height="6" rx="1" />
+        </svg>
+      )
+    case 'FLOATING':
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect x="3" y="3" width="14" height="14" rx="1" strokeDasharray="2 2" opacity="0.6" />
+          <rect x="9" y="9" width="12" height="10" rx="1" fill="currentColor" fillOpacity="0.12" />
         </svg>
       )
     case 'TABLE':

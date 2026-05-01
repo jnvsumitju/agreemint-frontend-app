@@ -9,8 +9,10 @@ import {
 import { stripPipesFromKey } from '../../lib/variablePipes'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
 
+// `font-medium` dropped so the chip inherits the textbox typography —
+// element-level bold/italic/underline/strike apply to vars automatically.
 const varChipClass =
-  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
+  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
 
 /**
  * Phase 1.5 renderer that replays iText's per-line layout by absolute-positioning
@@ -142,6 +144,10 @@ export function RichTextAbsoluteLines({
                   authored={authored}
                   variableValues={variableValues}
                   variableSurfaceLabelResolver={variableSurfaceLabelResolver}
+                  elementBold={elementBold}
+                  elementItalic={elementItalic}
+                  elementUnderline={elementUnderline}
+                  elementStrikethrough={elementStrikethrough}
                 />
               )
             }
@@ -168,10 +174,18 @@ function AbsoluteVarChip({
   authored,
   variableValues,
   variableSurfaceLabelResolver,
+  elementBold,
+  elementItalic,
+  elementUnderline,
+  elementStrikethrough,
 }: {
   authored: RichRun & { type: 'var' }
   variableValues: Record<string, string>
   variableSurfaceLabelResolver?: (rawName: string) => string
+  elementBold?: boolean
+  elementItalic?: boolean
+  elementUnderline?: boolean
+  elementStrikethrough?: boolean
 }) {
   const baseKey = stripPipesFromKey(authored.name)
   const k = normalizeVariableIdentifier(baseKey)
@@ -187,14 +201,31 @@ function AbsoluteVarChip({
   // top of each other in view mode. In the PDF the var prints its resolved
   // text at the measured width, so PDF parity for vars is handled server-
   // side anyway; the canvas chip is purely an authoring affordance.
-  const style: CSSProperties = {
+  const wrapStyle: CSSProperties = {
     display: 'inline-block',
     whiteSpace: 'nowrap',
     verticalAlign: 'baseline',
   }
+  // Run-level marks on the var override element-level marks; either drives
+  // the chip's typography so selection-scoped styling + textbox-scoped
+  // styling both land on chips in view mode.
+  const chipBold = authored.bold ?? elementBold
+  const chipItalic = authored.italic ?? elementItalic
+  const chipUnderlined = authored.underline ?? elementUnderline
+  const chipStruck = authored.strikethrough ?? elementStrikethrough
+  const chipDeco: string[] = []
+  if (chipUnderlined) chipDeco.push('underline')
+  if (chipStruck) chipDeco.push('line-through')
+  const chipStyle: CSSProperties = {
+    fontWeight: chipBold ? 700 : undefined,
+    fontStyle: chipItalic ? 'italic' : undefined,
+    textDecoration: chipDeco.length ? chipDeco.join(' ') : undefined,
+    color: authored.color?.trim() || undefined,
+    backgroundColor: authored.highlightColor?.trim() || undefined,
+  }
   return (
-    <span style={style} title={titleParts.join('\n')} data-am-var={k}>
-      <span className={varChipClass}>{label}</span>
+    <span style={wrapStyle} title={titleParts.join('\n')} data-am-var={k}>
+      <span className={varChipClass} style={chipStyle}>{label}</span>
     </span>
   )
 }

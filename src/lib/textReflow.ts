@@ -219,12 +219,23 @@ export function distributeContent(
     const isHead = frames.length === 0
     const maxH = isHead ? headMaxHeight : continuationMaxHeight
     const remaining = allHeights.slice(idx)
-    const count = countParagraphsThatFit(remaining, maxH)
-    const endIdx = idx + count
+    let count = countParagraphsThatFit(remaining, maxH)
 
-    const frameParagraphs = paragraphs.slice(idx, endIdx)
-    const content = joinParagraphContents(frameParagraphs)
-    const measuredHeight = measureContentHeight(content, containerWidth, style)
+    // Verify the joined render actually fits inside maxH. countParagraphsThatFit
+    // sums individual paragraph heights — but joining inserts a `<br>` between
+    // paragraphs (~1 line each), so the joined render is taller than the sum.
+    // Without this verification the head frame ends up with content that
+    // overflows its clamped height and silently disappears (the clipped
+    // paragraphs are present in the data but invisible until the user resizes
+    // the box). Decrement until joined height ≤ maxH; always keep at least 1.
+    let content = joinParagraphContents(paragraphs.slice(idx, idx + count))
+    let measuredHeight = measureContentHeight(content, containerWidth, style)
+    while (count > 1 && measuredHeight > maxH) {
+      count--
+      content = joinParagraphContents(paragraphs.slice(idx, idx + count))
+      measuredHeight = measureContentHeight(content, containerWidth, style)
+    }
+    const endIdx = idx + count
 
     frames.push({
       paragraphStart: idx,

@@ -5,6 +5,16 @@ export function isHeaderOrFooterType(t: LayoutElement['type']): boolean {
   return t === 'HEADER' || t === 'FOOTER'
 }
 
+/**
+ * Element types whose geometry is clamped to page bounds rather than print
+ * margins — they may sit anywhere on the page, including the margin band.
+ * HEADER/FOOTER do this because they're document-level bands; FLOATING
+ * does it because authors place it freely (signatures, stamps, overlays).
+ */
+export function isMarginExemptType(t: LayoutElement['type']): boolean {
+  return t === 'HEADER' || t === 'FOOTER' || t === 'FLOATING'
+}
+
 export function printMarginInnerBounds(page: PageSpec): {
   minX: number
   maxX: number
@@ -26,11 +36,12 @@ export function printMarginInnerBounds(page: PageSpec): {
 }
 
 /**
- * Clamp HEADER/FOOTER so the entire box stays inside the page (0…pageW × 0…pageH).
- * Width/height are capped at page size (not only pw−x), then position is adjusted.
+ * Clamp a margin-exempt element (HEADER / FOOTER / FLOATING) so the entire
+ * box stays inside the page (0…pageW × 0…pageH). Width/height are capped at
+ * page size (not only pw−x), then position is adjusted.
  */
 export function clampHeaderFooterLayoutToPage(el: LayoutElement, page: PageSpec, gridSize?: number): LayoutElement {
-  if (!isHeaderOrFooterType(el.type)) return el
+  if (!isMarginExemptType(el.type)) return el
   const { width: pw, height: ph } = pageDimensionsPt(page)
   const minW = 20
   const minH = 16
@@ -49,7 +60,7 @@ export function clampElementTopLeftToPrintMargins(
   page: PageSpec,
   gridSize?: number
 ): { x: number; y: number } {
-  if (isHeaderOrFooterType(el.type)) {
+  if (isMarginExemptType(el.type)) {
     const c = clampHeaderFooterLayoutToPage({ ...(el as LayoutElement), x, y } as LayoutElement, page, gridSize)
     return { x: c.x, y: c.y }
   }
@@ -73,7 +84,7 @@ export function clampElementSizeToPrintMargins(
 ): { width: number; height: number } {
   const minW = 20
   const minH = 16
-  if (isHeaderOrFooterType(el.type)) {
+  if (isMarginExemptType(el.type)) {
     const c = clampHeaderFooterLayoutToPage(
       { ...(el as LayoutElement), width, height } as LayoutElement,
       page,
@@ -92,7 +103,7 @@ export function clampElementSizeToPrintMargins(
 
 /** After arbitrary edits, clamp geometry (print margins, or full page for HEADER/FOOTER). */
 export function clampElementLayoutToPrintMargins(el: LayoutElement, page: PageSpec, gridSize?: number): LayoutElement {
-  if (isHeaderOrFooterType(el.type)) {
+  if (isMarginExemptType(el.type)) {
     return clampHeaderFooterLayoutToPage(el, page, gridSize)
   }
   const xy = clampElementTopLeftToPrintMargins(el, el.x, el.y, page, gridSize)
@@ -113,7 +124,7 @@ export function isOutsidePrintMargins(
   y: number,
   page: PageSpec
 ): boolean {
-  if (isHeaderOrFooterType(el.type)) return false
+  if (isMarginExemptType(el.type)) return false
   const { minX, maxX, minY, maxY } = printMarginInnerBounds(page)
   const r = x + el.width
   const b = y + el.height
@@ -131,7 +142,7 @@ export function isResizeOutsidePrintMargins(
   height: number,
   page: PageSpec
 ): boolean {
-  if (isHeaderOrFooterType(el.type)) return false
+  if (isMarginExemptType(el.type)) return false
   return isOutsidePrintMargins({ ...el, width, height }, el.x, el.y, page)
 }
 
@@ -151,7 +162,7 @@ export function clampGroupTranslationDelta(
   let hasConstrained = false
   for (const e of elements) {
     if (!moveIds.has(e.id)) continue
-    if (isHeaderOrFooterType(e.type)) continue
+    if (isMarginExemptType(e.type)) continue
     hasConstrained = true
     minDdx = Math.max(minDdx, margins.left - e.x)
     maxDdx = Math.min(maxDdx, pw - margins.right - e.width - e.x)
@@ -185,7 +196,7 @@ export function finalizeDragPosition(
     const c = clampElementTopLeftToPrintMargins(el, x, y, page, clampGrid)
     x = c.x
     y = c.y
-    if (!snapToGrid || isHeaderOrFooterType(el.type)) break
+    if (!snapToGrid || isMarginExemptType(el.type)) break
     const sx = snap(x, gridSize)
     const sy = snap(y, gridSize)
     if (sx === x && sy === y) break
@@ -212,7 +223,7 @@ export function finalizeResizeSize(
     const c = clampElementSizeToPrintMargins(el, w, h, page, clampGrid)
     w = c.width
     h = c.height
-    if (!snapToGrid || isHeaderOrFooterType(el.type)) break
+    if (!snapToGrid || isMarginExemptType(el.type)) break
     const sw = snap(w, gridSize)
     const sh = snap(h, gridSize)
     if (sw === w && sh === h) break

@@ -20,8 +20,11 @@ function renderTextWithBreaks(text: string): ReactNode {
   ))
 }
 
+// `font-medium` intentionally dropped: the chip now inherits the
+// containing textbox's weight (and other typography) so element-level
+// bold / italic / underline / strikethrough apply to vars too.
 const varChipClass =
-  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] font-medium text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
+  'inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
 
 /** Read-only rich text for canvas / table cells (variables as chips; preview in title). */
 export function RichTextBlockPreview({
@@ -87,8 +90,26 @@ export function RichTextBlockPreview({
           titleParts.push(`Token: {{${r.name.trim()}}}`)
           if (preview.trim()) titleParts.push(`Variables tab preview: ${preview}`)
           if (r.linkHref) titleParts.push(`Link: ${r.linkHref}`)
+          // Run-level marks on the var (from a selection that covered the
+          // chip when the author toggled bold/etc.) take precedence; fall
+          // back to the element-level mark otherwise. Matches the
+          // behaviour of text runs in the same renderer.
+          const chipBold = r.bold ?? elementBold
+          const chipItalic = r.italic ?? elementItalic
+          const chipUnderlined = r.underline ?? elementUnderline
+          const chipStruck = r.strikethrough ?? elementStrikethrough
+          const chipDeco: string[] = []
+          if (chipUnderlined) chipDeco.push('underline')
+          if (chipStruck) chipDeco.push('line-through')
+          const chipStyle: CSSProperties = {
+            fontWeight: chipBold ? 700 : undefined,
+            fontStyle: chipItalic ? 'italic' : undefined,
+            textDecoration: chipDeco.length ? chipDeco.join(' ') : undefined,
+            color: r.color?.trim() || undefined,
+            backgroundColor: r.highlightColor?.trim() || undefined,
+          }
           const chip = (
-            <span className={varChipClass} data-am-var={k}>
+            <span className={varChipClass} data-am-var={k} style={chipStyle}>
               {label}
             </span>
           )

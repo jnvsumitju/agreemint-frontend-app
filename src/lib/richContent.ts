@@ -74,6 +74,13 @@ export type RichRun =
       name: string
       /** A variable chip can itself be a hyperlink (e.g. `{{ticketUrl}}` shown as "Open ticket"). */
       linkHref?: string
+      /** Inline marks applied when a selection covering the var chip was styled. */
+      bold?: boolean
+      italic?: boolean
+      underline?: boolean
+      strikethrough?: boolean
+      color?: string
+      highlightColor?: string
     }
 
 /** Run-level keys toggled from the formatting toolbar (Properties mode). */
@@ -102,7 +109,20 @@ function isRichDoc(o: unknown): o is RichContentDoc {
 function normalizeRun(r: RichRun): RichRun {
   const link = typeof r.linkHref === 'string' ? sanitizeLinkHref(r.linkHref) : undefined
   if (r.type === 'var') {
-    return link ? { type: 'var', name: r.name, linkHref: link } : { type: 'var', name: r.name }
+    const color = typeof r.color === 'string' && r.color.trim() ? r.color.trim() : undefined
+    const highlightColor =
+      typeof r.highlightColor === 'string' && r.highlightColor.trim() ? r.highlightColor.trim() : undefined
+    return {
+      type: 'var',
+      name: r.name,
+      ...(link ? { linkHref: link } : {}),
+      ...(r.bold ? { bold: true } : {}),
+      ...(r.italic ? { italic: true } : {}),
+      ...(r.underline ? { underline: true } : {}),
+      ...(r.strikethrough ? { strikethrough: true } : {}),
+      ...(color ? { color } : {}),
+      ...(highlightColor ? { highlightColor } : {}),
+    }
   }
   let sup = !!r.superscript
   let sub = !!r.subscript
@@ -257,6 +277,12 @@ export function serializeRunsToContent(runs: RichRun[]): string {
           type: 'var',
           name: normalizeVariableIdentifier(run.name),
           ...(link ? { linkHref: link } : {}),
+          ...(run.bold ? { bold: true } : {}),
+          ...(run.italic ? { italic: true } : {}),
+          ...(run.underline ? { underline: true } : {}),
+          ...(run.strikethrough ? { strikethrough: true } : {}),
+          ...(run.color?.trim() ? { color: run.color.trim() } : {}),
+          ...(run.highlightColor?.trim() ? { highlightColor: run.highlightColor.trim() } : {}),
         }
       }
       const link = run.linkHref ? sanitizeLinkHref(run.linkHref) : undefined

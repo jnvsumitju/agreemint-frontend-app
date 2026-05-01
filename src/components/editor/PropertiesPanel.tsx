@@ -11,7 +11,7 @@ import {
   resolveVariableChipInfo,
   variableMergeFieldSurfaceLabel,
 } from '../../lib/layoutBehaviourResolve'
-import type { ElementStyle, LayoutElement } from '../../types/layout'
+import type { ElementStyle, LayoutElement, PageVisibility } from '../../types/layout'
 import { LABEL_CLASS } from './uiClasses'
 import { FieldInput } from './ui/FieldInput'
 import { FieldSelect } from './ui/FieldSelect'
@@ -683,6 +683,81 @@ function ListDataSection({ el, patch }: { el: LayoutElement; patch: (p: Partial<
   )
 }
 
+const PAGE_VISIBILITY_OPTIONS: { value: PageVisibility; label: string }[] = [
+  { value: 'current', label: 'This page only' },
+  { value: 'all', label: 'Every page' },
+  { value: 'odd', label: 'Odd pages (1, 3, 5…)' },
+  { value: 'even', label: 'Even pages (2, 4, 6…)' },
+  { value: 'specific', label: 'Specific pages…' },
+]
+
+function parsePageList(raw: string): number[] {
+  const out: number[] = []
+  for (const tok of raw.split(/[,\s]+/)) {
+    if (!tok) continue
+    const n = Number(tok)
+    if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && !out.includes(n)) {
+      out.push(n)
+    }
+  }
+  return out.sort((a, b) => a - b)
+}
+
+function PageVisibilityFields({
+  el,
+  patch,
+}: {
+  el: LayoutElement
+  patch: (p: Partial<LayoutElement>) => void
+}) {
+  const visibility: PageVisibility = el.pageVisibility ?? 'current'
+  const [specificDraft, setSpecificDraft] = useState<string>(
+    (el.pageVisibilitySpecific ?? []).join(', ')
+  )
+  // When the underlying element changes (e.g. via undo), resync the textbox.
+  useEffect(() => {
+    setSpecificDraft((el.pageVisibilitySpecific ?? []).join(', '))
+  }, [el.id, el.pageVisibilitySpecific])
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-600">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        Page visibility
+      </p>
+      <FieldSelect
+        label="Show on"
+        id={`ag-pagevis-${el.id}`}
+        value={visibility}
+        onChange={(e) => {
+          const next = e.target.value as PageVisibility
+          const p: Partial<LayoutElement> = { pageVisibility: next }
+          if (next !== 'specific') p.pageVisibilitySpecific = undefined
+          patch(p)
+        }}
+        options={PAGE_VISIBILITY_OPTIONS}
+      />
+      {visibility === 'specific' && (
+        <FieldInput
+          label="Page numbers (comma-separated)"
+          id={`ag-pagevis-list-${el.id}`}
+          type="text"
+          value={specificDraft}
+          placeholder="e.g. 1, 3, 5"
+          onChange={(e) => setSpecificDraft(e.target.value)}
+          onBlur={() => {
+            const parsed = parsePageList(specificDraft)
+            patch({ pageVisibilitySpecific: parsed.length > 0 ? parsed : undefined })
+            setSpecificDraft(parsed.join(', '))
+          }}
+        />
+      )}
+      <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+        Always shown on the page where placed; this controls extra repetitions on other pages.
+      </p>
+    </div>
+  )
+}
+
 function BehaviourBody() {
   const selectedIds = useEditorStore((s) => s.selectedIds)
   const pages = useEditorStore((s) => s.pages)
@@ -910,6 +985,10 @@ function PropertiesBody() {
           </p>
         )}
       </div>
+
+      {el.type === 'FLOATING' && (
+        <PageVisibilityFields el={el} patch={patch} />
+      )}
 
       {(isRichTextElement(el) || el.type === 'LIST') && (
         <div className="border-t border-zinc-200 pt-3 dark:border-zinc-600">

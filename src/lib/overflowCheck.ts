@@ -34,7 +34,7 @@ export interface Overflow {
   elementType: string | undefined
 }
 
-const TEXT_LIKE_TYPES = new Set(['TEXT', 'PARAGRAPH', 'HEADER', 'FOOTER'])
+const TEXT_LIKE_TYPES = new Set(['TEXT', 'PARAGRAPH', 'HEADER', 'FOOTER', 'FLOATING'])
 const TABLE_TYPE = 'TABLE'
 
 function* walkTopLevelElements(layout: LayoutJson): Generator<WireElement> {

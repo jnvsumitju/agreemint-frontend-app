@@ -18,6 +18,7 @@ export type ElementType =
   | 'RING'
   | 'MERGED_SHAPE'
   | 'LIST'
+  | 'FLOATING'
 
 export type ListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'number' | 'alpha' | 'roman' | 'none'
 
@@ -256,11 +257,43 @@ export interface LayoutElement {
   linkedNextId?: string
   /** Linked text frame: ID of the preceding element on the previous page. */
   linkedPrevId?: string
+  /**
+   * FLOATING: which pages this element should also be rendered on, beyond
+   * its origin page. The element always appears on the page it was placed
+   * on; this prop controls extra repetition. Default `'current'` = origin only.
+   */
+  pageVisibility?: PageVisibility
+  /** FLOATING: 1-indexed page numbers when {@link pageVisibility} is `'specific'`. */
+  pageVisibilitySpecific?: number[]
+}
+
+/** Where a {@link LayoutElement} appears across the document's pages. */
+export type PageVisibility = 'current' | 'all' | 'odd' | 'even' | 'specific'
+
+/**
+ * True when the element should be rendered on `pageIndex` *as a cross-page
+ * repeat* (i.e. its origin page is somewhere else). Always returns false for
+ * the origin page — origin-page rendering is handled by the regular page
+ * elements path. The element is always shown on its origin regardless of
+ * visibility, so authors don't lose track of where they placed it.
+ */
+export function shouldRepeatOnPage(
+  el: LayoutElement,
+  pageIndex: number
+): boolean {
+  const v = el.pageVisibility ?? 'current'
+  if (v === 'current') return false
+  if (v === 'all') return true
+  const pageNumber = pageIndex + 1
+  if (v === 'odd') return pageNumber % 2 === 1
+  if (v === 'even') return pageNumber % 2 === 0
+  if (v === 'specific') return (el.pageVisibilitySpecific ?? []).includes(pageNumber)
+  return false
 }
 
 /** Elements with rich `content` + `style` (inline edit on canvas like TEXT). */
 export function isRichTextElement(el: LayoutElement): boolean {
-  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER'
+  return el.type === 'TEXT' || el.type === 'HEADER' || el.type === 'FOOTER' || el.type === 'FLOATING'
 }
 
 /** Per-side page margins in pt (PDF points). */
@@ -530,6 +563,10 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   // Linked text frame fields
   if (el.linkedNextId?.trim()) base.linkedNextId = el.linkedNextId
   if (el.linkedPrevId?.trim()) base.linkedPrevId = el.linkedPrevId
+  if (el.pageVisibility && el.pageVisibility !== 'current') base.pageVisibility = el.pageVisibility
+  if (el.pageVisibilitySpecific?.length) {
+    base.pageVisibilitySpecific = [...el.pageVisibilitySpecific]
+  }
   return base
 }
 
@@ -713,6 +750,19 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
     // Linked text frame fields
     linkedNextId: typeof raw.linkedNextId === 'string' && raw.linkedNextId.trim() ? raw.linkedNextId : undefined,
     linkedPrevId: typeof raw.linkedPrevId === 'string' && raw.linkedPrevId.trim() ? raw.linkedPrevId : undefined,
+    pageVisibility: (() => {
+      const v = raw.pageVisibility
+      if (typeof v !== 'string') return undefined
+      const valid: PageVisibility[] = ['current', 'all', 'odd', 'even', 'specific']
+      return valid.includes(v as PageVisibility) ? (v as PageVisibility) : undefined
+    })(),
+    pageVisibilitySpecific: (() => {
+      if (!Array.isArray(raw.pageVisibilitySpecific)) return undefined
+      const arr = (raw.pageVisibilitySpecific as unknown[])
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && Number.isInteger(n) && n >= 1)
+      return arr.length > 0 ? arr : undefined
+    })(),
   }
 }
 
