@@ -1,5 +1,36 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
+
+/**
+ * Hover-revealed slim "+" between two page cards. Hidden until the user
+ * mouses over the gap, at which point the inserter expands into a thin
+ * dashed strip with a centered + button. Click → addPageAt(index)
+ * inserts a blank page at that exact position (not just the end).
+ */
+function InsertPageHere({
+  insertIndex,
+  onInsert,
+}: {
+  insertIndex: number
+  onInsert: (idx: number) => void
+}) {
+  return (
+    <li className="group flex h-2 items-center justify-center" aria-hidden>
+      <button
+        type="button"
+        title={`Insert a new page here (above page ${insertIndex + 1})`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onInsert(insertIndex)
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="flex h-5 w-full items-center justify-center rounded border border-dashed border-transparent bg-transparent text-[14px] font-bold text-violet-600 opacity-0 transition-all group-hover:border-violet-400 group-hover:bg-violet-50 group-hover:opacity-100 dark:text-violet-300 dark:group-hover:border-violet-500 dark:group-hover:bg-violet-950/40"
+      >
+        +
+      </button>
+    </li>
+  )
+}
 
 function PageNameField({
   pageId,
@@ -37,6 +68,7 @@ export function PagesSection() {
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const setActivePageIndex = useEditorStore((s) => s.setActivePageIndex)
   const addPage = useEditorStore((s) => s.addPage)
+  const addPageAt = useEditorStore((s) => s.addPageAt)
   const removePage = useEditorStore((s) => s.removePage)
   const renamePage = useEditorStore((s) => s.renamePage)
   const viewOnly = useEditorStore((s) => s.viewOnly)
@@ -52,45 +84,53 @@ export function PagesSection() {
         {pages.map((p, i) => {
           const isActive = i === activePageIndex
           return (
-            <li
-              key={p.id}
-              className={`cursor-pointer rounded-lg border px-2 py-2 transition-colors ${
-                isActive
-                  ? 'border-violet-500 bg-violet-50 dark:border-violet-500 dark:bg-violet-950/40'
-                  : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:hover:border-zinc-500'
-              }`}
-              onClick={() => setActivePageIndex(i)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  setActivePageIndex(i)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                Page {i + 1} · {p.elements.length} element{p.elements.length === 1 ? '' : 's'}
-              </div>
-              {viewOnly ? (
-                <div className="mt-0.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">{p.name || `Page ${i + 1}`}</div>
-              ) : (
-                <PageNameField pageId={p.id} name={p.name} onCommit={(n) => renamePage(p.id, n)} />
+            <Fragment key={p.id}>
+              {/* Insert-here gap above EVERY page card except the first.
+                  Hidden until hovered (via group-hover) so the sidebar
+                  reads cleanly when idle. Click → blank page inserted
+                  at index i (above this card). */}
+              {!viewOnly && i > 0 && (
+                <InsertPageHere insertIndex={i} onInsert={addPageAt} />
               )}
-              {!viewOnly && pages.length > 1 && (
-                <button
-                  type="button"
-                  className="mt-2 w-full rounded border border-red-200 bg-white py-1 text-[10px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    removePage(p.id)
-                  }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  Remove page
-                </button>
-              )}
-            </li>
+              <li
+                className={`cursor-pointer rounded-lg border px-2 py-2 transition-colors ${
+                  isActive
+                    ? 'border-violet-500 bg-violet-50 dark:border-violet-500 dark:bg-violet-950/40'
+                    : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800/50 dark:hover:border-zinc-500'
+                }`}
+                onClick={() => setActivePageIndex(i)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setActivePageIndex(i)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                  Page {i + 1} · {p.elements.length} element{p.elements.length === 1 ? '' : 's'}
+                </div>
+                {viewOnly ? (
+                  <div className="mt-0.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">{p.name || `Page ${i + 1}`}</div>
+                ) : (
+                  <PageNameField pageId={p.id} name={p.name} onCommit={(n) => renamePage(p.id, n)} />
+                )}
+                {!viewOnly && pages.length > 1 && (
+                  <button
+                    type="button"
+                    className="mt-2 w-full rounded border border-red-200 bg-white py-1 text-[10px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removePage(p.id)
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    Remove page
+                  </button>
+                )}
+              </li>
+            </Fragment>
           )
         })}
       </ul>

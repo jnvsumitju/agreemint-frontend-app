@@ -29,9 +29,14 @@ export function FixLayoutBadge() {
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const applyPending = useEditorStore((s) => s.applyAiPendingLayout)
   const aiPending = useEditorStore((s) => s.aiPendingSnapshot)
+  const viewOnly = useEditorStore((s) => s.viewOnly)
 
   const [state, setState] = useState<ModalState>({ kind: 'closed' })
 
+  // Hide for read-only roles (REVIEWER / VIEWER). Fix Layout produces
+  // a pending-preview that mutates the layout — users without edit
+  // rights can't accept it, so showing the affordance is misleading.
+  if (viewOnly) return null
   // Suppress while a pending AI preview is already on screen — the user
   // can't see what "fix layout" would do until they accept/reject the
   // existing suggestion.

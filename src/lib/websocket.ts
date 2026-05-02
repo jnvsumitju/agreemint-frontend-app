@@ -1,6 +1,7 @@
 import { Client } from '@stomp/stompjs'
 import type { IMessage, StompSubscription } from '@stomp/stompjs'
 import { useAuthStore } from '../stores/authStore'
+import { useCollabConnectionStore } from '../stores/collabConnectionStore'
 import { usePresenceStore } from '../stores/presenceStore'
 import type { PresenceUser } from '../stores/presenceStore'
 import { API_BASE } from './api'
@@ -50,6 +51,10 @@ export function connectToTemplate(templateId: string): void {
   if (!token || !user) return
 
   activeTemplateId = templateId
+  // Surface "trying to connect" to the toolbar indicator. We flip to
+  // 'connected' inside onConnect; if the websocket fails on the way up,
+  // onWebSocketClose moves us to 'reconnecting'.
+  useCollabConnectionStore.getState().setStatus('connecting')
 
   const client = new Client({
     brokerURL: wsUrl(),
@@ -141,10 +146,16 @@ export function connectToTemplate(templateId: string): void {
 
     onStompError: (frame) => {
       console.error('[websocket] STOMP error:', frame.headers['message'])
+      // Protocol-level error — connection is up but the server rejected us
+      // (e.g. auth issue). stompjs won't auto-recover from this on its own,
+      // so surface it as 'disconnected' so the user knows their edits
+      // aren't syncing.
+      useCollabConnectionStore.getState().setStatus('disconnected')
     },
 
     onWebSocketError: (event) => {
       console.error('[websocket] WebSocket error:', event)
+      useCollabConnectionStore.getState().setStatus('disconnected')
     },
   })
 
@@ -164,6 +175,16 @@ export function connectToTemplate(templateId: string): void {
       baseDelay * Math.pow(2, reconnectAttempts),
       maxDelay,
     )
+    // Only surface 'reconnecting' if we still intend to be connected. A
+    // close fired during disconnectFromTemplate (when activeTemplateId is
+    // already cleared) shouldn't repaint the indicator amber on the way
+    // out. After several failures the user should see a harder
+    // 'disconnected' state so they know the network actually died — pick
+    // a threshold that roughly matches when reconnectDelay maxes out.
+    if (activeTemplateId) {
+      const status = reconnectAttempts >= 5 ? 'disconnected' : 'reconnecting'
+      useCollabConnectionStore.getState().setStatus(status)
+    }
   }
 
   const originalOnConnect = client.onConnect
@@ -171,6 +192,7 @@ export function connectToTemplate(templateId: string): void {
     // Reset backoff on successful connection
     reconnectAttempts = 0
     client.reconnectDelay = baseDelay
+    useCollabConnectionStore.getState().setStatus('connected')
     if (originalOnConnect) {
       originalOnConnect.call(client, frame)
     }
@@ -218,6 +240,11 @@ export function disconnectFromTemplate(): void {
   void stompClient.deactivate()
   stompClient = null
   activeTemplateId = null
+
+  // Clean teardown — hide the connection indicator. We clear activeTemplateId
+  // BEFORE this (above) so the close-handler's reconnecting branch is a no-op
+  // for the close that deactivate() will trigger.
+  useCollabConnectionStore.getState().setStatus('idle')
 
   // Clear presence state
   usePresenceStore.getState().setUsers([])

@@ -10,7 +10,7 @@ const numInputSmClass = `${INPUT_CLASS} min-w-0 flex-1`
 const stepBtnClass =
   'rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] font-medium hover:bg-zinc-50 dark:border-zinc-600 dark:hover:bg-zinc-700'
 
-function ColorRow({
+export function ColorRow({
   label,
   textInputId: _textInputId,
   value,

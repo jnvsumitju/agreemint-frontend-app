@@ -27,12 +27,34 @@ export interface BootstrapEditorActions {
  * mismatched element ids — remote ops then silently dropped on the receiver.
  * With collab, the server is the single source of truth; local storage exists
  * only to survive a genuinely-offline reload.
+ *
+ * <p>Reviewer/Viewer override: when {@code committedOnly} is true the draft
+ * step is skipped entirely and we load straight from {@code versions[0]}.
+ * Reviewers see only what designers have explicitly committed; in-flight
+ * draft state is invisible to them until they flip the Live toggle.
  */
 export async function bootstrapEditorFromRemote(
   templateId: string,
   versions: TemplateVersionDto[],
-  actions: BootstrapEditorActions
+  actions: BootstrapEditorActions,
+  options: { committedOnly?: boolean } = {}
 ): Promise<void> {
+  if (options.committedOnly) {
+    if (versions.length > 0) {
+      const latest = versions[0]
+      const parsed = parseLayoutJson(latest.layout as unknown as LayoutJson)
+      actions.loadLayout(parsed)
+      actions.setVersionInfo(latest.id, latest.versionNumber)
+      return
+    }
+    // No committed version yet — show empty state. Reviewers must wait for
+    // a designer to commit before they have anything to look at. (After the
+    // backend auto-creates v1 on template creation, this only fires for
+    // legacy templates that predate that change.)
+    actions.loadElements([])
+    actions.setVersionInfo(null, null)
+    return
+  }
   let serverDraft: {
     layout: Record<string, unknown>
     variables: Record<string, unknown> | null

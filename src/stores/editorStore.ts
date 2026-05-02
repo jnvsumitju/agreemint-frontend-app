@@ -6,6 +6,7 @@ import type {
   ElementType,
   LayoutDocumentPage,
   LayoutElement,
+  PageBackground,
   PageMargins,
   PageSpec,
 } from '../types/layout'
@@ -740,10 +741,55 @@ export interface EditorState {
   loadElements: (elements: LayoutElement[], page?: PageSpec) => void
   setActivePageIndex: (index: number) => void
   addPage: () => void
+  /**
+   * Insert a blank page at {@code index} (0-based). Used by the
+   * Pages-sidebar between-cards "+" button so authors can drop a
+   * new page in the middle of the document, not just at the end.
+   */
+  addPageAt: (index: number) => void
   removePage: (pageId: string) => void
+  /**
+   * Move a page from one position to another. Used by the Rearrange
+   * tool's drag-to-reorder grid. The page object (id, name, elements,
+   * localVariables, guides) moves intact, so variable references on
+   * elements stay correctly bound to their owning page after reorder.
+   * If {@code from === to} or either index is out of range, no-op.
+   */
+  reorderPages: (from: number, to: number) => void
+  /**
+   * True while the Rearrange tool is active. Triggers TemplateEditor
+   * to hide the side panels + format bar and replaces the canvas's
+   * stacked single-page render with a 4-column grid of draggable
+   * page thumbnails.
+   */
+  rearrangeMode: boolean
+  setRearrangeMode: (v: boolean) => void
+  /**
+   * Element id whose Add-Comment modal is open. Null when no modal.
+   * Replaces the legacy window.prompt() flow with a styled in-app
+   * dialog so designers see consistent UI rather than the browser's
+   * native "localhost:5173 says" pop-up.
+   */
+  commentTargetElementId: string | null
+  openAddCommentModal: (elementId: string) => void
+  closeAddCommentModal: () => void
   renamePage: (pageId: string, name: string) => void
   setPageMargins: (patch: Partial<PageMargins>) => void
   setPageSize: (size: string, orientation?: 'portrait' | 'landscape') => void
+  /**
+   * Update the active page's background. When the sticky
+   * {@link PageSpec.applyBackgroundToAllPages} flag is on, the same value is
+   * mirrored onto every page so they stay in lockstep — flipping that flag
+   * off lets pages diverge again. Pass undefined to clear.
+   */
+  setActivePageBackground: (bg: PageBackground | undefined) => void
+  /**
+   * Toggle the "apply background to all pages" sticky setting. When turning
+   * it ON we immediately propagate the active page's background to every
+   * other page (otherwise the previously divergent pages would keep their
+   * old background and the toggle would silently appear broken).
+   */
+  setApplyBackgroundToAllPages: (v: boolean) => void
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
   setShowRulers: (v: boolean) => void
@@ -806,6 +852,34 @@ export interface EditorState {
   openTableCellEdit: (payload: { tableId: string; row: number; col: number }) => void
   setTableCellEdit: (edit: { tableId: string; row: number; col: number } | null) => void
   setViewOnly: (v: boolean) => void
+  /**
+   * Does the current user have edit permission on this template? Comes
+   * from the {@code access.canEdit} response on load. Distinct from
+   * {@link viewOnly} — viewOnly is the *current display mode* (which
+   * the user can toggle), canEdit is the underlying permission. The
+   * Editing/View-only toolbar toggle shows ONLY when canEdit is true,
+   * so REVIEWER / VIEWER roles can't escape view-only mode but
+   * ADMIN / DESIGNER can flip back and forth.
+   */
+  canEdit: boolean
+  setCanEdit: (v: boolean) => void
+  /**
+   * Template-scoped role from {@code /access}: 'ADMIN' | 'DESIGNER' |
+   * 'REVIEWER' | 'VIEWER' | null (null until the access call returns).
+   * Distinct from the org-wide role in {@code authStore} — a user can be
+   * a DESIGNER in their org but only a REVIEWER on a specific template.
+   */
+  role: 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER' | null
+  setRole: (r: 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER' | null) => void
+  /**
+   * REVIEWER/VIEWER toggle: when false (default) they see only the
+   * latest committed version, frozen — incoming live ops from the
+   * collab websocket are ignored. When true, live edits flow through
+   * in real time. ADMIN/DESIGNER are always effectively in live mode;
+   * this flag is irrelevant to them.
+   */
+  liveMode: boolean
+  setLiveMode: (v: boolean) => void
   setCommentingEnabled: (v: boolean) => void
   setEditorSidebarTab: (tab: 'properties' | 'behaviour' | 'layers' | 'variables' | 'history' | 'comments' | 'activity' | 'reviews') => void
   /** Stack order: later items paint on top. Pass `pageIndex` to reorder a non-active page (e.g. page 0 bands). */
@@ -1004,7 +1078,16 @@ const clearEditorUi = {
   focusedTextRunIndex: null,
   tableSelection: null,
   tableCellEdit: null,
-  viewOnly: false,
+  // Fail closed: viewOnly starts true and canEdit starts false until the
+  // /access response promotes the user. Defaulting the other way lets a
+  // REVIEWER briefly see (and click) the Editing/View-only toggle during
+  // the load window, or whenever the access call fails.
+  viewOnly: true,
+  canEdit: false,
+  role: null as 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER' | null,
+  // Reviewer/Viewer default: see only committed snapshots. Designer/Admin
+  // are always effectively live regardless of this flag.
+  liveMode: false,
   commentingEnabled: true,
   commentHighlightId: null as string | null,
   editorSidebarTab: 'properties' as const,
@@ -1023,6 +1106,8 @@ const clearEditorUi = {
   aiModalOpen: false,
   aiModalTargetElementId: null as string | null,
   aiChunkProgress: null as EditorState['aiChunkProgress'],
+  rearrangeMode: false,
+  commentTargetElementId: null as string | null,
 }
 
 /**
@@ -1061,6 +1146,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tableSelection: null,
   tableCellEdit: null,
   viewOnly: false,
+  canEdit: true,
+  role: null as 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER' | null,
+  liveMode: false,
   commentingEnabled: true,
   commentHighlightId: null,
   editorSidebarTab: 'properties',
@@ -1090,6 +1178,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   aiModalOpen: false,
   aiModalTargetElementId: null,
   aiChunkProgress: null,
+  rearrangeMode: false,
+  commentTargetElementId: null,
   pathEditingElementId: null,
   pathEditingSelectedVertex: null,
   pathEditingSmartGuides: { vertical: [], horizontal: [] },
@@ -1270,7 +1360,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         focusedTextRunIndex: null,
         tableSelection: null,
         tableCellEdit: null,
-        viewOnly: false,
+        // Fail-closed permissions: until TemplateEditor's /access call
+        // resolves, treat the user as a read-only stranger. Without this,
+        // a REVIEWER opening or refreshing a template briefly sees the
+        // designer chrome (LeftPalette tools, PropertiesPanel) before the
+        // access response demotes them. ADMIN/DESIGNER get promoted by
+        // setRole/setCanEdit a few hundred ms later — they see a blank
+        // view-only flash instead, which is the correct fallback if
+        // /access fails outright.
+        viewOnly: true,
+        canEdit: false,
+        role: null,
+        liveMode: false,
         commentingEnabled: true,
         commentHighlightId: null,
         editorSidebarTab: 'properties',
@@ -1389,7 +1490,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }),
 
   loadLayout: ({ pages, page, globalVariables }) => {
-    const normPages = pages.length ? pages : defaultPages()
+    // Dedupe pages by id so any historic corruption (the addPage
+    // echo bug fixed in applyRemoteOp) self-heals on the next reload.
+    // Keep the first occurrence — that's the one users have actually
+    // edited, since echoed copies always arrived empty.
+    const dedupedById: typeof pages = []
+    const seen = new Set<string>()
+    for (const p of pages) {
+      if (!p?.id || seen.has(p.id)) continue
+      seen.add(p.id)
+      dedupedById.push(p)
+    }
+    const normPages = dedupedById.length ? dedupedById : defaultPages()
     const globals = filterPersistableVariableDefinitions(globalVariables ?? [])
     withUndoSuppressed(() => {
       unregisterInlineTipTapDestroyListener()
@@ -1401,8 +1513,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         globalVariableDefinitions: globals,
         variableValues: mergeVariableValues({}, allPageElements(normPages), globals, normPages, 0),
         ...clearEditorUi,
-        // Preserve role-based access (viewOnly/commentingEnabled) across layout reloads
+        // Preserve role-based access across layout reloads. Without this, a
+        // mid-session collab snapshot (which reaches loadLayout via the
+        // collab listener) would clobber the user's role/permission state
+        // back to the clearEditorUi defaults — kicking an admin into
+        // view-only or unbinding a reviewer's role string.
         viewOnly: s.viewOnly,
+        canEdit: s.canEdit,
+        role: s.role,
+        liveMode: s.liveMode,
         commentingEnabled: s.commentingEnabled,
         historyBatchDepth: 0,
         undoPast: [],
@@ -1471,6 +1590,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       }
     }),
 
+  addPageAt: (index) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      const insertAt = Math.max(0, Math.min(s.pages.length, index))
+      // Pick the next available "Page N" name based on the current
+      // count so the user sees a sensible default; they can rename in
+      // the input below.
+      const newPage: LayoutDocumentPage = { id: newPageId(), name: `Page ${s.pages.length + 1}`, elements: [] }
+      const pages = [...s.pages.slice(0, insertAt), newPage, ...s.pages.slice(insertAt)]
+      return {
+        ...takeUndoBarrier(s),
+        pages,
+        // Newly-inserted page becomes active so the user lands on it
+        // and can immediately start adding elements.
+        activePageIndex: insertAt,
+        variableValues: mergeVariableValues(
+          s.variableValues,
+          allPageElements(pages),
+          s.globalVariableDefinitions,
+          pages,
+          insertAt
+        ),
+        selectedIds: [],
+        canvasInlineEditId: null,
+        bandCanvasEditElementId: null,
+        inlineTipTapEditor: null,
+        focusedTextRunIndex: null,
+        tableSelection: null,
+        tableCellEdit: null,
+        canvasTool: 'select',
+        spaceMoveTool: false,
+      }
+    }),
+
   removePage: (pageId) =>
     set((s) => {
       if (s.viewOnly) return {}
@@ -1502,6 +1655,48 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         spaceMoveTool: false,
       }
     }),
+
+  reorderPages: (from, to) =>
+    set((s) => {
+      if (s.viewOnly) return {}
+      if (from === to) return {}
+      if (from < 0 || from >= s.pages.length) return {}
+      if (to < 0 || to >= s.pages.length) return {}
+      const next = s.pages.slice()
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      // Track activePageIndex through the move so the user stays on
+      // the same logical page (the one they were editing) regardless
+      // of where it ended up in the new order.
+      let activePageIndex = s.activePageIndex
+      if (s.activePageIndex === from) {
+        activePageIndex = to
+      } else if (from < s.activePageIndex && to >= s.activePageIndex) {
+        activePageIndex = s.activePageIndex - 1
+      } else if (from > s.activePageIndex && to <= s.activePageIndex) {
+        activePageIndex = s.activePageIndex + 1
+      }
+      return {
+        ...takeUndoBarrier(s),
+        pages: next,
+        activePageIndex,
+        // Page-local variable values are stored under variable keys, not
+        // page positions — so the values keep flowing into the right
+        // page automatically. No remap needed.
+        selectedIds: [],
+        canvasInlineEditId: null,
+        bandCanvasEditElementId: null,
+        inlineTipTapEditor: null,
+        focusedTextRunIndex: null,
+        tableSelection: null,
+        tableCellEdit: null,
+      }
+    }),
+
+  setRearrangeMode: (v) => set({ rearrangeMode: v }),
+
+  openAddCommentModal: (elementId) => set({ commentTargetElementId: elementId }),
+  closeAddCommentModal: () => set({ commentTargetElementId: null }),
 
   renamePage: (pageId, name) =>
     set((s) => {
@@ -2330,7 +2525,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setTableCellEdit: (edit) => set({ tableCellEdit: edit, ...(edit === null ? { inlineTipTapEditor: null } : {}) }),
 
-  setViewOnly: (v) => set({ viewOnly: v }),
+  setViewOnly: (v) => set((s) => ({ viewOnly: s.canEdit ? v : true })),
+  setCanEdit: (v) => set({ canEdit: v }),
+  setRole: (r) => set({ role: r }),
+  setLiveMode: (v) => set({ liveMode: v }),
 
   setCommentingEnabled: (v) => set({ commentingEnabled: v }),
 
@@ -2410,6 +2608,48 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ...(orientation != null ? { orientation } : {}),
       },
     })),
+
+  setActivePageBackground: (bg) =>
+    set((s) => {
+      const idx = s.activePageIndex
+      const target = s.pages[idx]
+      if (!target) return {}
+      // Drop the field entirely (vs storing `undefined`) when the user
+      // clears the background — keeps the layout JSON tidy on save.
+      const writeOne = (p: LayoutDocumentPage): LayoutDocumentPage =>
+        bg ? { ...p, background: bg } : (() => {
+          const { background: _drop, ...rest } = p
+          return rest
+        })()
+      const sticky = s.pageSpec.applyBackgroundToAllPages !== false
+      const pages = sticky ? s.pages.map(writeOne) : s.pages.map((p, i) => (i === idx ? writeOne(p) : p))
+      return { ...takeUndoBarrier(s), pages }
+    }),
+
+  setApplyBackgroundToAllPages: (v) =>
+    set((s) => {
+      const next: Partial<EditorState> = {
+        ...takeUndoBarrier(s),
+        pageSpec: { ...s.pageSpec, applyBackgroundToAllPages: v },
+      }
+      // When flipping ON, mirror the active page's background to every
+      // other page so the toggle's promise ("they're synced now") is true
+      // immediately. Flipping OFF leaves existing per-page backgrounds in
+      // place — pages that were already in sync simply stay that way until
+      // the user diverges them.
+      if (v) {
+        const active = s.pages[s.activePageIndex]
+        if (active) {
+          const bg = active.background
+          next.pages = s.pages.map((p) => {
+            if (bg) return { ...p, background: bg }
+            const { background: _drop, ...rest } = p
+            return rest
+          })
+        }
+      }
+      return next
+    }),
 
   setSnapToGrid: (v) => set({ snapToGrid: v }),
   setShowGrid: (v) => set({ showGrid: v }),
@@ -3632,6 +3872,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           break
         }
         case 'addPage': {
+          // Echo guard: if the locally-added page has already been
+          // applied (we created it, the server echoed our own op back),
+          // skip the splice so we don't end up with two pages sharing
+          // the same id. Symptom of the missing guard was the Pages
+          // sidebar showing "Page 2 . 1 element" and "Page 2 . 0
+          // elements" side-by-side and React warning about duplicate
+          // keys, which then surfaced visibly when the rearrange grid
+          // rendered every page as a tile.
+          if (op.page?.id && s.pages.some((p) => p.id === op.page.id)) break
           const next = [...s.pages]
           const idx = Math.max(0, Math.min(op.index, next.length))
           next.splice(idx, 0, op.page)

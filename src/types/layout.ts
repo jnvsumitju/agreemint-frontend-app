@@ -311,6 +311,22 @@ export interface PageSpec {
   /** Legacy single margin; used when loading old layouts without `margins`. */
   margin: number
   margins: PageMargins
+  /**
+   * Sticky toggle: when true, every page's background stays in lockstep —
+   * editing one page's background mirrors the change to every other page.
+   * When false, each page can have its own background. Defaults to true so
+   * size/orientation/margins/background all have the same "global by
+   * default" feel.
+   */
+  applyBackgroundToAllPages?: boolean
+}
+
+/** Solid colour or gradient that fills a page beneath any element. */
+export interface PageBackground {
+  /** CSS colour string. White is the implicit default if both fields are unset. */
+  color?: string
+  /** Gradient fill. Takes precedence over `color` when set (mirrors element bgGradient). */
+  gradient?: GradientDef
 }
 
 export const PAGE_A4_PT = { width: 595, height: 842 } as const
@@ -352,6 +368,8 @@ export interface LayoutJsonPage {
   localVariables?: VariableDefinition[]
   /** Optional Photoshop-style guides (pt). */
   guides?: { vertical?: number[]; horizontal?: number[] }
+  /** Page-level background colour or gradient (rendered beneath all elements). */
+  background?: PageBackground
 }
 
 export interface LayoutJson {
@@ -360,6 +378,8 @@ export interface LayoutJson {
     margin: number
     margins?: PageMargins
     orientation?: 'portrait' | 'landscape'
+    /** Sticky toggle (see {@link PageSpec.applyBackgroundToAllPages}). */
+    applyBackgroundToAllPages?: boolean
   }
   /** Optional template / layout DSL version for migrations. */
   layoutSchemaVersion?: number
@@ -379,6 +399,8 @@ export interface LayoutDocumentPage {
   localVariables?: VariableDefinition[]
   /** User-placed guides for this page (editor + optional PDF overlay later). */
   guides?: PageGuides
+  /** Page-level background colour or gradient (rendered beneath all elements). */
+  background?: PageBackground
 }
 
 export function defaultPageSpec(): PageSpec {
@@ -387,6 +409,10 @@ export function defaultPageSpec(): PageSpec {
     size: 'A4',
     margin: m,
     margins: { top: m, right: m, bottom: m, left: m },
+    // Default ON: matches the existing intuition that page-level chrome
+    // (size/orientation/margins) is global. Authors can flip it off to
+    // give individual pages distinct backgrounds.
+    applyBackgroundToAllPages: true,
   }
 }
 
@@ -411,7 +437,42 @@ export function normalizePageSpec(raw: unknown): PageSpec {
       bottom: Number.isFinite(Number(mr?.bottom)) ? Number(mr?.bottom) : margin,
       left: Number.isFinite(Number(mr?.left)) ? Number(mr?.left) : margin,
     },
+    applyBackgroundToAllPages:
+      typeof o.applyBackgroundToAllPages === 'boolean'
+        ? o.applyBackgroundToAllPages
+        : d.applyBackgroundToAllPages,
   }
+}
+
+/**
+ * Coerce arbitrary JSON into a clean {@link PageBackground} or undefined.
+ * Returns undefined for empty / malformed input so we don't bloat the layout
+ * JSON with zombie {} entries on save.
+ */
+export function normalizePageBackground(raw: unknown): PageBackground | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const o = raw as Record<string, unknown>
+  const out: PageBackground = {}
+  if (typeof o.color === 'string' && o.color.trim()) {
+    out.color = o.color
+  }
+  const g = o.gradient as Record<string, unknown> | undefined
+  if (g && typeof g === 'object' && Array.isArray(g.stops) && g.stops.length >= 2) {
+    const type = g.type === 'radial' ? 'radial' : 'linear'
+    const angle = typeof g.angle === 'number' && Number.isFinite(g.angle) ? g.angle : undefined
+    const stops = g.stops
+      .map((s) => {
+        const so = s as Record<string, unknown>
+        const color = typeof so.color === 'string' ? so.color : null
+        const position = typeof so.position === 'number' ? so.position : null
+        return color != null && position != null ? { color, position } : null
+      })
+      .filter((s): s is GradientStop => s != null)
+    if (stops.length >= 2) {
+      out.gradient = { type, ...(angle != null ? { angle } : {}), stops }
+    }
+  }
+  return out.color || out.gradient ? out : undefined
 }
 
 export function pageDimensionsPt(spec: PageSpec): { width: number; height: number } {
@@ -1001,6 +1062,7 @@ export function buildLayoutJson(
       elements: p.elements.map(elementToJson),
       ...(locals.length ? { localVariables: locals } : {}),
       ...(hasGuides ? { guides: { vertical: hasGuides.vertical, horizontal: hasGuides.horizontal } } : {}),
+      ...(p.background ? { background: p.background } : {}),
     }
   })
   const firstElements = pages[0]?.elements.map(elementToJson) ?? []
@@ -1010,6 +1072,11 @@ export function buildLayoutJson(
       margin: page.margin,
       margins: page.margins,
       ...(page.orientation ? { orientation: page.orientation } : {}),
+      // Persist `applyBackgroundToAllPages` only when explicitly set so
+      // existing layouts without the field keep round-tripping unchanged.
+      ...(typeof page.applyBackgroundToAllPages === 'boolean'
+        ? { applyBackgroundToAllPages: page.applyBackgroundToAllPages }
+        : {}),
     },
     layoutSchemaVersion: 2,
     ...(globals.length ? { globalVariables: globals } : {}),
@@ -1068,12 +1135,14 @@ export function parseLayoutJson(layout: LayoutJson | Record<string, unknown>): P
       )
       const localVariables = filterPersistableVariableDefinitions(parseVariableDefinitionList(r.localVariables))
       const guides = parsePageGuides((r as LayoutJsonPage & { guides?: unknown }).guides)
+      const background = normalizePageBackground((r as LayoutJsonPage & { background?: unknown }).background)
       return {
         id,
         name,
         elements,
         localVariables: localVariables.length ? localVariables : undefined,
         ...(guides ? { guides } : {}),
+        ...(background ? { background } : {}),
       }
     })
     return { pages, page, globalVariables }
