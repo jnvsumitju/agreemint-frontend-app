@@ -1,5 +1,6 @@
 import { useEditorStore } from '../../stores/editorStore'
-import { pageDimensionsPt, PAGE_SIZE_PRESETS } from '../../types/layout'
+import { pageDimensionsPt, PAGE_SIZE_PRESETS, type GradientDef, type PageBackground } from '../../types/layout'
+import { ColorRow } from './elementAppearanceFields'
 import { FieldInput } from './ui/FieldInput'
 
 const SIZE_OPTIONS = Object.entries(PAGE_SIZE_PRESETS).map(([key, v]) => ({
@@ -11,9 +12,32 @@ export function DocumentPageSection() {
   const pageSpec = useEditorStore((s) => s.pageSpec)
   const setPageMargins = useEditorStore((s) => s.setPageMargins)
   const setPageSize = useEditorStore((s) => s.setPageSize)
+  const setActivePageBackground = useEditorStore((s) => s.setActivePageBackground)
+  const setApplyBackgroundToAllPages = useEditorStore((s) => s.setApplyBackgroundToAllPages)
+  // Read the active page's background — DocumentPageSection always shows
+  // the current page's bg, even when the "apply to all" toggle is off.
+  const activePageBackground = useEditorStore((s) => s.pages[s.activePageIndex]?.background)
   const { width, height } = pageDimensionsPt(pageSpec)
   const m = pageSpec.margins
   const orientation = pageSpec.orientation ?? 'portrait'
+  // Default ON for new templates, but respect an explicit `false` from
+  // older or migrated layouts.
+  const applyToAll = pageSpec.applyBackgroundToAllPages !== false
+
+  // Mutating helpers that drop empty fields rather than persisting them.
+  const setBgColor = (next: string) => {
+    const trimmed = next.trim()
+    const updated: PageBackground = { ...(activePageBackground ?? {}), color: trimmed || undefined }
+    if (!updated.color) delete updated.color
+    setActivePageBackground(updated.color || updated.gradient ? updated : undefined)
+  }
+  const setBgGradient = (g: GradientDef | undefined) => {
+    const updated: PageBackground = { ...(activePageBackground ?? {}) }
+    if (g) updated.gradient = g
+    else delete updated.gradient
+    setActivePageBackground(updated.color || updated.gradient ? updated : undefined)
+  }
+  const clearBg = () => setActivePageBackground(undefined)
 
   const field = (side: keyof typeof m, label: string) => (
     <FieldInput
@@ -97,6 +121,54 @@ export function DocumentPageSection() {
         {field('bottom', 'Bottom')}
         {field('left', 'Left')}
         {field('right', 'Right')}
+      </div>
+
+      {/* Background — colour + gradient. Mirrors element bg picker UI so
+          the affordance is identical to filling a BOX. The sticky toggle
+          below decides whether the same background applies to every page
+          or just the active one. */}
+      <div className="mt-3 border-t border-zinc-200 pt-2.5 dark:border-zinc-600">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[9px] font-medium text-zinc-500 lg:text-[10px] dark:text-zinc-400">Background</p>
+          {(activePageBackground?.color || activePageBackground?.gradient) && (
+            <button
+              type="button"
+              className="text-[9px] text-zinc-500 hover:text-zinc-800 lg:text-[10px] dark:text-zinc-400 dark:hover:text-zinc-100"
+              onClick={clearBg}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div className="text-[10px] lg:text-[11px]">
+          <ColorRow
+            label="Page fill"
+            textInputId="ag-page-bg-color"
+            value={activePageBackground?.color}
+            onChange={setBgColor}
+            onClear={clearBg}
+            gradient={activePageBackground?.gradient}
+            onGradientChange={setBgGradient}
+          />
+        </div>
+        <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 text-[10px] lg:text-[11px] text-zinc-600 dark:text-zinc-300">
+          <span>Apply to all pages</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={applyToAll}
+            onClick={() => setApplyBackgroundToAllPages(!applyToAll)}
+            className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 ${
+              applyToAll ? 'bg-violet-600' : 'bg-zinc-300 dark:bg-zinc-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                applyToAll ? 'translate-x-3' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </label>
       </div>
     </div>
   )

@@ -202,18 +202,57 @@ export function sanitizeLinkHref(raw: string | null | undefined): string | undef
   }
 }
 
+/**
+ * Repair the broken Unicode escape sequences DeepSeek occasionally emits
+ * for non-ASCII text under load:
+ *   • {@code \\u 0905} (whitespace between \u and the codepoint)
+ *   • {@code \\u 094 d} (whitespace inside the 4-hex codepoint)
+ *   • {@code \\x\\u0905} (stray \\x prefix that's not a valid JSON escape)
+ *
+ * Without this, JSON.parse throws on these strings and the entire rich-
+ * content envelope falls back to plain-text rendering, leaking the raw
+ * JSON onto the page. Best-effort: only touches obviously-broken \\u
+ * patterns and stray \\x. If the model emits structurally-malformed JSON
+ * (missing brace, etc.), this won't help — that's a different failure
+ * mode and falls through to the legacy plain-text fallback.
+ */
+function repairBrokenUnicodeEscapes(s: string): string {
+  return s
+    // Strip stray \x prefixes (JSON has no \x escape; the model invents
+    // these alongside broken \u sequences).
+    .replace(/\\x/g, '')
+    // Coalesce \u<digits><whitespace><digits> into a single 4-hex
+    // codepoint. Greedy left-to-right; only touches sequences whose
+    // hex characters total exactly 4.
+    .replace(/\\u\s*([0-9a-fA-F])\s*([0-9a-fA-F])\s*([0-9a-fA-F])\s*([0-9a-fA-F])/g,
+      '\\u$1$2$3$4')
+}
+
 /** Parse element content: rich JSON document or legacy plain string with variables. */
 export function parseContentToRuns(content: string | undefined): RichRun[] {
   const s = content ?? ''
   const trimmed = s.trim()
   if (trimmed.startsWith('{')) {
+    // First attempt: parse verbatim.
     try {
       const j = JSON.parse(s) as unknown
       if (isRichDoc(j)) {
         return j.runs.map((x) => normalizeRun(x as RichRun))
       }
     } catch {
-      /* legacy */
+      // Second attempt: try repairing the AI-mangled escapes that
+      // DeepSeek emits for Hindi / CJK / Arabic under load.
+      try {
+        const repaired = repairBrokenUnicodeEscapes(s)
+        if (repaired !== s) {
+          const j = JSON.parse(repaired) as unknown
+          if (isRichDoc(j)) {
+            return j.runs.map((x) => normalizeRun(x as RichRun))
+          }
+        }
+      } catch {
+        /* fall through to legacy plain-text path */
+      }
     }
   }
   return segmentsToRuns(parsePlainTemplateToSegments(s))

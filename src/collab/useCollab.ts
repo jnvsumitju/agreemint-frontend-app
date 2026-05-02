@@ -69,6 +69,11 @@ export function useCollab(templateId: string | null): void {
     const offRemote = onRemoteOp((msg: RemoteOpMessage) => {
       // Skip echoes of our own op — we already applied locally when we sent it.
       if (msg.userId && msg.userId === myUserId) return
+      // Reviewer/Viewer in committed-only mode: live ops don't apply. They're
+      // pinned to the latest committed version until they flip the toolbar's
+      // Live toggle. Designers/Admins always have canEdit=true so this gate
+      // is a no-op for them.
+      if (isFrozenForReviewer()) return
       const mapped = mapToStoreOp(msg.op)
       if (!mapped) return
       remoteOpInFlight = true
@@ -84,6 +89,11 @@ export function useCollab(templateId: string | null): void {
     })
 
     const offSnapshot = onSnapshot((snap) => {
+      // Reviewer/Viewer in committed-only mode: server snapshots represent
+      // live (possibly uncommitted) state and would clobber the v1 they're
+      // pinned to. Skip the hydrate; they'll get a fresh committed load if
+      // they flip Live on.
+      if (isFrozenForReviewer()) return
       // Full hydrate from server. The wire payload is whatever shape is in Redis
       // or Postgres — possibly wire-format (buildLayoutJson output with elements
       // run through elementToJson) or in-store-format (what ops have been writing
@@ -206,6 +216,17 @@ interface Baseline {
 
 let remoteOpInFlight = false
 let baseline: Baseline | null = null
+
+/**
+ * Reviewer/Viewer in committed-only mode: collab updates (remote ops AND
+ * snapshot replies) must be ignored so the locally-loaded committed
+ * version stays frozen. Designers/Admins always have canEdit=true and
+ * therefore aren't frozen regardless of liveMode.
+ */
+function isFrozenForReviewer(): boolean {
+  const s = useEditorStore.getState()
+  return !s.canEdit && !s.liveMode
+}
 
 /**
  * Reconcile a server snapshot against the current local store WITHOUT

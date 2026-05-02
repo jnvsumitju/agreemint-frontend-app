@@ -17,6 +17,9 @@ import { EditorStatusBar } from '../components/editor/EditorStatusBar'
 import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/ShortcutCheatsheet'
 import { AiGenerateModal } from '../components/editor/AiGenerateModal'
 import { AiGenerationOverlay, AiPendingBar } from '../components/editor/AiGenerationOverlay'
+import { FixLayoutBadge } from '../components/editor/FixLayoutBadge'
+import { RearrangePagesView } from '../components/editor/RearrangePagesView'
+import { AddCommentModal } from '../components/editor/AddCommentModal'
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
@@ -42,6 +45,9 @@ export function TemplateEditor() {
   const setVersionInfo = useEditorStore((s) => s.setVersionInfo)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
   const setViewOnly = useEditorStore((s) => s.setViewOnly)
+  const setCanEdit = useEditorStore((s) => s.setCanEdit)
+  const setRole = useEditorStore((s) => s.setRole)
+  const setLiveMode = useEditorStore((s) => s.setLiveMode)
   const setCommentingEnabled = useEditorStore((s) => s.setCommentingEnabled)
 
   useEffect(() => {
@@ -56,12 +62,30 @@ export function TemplateEditor() {
         setTemplateMeta(t.id, t.name)
 
         // Fetch role FIRST so viewOnly is set before any layout loads
+        const KNOWN_ROLES = ['ADMIN', 'DESIGNER', 'REVIEWER', 'VIEWER'] as const
+        type KnownRole = typeof KNOWN_ROLES[number]
+        let accessRole: KnownRole | null = null
+        let accessCanEdit = false
         try {
           const accessRes = await authFetch(`/api/templates/${templateId}/access`)
           if (accessRes.ok && !cancelled) {
             const access = await accessRes.json() as { role: string; canEdit: boolean; canComment: boolean }
+            // Narrow the wire-side `string` to our known union via runtime
+            // check — direct `as` cast is rejected (string ⇏ string-literal
+            // union without overlap). Unknown roles fall back to null so the
+            // editor stays in fail-closed mode.
+            accessRole = (KNOWN_ROLES as readonly string[]).includes(access.role)
+              ? (access.role as KnownRole)
+              : null
+            accessCanEdit = access.canEdit
+            setRole(accessRole)
+            setCanEdit(access.canEdit)
             setViewOnly(!access.canEdit)
             setCommentingEnabled(access.canComment)
+            // Reviewer/Viewer always start in committed-only mode; the Live
+            // toggle in the toolbar lets them opt in. Reset on every load so
+            // a previous session's Live state doesn't leak across templates.
+            setLiveMode(false)
             if (!access.canEdit) {
               // Read-only defaults — VIEWER/REVIEWER don't need authoring chrome.
               // Toggles in the status bar still let them opt back in.
@@ -75,12 +99,15 @@ export function TemplateEditor() {
 
         const versions = await fetchVersions(templateId)
         if (cancelled) return
+        // Reviewer/Viewer skip the live draft and load the latest committed
+        // version directly. The bootstrap respects this via committedOnly.
+        const committedOnly = !accessCanEdit && (accessRole === 'REVIEWER' || accessRole === 'VIEWER')
         await bootstrapEditorFromRemote(templateId, versions, {
           loadLayout,
           loadElements,
           setVersionInfo,
           setVariableValue,
-        })
+        }, { committedOnly })
       } catch {
         if (!cancelled) {
           setTemplateMeta(templateId, 'Unknown template')
@@ -109,6 +136,9 @@ export function TemplateEditor() {
     setVersionInfo,
     setVariableValue,
     setViewOnly,
+    setCanEdit,
+    setRole,
+    setLiveMode,
     setCommentingEnabled,
   ])
 
@@ -127,20 +157,48 @@ export function TemplateEditor() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex h-screen min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
-        <Toolbar />
-        <FormatBar contextToolbarExemptRef={contextToolbarExemptRef} />
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <LeftPalette />
-          <EditorCanvas exemptFromInlineCommitRef={contextToolbarExemptRef} />
-          <PropertiesPanel />
-        </div>
-        <EditorStatusBar />
-        <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
-        <AiGenerateModal />
-        <AiGenerationOverlay />
-        <AiPendingBar />
-      </div>
+      <TemplateEditorChrome
+        exemptFromInlineCommitRef={contextToolbarExemptRef}
+        shortcuts={shortcuts}
+      />
     </DndProvider>
+  )
+}
+
+function TemplateEditorChrome({
+  exemptFromInlineCommitRef,
+  shortcuts,
+}: {
+  exemptFromInlineCommitRef: React.RefObject<HTMLDivElement | null>
+  shortcuts: ReturnType<typeof useShortcutCheatsheet>
+}) {
+  // The Rearrange tool collapses the side panels + format bar so the
+  // canvas can spread out into a 4-column thumbnail grid (Google Slides
+  // sorter-style). Reading the flag here keeps the rest of the chrome
+  // unchanged when we're back in normal edit mode.
+  const rearrangeMode = useEditorStore((s) => s.rearrangeMode)
+  return (
+    <div className="flex h-screen min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
+      <Toolbar />
+      {!rearrangeMode && (
+        <FormatBar contextToolbarExemptRef={exemptFromInlineCommitRef} />
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {!rearrangeMode && <LeftPalette />}
+        {rearrangeMode ? (
+          <RearrangePagesView />
+        ) : (
+          <EditorCanvas exemptFromInlineCommitRef={exemptFromInlineCommitRef} />
+        )}
+        {!rearrangeMode && <PropertiesPanel />}
+      </div>
+      <EditorStatusBar />
+      <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
+      <AiGenerateModal />
+      <AiGenerationOverlay />
+      <AiPendingBar />
+      <AddCommentModal />
+      {!rearrangeMode && <FixLayoutBadge />}
+    </div>
   )
 }

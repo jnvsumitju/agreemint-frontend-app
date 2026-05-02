@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { commitDraft, dismissReview, fetchDocumentFileBlob, generatePdf, isReviewBlockError, measureLayout, putDraft, putDraftVariables, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { commitDraft, dismissReview, fetchDocumentFileBlob, fetchVersions, generatePdf, isReviewBlockError, measureLayout, putDraft, putDraftVariables, reopenReview, type TemplateReviewDto } from '../../lib/api'
+import { bootstrapEditorFromRemote } from '../../lib/templateEditorBootstrap'
 import { pixelParityEnabled } from '../../lib/features'
 import { findOverflowingElements, type Overflow } from '../../lib/overflowCheck'
 import { buildGenerationDataFromVariableValues } from '../../lib/previewFormData'
@@ -11,6 +12,7 @@ import { findElementByIdInDocument } from '../../lib/documentPageMerge'
 import { exportTemplateJson, importTemplateJson } from '../../lib/templateExport'
 import { exportElementAsImage } from '../../lib/canvasExport'
 import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
+import { useCollabConnectionStore, type CollabConnectionStatus } from '../../stores/collabConnectionStore'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import {
   IconUndo, IconRedo, IconEye, IconSave, IconMoreVertical,
@@ -148,6 +150,176 @@ function InlineTemplateName() {
   )
 }
 
+/**
+ * Live-edit websocket health indicator. Wifi-style icon next to the Share
+ * button — only shown to users who are actively receiving live edits
+ * (ADMIN/DESIGNER always; REVIEWER/VIEWER only with the Live toggle on),
+ * since they're the audience for whom "is sync working?" matters. Static
+ * read-only viewers don't need it cluttering the bar.
+ */
+function CollabConnectionIndicator() {
+  const status = useCollabConnectionStore((s) => s.status)
+  const canEdit = useEditorStore((s) => s.canEdit)
+  const liveMode = useEditorStore((s) => s.liveMode)
+  const role = useEditorStore((s) => s.role)
+
+  // Hide for users who don't receive live edits (REVIEWER/VIEWER in
+  // committed mode) and during the load window before /access resolves.
+  if (role === null) return null
+  const receivingLiveEdits = canEdit || liveMode
+  if (!receivingLiveEdits) return null
+  // No active connection attempt — nothing to show.
+  if (status === 'idle') return null
+
+  const config = collabIndicatorConfig(status)
+  return (
+    <div
+      role="status"
+      aria-label={config.aria}
+      title={config.tooltip}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md lg:h-8 lg:w-8 ${config.bg}`}
+    >
+      <CollabWifiIcon status={status} className={config.fg} />
+    </div>
+  )
+}
+
+function collabIndicatorConfig(status: CollabConnectionStatus): {
+  bg: string
+  fg: string
+  tooltip: string
+  aria: string
+} {
+  switch (status) {
+    case 'connected':
+      return {
+        bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+        fg: 'text-emerald-600 dark:text-emerald-300',
+        tooltip: 'Connected — your changes are syncing in real time',
+        aria: 'Connected',
+      }
+    case 'connecting':
+      return {
+        bg: 'bg-amber-50 dark:bg-amber-900/30',
+        fg: 'text-amber-600 dark:text-amber-300 animate-pulse',
+        tooltip: 'Connecting to live edits…',
+        aria: 'Connecting',
+      }
+    case 'reconnecting':
+      return {
+        bg: 'bg-amber-50 dark:bg-amber-900/30',
+        fg: 'text-amber-600 dark:text-amber-300 animate-pulse',
+        tooltip: 'Reconnecting… your changes are saved locally and will sync when reconnected',
+        aria: 'Reconnecting',
+      }
+    case 'disconnected':
+    default:
+      return {
+        bg: 'bg-zinc-100 dark:bg-zinc-800',
+        fg: 'text-zinc-500 dark:text-zinc-400',
+        tooltip: 'Disconnected — your changes are saved locally and will sync when reconnected',
+        aria: 'Disconnected',
+      }
+  }
+}
+
+function CollabWifiIcon({ status, className }: { status: CollabConnectionStatus; className?: string }) {
+  // Disconnected gets a slash through the wifi icon; the other states reuse
+  // the same arcs so the visual identity stays consistent and only the
+  // colour changes.
+  return (
+    <svg
+      className={`h-4 w-4 ${className ?? ''}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12.55a11 11 0 0 1 14 0" />
+      <path d="M8.5 16.05a6 6 0 0 1 7 0" />
+      <path d="M2 8.82a15 15 0 0 1 20 0" />
+      <circle cx="12" cy="20" r="0.75" fill="currentColor" />
+      {status === 'disconnected' && <path d="M3 3l18 18" />}
+    </svg>
+  )
+}
+
+/**
+ * Reviewer/Viewer-only toggle: flip between the latest *committed* snapshot
+ * (default) and the *live* in-flight draft that designers are editing.
+ * Hidden for ADMIN/DESIGNER — they're always live and don't need it.
+ *
+ * Toggling re-bootstraps the editor: switching to Live re-fetches the
+ * server draft + opens the gate so collab ops apply; switching back to
+ * Committed re-loads versions[0] and closes the gate.
+ */
+function ReviewerLiveToggle({ templateId }: { templateId: string | null }) {
+  const canEdit = useEditorStore((s) => s.canEdit)
+  const role = useEditorStore((s) => s.role)
+  const liveMode = useEditorStore((s) => s.liveMode)
+  const setLiveMode = useEditorStore((s) => s.setLiveMode)
+  const loadLayout = useEditorStore((s) => s.loadLayout)
+  const loadElements = useEditorStore((s) => s.loadElements)
+  const setVersionInfo = useEditorStore((s) => s.setVersionInfo)
+  const setVariableValue = useEditorStore((s) => s.setVariableValue)
+  const [busy, setBusy] = useState(false)
+
+  // Only REVIEWER/VIEWER see the toggle. Hide for ADMIN/DESIGNER (canEdit=true)
+  // and during the brief window before /access has resolved (role=null).
+  if (canEdit) return null
+  if (role !== 'REVIEWER' && role !== 'VIEWER') return null
+  if (!templateId) return null
+
+  const flip = async () => {
+    if (busy) return
+    const next = !liveMode
+    setBusy(true)
+    try {
+      // Set the flag FIRST so the collab listener unblocks (or re-blocks)
+      // before we trigger any reload work.
+      setLiveMode(next)
+      const versions = await fetchVersions(templateId)
+      await bootstrapEditorFromRemote(
+        templateId,
+        versions,
+        { loadLayout, loadElements, setVersionInfo, setVariableValue },
+        { committedOnly: !next },
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={liveMode}
+      disabled={busy}
+      onClick={() => void flip()}
+      title={liveMode
+        ? 'Showing live edits in real time. Click to switch back to the latest committed version.'
+        : 'Showing the latest committed version. Click to follow live edits as the designer types.'}
+      className={`flex h-7 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium transition-colors lg:h-7 lg:px-2.5 lg:text-xs ${
+        liveMode
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-100'
+          : 'border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700'
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`h-1.5 w-1.5 rounded-full ${
+          liveMode ? 'animate-pulse bg-emerald-500' : 'bg-zinc-400 dark:bg-zinc-500'
+        }`}
+      />
+      <span className="hidden lg:inline">{liveMode ? 'Live' : 'Committed'}</span>
+    </button>
+  )
+}
+
 function VersionBadge({
   versionNumber,
   onCommit,
@@ -216,6 +388,7 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.undoFuture.length > 0)
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const setViewOnly = useEditorStore((s) => s.setViewOnly)
+  const canEdit = useEditorStore((s) => s.canEdit)
 
   const [saving, setSaving] = useState(false)
   const [generatingVersionPdf, setGeneratingVersionPdf] = useState(false)
@@ -505,6 +678,7 @@ export function Toolbar() {
           {versionNumber != null && versionNumber > 0 && (
             <VersionBadge versionNumber={versionNumber} onCommit={() => void commitVersion()} saving={saving} />
           )}
+          <ReviewerLiveToggle templateId={templateId} />
         </div>
         {!viewOnly && <EditorSurfaceSwitcher />}
         {!viewOnly && (
@@ -561,6 +735,7 @@ export function Toolbar() {
               </button>
             </span>
           )}
+          <CollabConnectionIndicator />
           {!viewOnly && (
             <button
               type="button"
@@ -599,17 +774,34 @@ export function Toolbar() {
           )}
           {/* Dark-mode toggle lives in Settings → Preferences — the
               duplicate toolbar button was removed to declutter. */}
-          {!viewOnly && (
+          {/* Editing/View-only toggle is shown to anyone WITH edit
+              permission (canEdit), independent of the current display
+              mode. ADMIN/DESIGNER can therefore flip back to edit mode
+              after switching to view-only. REVIEWER/VIEWER never see
+              the toggle since canEdit is false for them. */}
+          {canEdit && (
             <button
               type="button"
               className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-              title="Switch to View-only mode (hover elements to comment)"
-              onClick={() => setViewOnly(true)}
+              title={
+                viewOnly
+                  ? 'Switch back to Editing mode'
+                  : 'Switch to View-only mode (hover elements to comment)'
+              }
+              onClick={() => setViewOnly(!viewOnly)}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-              </svg>
-              <span className="hidden lg:inline">Editing</span>
+              {viewOnly ? (
+                // Eye icon while in view-only — clicking restores the pencil/editing mode.
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                </svg>
+              )}
+              <span className="hidden lg:inline">{viewOnly ? 'View-only' : 'Editing'}</span>
             </button>
           )}
           <div className="relative" ref={menuRef}>

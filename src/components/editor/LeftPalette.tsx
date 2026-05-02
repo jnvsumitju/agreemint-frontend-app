@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useDrag } from 'react-dnd'
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
@@ -434,6 +434,43 @@ function AiToolButton({ title }: { title: string }) {
   )
 }
 
+/**
+ * Toggle the multi-page Rearrange grid view. When active, the side
+ * panels and format bar collapse and the canvas becomes a 4-column
+ * draggable thumbnail grid so the author can reorder pages quickly.
+ * Disabled while there's only one page (nothing to rearrange).
+ */
+function RearrangeToolButton({ title }: { title: string }) {
+  const rearrangeMode = useEditorStore((s) => s.rearrangeMode)
+  const setRearrangeMode = useEditorStore((s) => s.setRearrangeMode)
+  const pageCount = useEditorStore((s) => s.pages.length)
+  const disabled = pageCount < 2 && !rearrangeMode
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label="Rearrange pages"
+      aria-pressed={rearrangeMode}
+      disabled={disabled}
+      onClick={() => setRearrangeMode(!rearrangeMode)}
+      className={`flex h-8 items-center justify-center rounded-md border transition-colors ${
+        disabled
+          ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
+          : rearrangeMode
+            ? 'border-violet-600 bg-violet-50 text-violet-800 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-200'
+            : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-500'
+      }`}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </svg>
+    </button>
+  )
+}
+
 function PaletteRow({
   elementType,
   label,
@@ -663,15 +700,32 @@ function CollapsedActions() {
 
 export function LeftPalette() {
   const viewOnly = useEditorStore((s) => s.viewOnly)
-  const [tab, setTab] = useState<'insert' | 'pages'>(viewOnly ? 'pages' : 'insert')
+  const role = useEditorStore((s) => s.role)
+  // Default to 'pages' on first render: the store now starts fail-closed
+  // (viewOnly=true, role=null) until /access resolves. The role-based snap
+  // below picks the correct tab for the user's actual role once that
+  // response lands. Initialising to 'insert' instead would flash editing
+  // chrome to a REVIEWER for a few hundred ms.
+  const [tab, setTab] = useState<'insert' | 'pages'>('pages')
   const [collapsed, setCollapsed] = useState(false)
   const canvasTool = useEditorStore((s) => s.canvasTool)
   const savedComponents = useEditorStore((s) => s.savedComponents)
+  // One-shot: once role resolves, snap to the right default tab. Admin/
+  // Designer get Insert & tools; Reviewer/Viewer stay on Pages. After this
+  // initial snap, the user's manual tab clicks are respected.
+  const initializedFromRole = useRef(false)
 
-  // viewOnly is set asynchronously from the /access response — if the tab
-  // state was initialised while viewOnly was still false, snap it to 'pages'
-  // when the role resolves so VIEWER/REVIEWER never see the Insert & tools
-  // panel.
+  useEffect(() => {
+    if (role === null) return
+    if (initializedFromRole.current) return
+    initializedFromRole.current = true
+    setTab(viewOnly ? 'pages' : 'insert')
+  }, [role, viewOnly])
+
+  // Safety net for later transitions: if the user flips into view-only mode
+  // mid-session (only ADMIN/DESIGNER can — see editorStore.setViewOnly guard)
+  // and they were on the Insert tab, snap them to Pages so they aren't
+  // looking at a hidden tab.
   useEffect(() => {
     if (viewOnly && tab === 'insert') setTab('pages')
   }, [viewOnly, tab])
@@ -701,6 +755,9 @@ export function LeftPalette() {
               ))}
               <Tooltip content="Generate with AI — describe the template in plain English" position="right">
                 <span><AiToolButton title="Generate with AI" /></span>
+              </Tooltip>
+              <Tooltip content="Rearrange — drag pages to reorder" position="right">
+                <span><RearrangeToolButton title="Rearrange — drag pages to reorder" /></span>
               </Tooltip>
             </div>
             <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
@@ -759,6 +816,7 @@ export function LeftPalette() {
                   <ToolButton key={id} tool={id} title={title} Icon={Icon} />
                 ))}
                 <AiToolButton title="Generate with AI — describe in plain English" />
+                <RearrangeToolButton title="Rearrange — drag pages to reorder" />
               </div>
               {canvasTool === 'draw' && (
                 <p className="mt-1.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">

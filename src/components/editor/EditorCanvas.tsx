@@ -77,7 +77,7 @@ import type { Editor as TipTapEditor } from '@tiptap/core'
 import { copyElementsToClipboard, pasteElementsFromClipboard } from '../../lib/clipboard'
 import { reflowText as reflowTextApi } from '../../lib/api'
 import { gradientToCss, isValidGradient, svgGradientId, svgLinearGradientProps } from '../../lib/gradientUtils'
-import type { GradientDef } from '../../types/layout'
+import type { GradientDef, PageBackground } from '../../types/layout'
 
 /** Must hold pointer down this long before a move can start a drag (avoids drag stealing double-click). */
 const DRAG_HOLD_MS = 200
@@ -129,6 +129,21 @@ function isCanvasInlineCommitExemptTarget(node: Node, exemptRoot: HTMLElement | 
 
 function isSpaceKey(e: KeyboardEvent) {
   return e.code === 'Space' || e.key === ' '
+}
+
+/**
+ * Translate a {@link PageBackground} into inline-style props for the page
+ * canvas div. Gradients use {@code backgroundImage}; the solid colour goes
+ * to {@code backgroundColor} as a fallback (so transparent gradients still
+ * paint over the right base).
+ */
+function buildPageBackgroundStyle(bg: PageBackground): React.CSSProperties {
+  const out: React.CSSProperties = {}
+  if (bg.color) out.backgroundColor = bg.color
+  if (bg.gradient && isValidGradient(bg.gradient)) {
+    out.backgroundImage = gradientToCss(bg.gradient)
+  }
+  return out
 }
 
 function CanvasElement({
@@ -2045,6 +2060,98 @@ export function EditorCanvas({
   const activePageGuidesFromStore = useEditorStore((s) => s.pages[s.activePageIndex]?.guides)
   const activePageGuides = bandContainerEl ? bandContainerEl.bandGuides : activePageGuidesFromStore
 
+  // ── Multi-page stacked render: per-page derived state ────────────
+  // Compute the displayed elements for EVERY page (not just the active
+  // one). The active page reuses its existing detailed pipeline above;
+  // non-active pages get a simpler render path that doesn't include
+  // band-edit overlays. Memoised by pages identity + previewData so we
+  // don't recompute on every active-page-only state change.
+  const setActivePageIndex = useEditorStore((s) => s.setActivePageIndex)
+  const displayElementsByPage = useMemo(() => {
+    return pages.map((page, pageIndex) => {
+      const baseElements = page.elements
+      const withBands = mergeDocumentBandsIntoPageElements(pages, pageIndex, baseElements)
+      const merged = mergeFloatingRepeatsIntoPage(pages, pageIndex, withBands)
+      return merged.flatMap((el) => {
+        const { visible, element } = resolveLayoutElement(el, previewData, null)
+        return visible ? [element] : []
+      })
+    })
+  }, [pages, previewData])
+  // Refs to each page's outer wrapper, so the IntersectionObserver
+  // below can decide which page is most-visible while the user scrolls.
+  const pageStackRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
+
+  // Scroll-based active-page detection. As the user scrolls through the
+  // stacked pages, we promote whichever page intersects the viewport
+  // center to be the "active" one (full editing capabilities). The
+  // observer is debounced via state batching — we only call
+  // setActivePageIndex when the winning page changes, never every
+  // intersection event. Disabled while a band-edit is open (band-edit
+  // is scoped to a single element on the active page; switching active
+  // pages mid-band-edit would lose the editor's pending changes).
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!root) return
+    if (bandCanvasEditElementId) return
+    if (pages.length < 2) return
+    let lastWinner = -1
+    const visible = new Map<number, number>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const el = e.target as HTMLElement
+          // Outer per-page wrapper carries data-page-index but so does
+          // the inner page-canvas div. The inner one is filtered out
+          // below at observe-time; this is just an additional guard.
+          if (el.hasAttribute('data-agreemint-page-canvas')) continue
+          const idx = Number(el.getAttribute('data-page-index'))
+          if (!Number.isFinite(idx)) continue
+          if (e.isIntersecting) {
+            visible.set(idx, e.intersectionRatio)
+          } else {
+            visible.delete(idx)
+          }
+        }
+        if (visible.size === 0) return
+        // Pick the page with the largest intersection ratio. Tie-break
+        // by lower index so the document reads top-to-bottom.
+        let bestIdx = -1
+        let bestRatio = -1
+        for (const [idx, ratio] of visible) {
+          if (ratio > bestRatio || (ratio === bestRatio && idx < bestIdx)) {
+            bestIdx = idx
+            bestRatio = ratio
+          }
+        }
+        if (bestIdx >= 0 && bestIdx !== lastWinner) {
+          lastWinner = bestIdx
+          setActivePageIndex(bestIdx)
+        }
+      },
+      {
+        root,
+        // Trigger updates as a page crosses the vertical midline.
+        // Margin shrinks the root's effective vertical extent so the
+        // most-visible page near the center wins, not just any page
+        // that's barely peeking in from above/below.
+        rootMargin: '-30% 0% -30% 0%',
+        threshold: [0, 0.25, 0.5, 0.75, 1.0],
+      }
+    )
+    // Query the DOM directly for per-page wrappers — they all carry
+    // [data-page-index] and the OUTER wrappers don't have
+    // data-agreemint-page-canvas (which the inner page-canvas div does).
+    // Using querySelectorAll instead of the ref map sidesteps any race
+    // between ref callbacks and effect timing on rapid page-count changes.
+    const pageWrappers = root.querySelectorAll<HTMLElement>(
+      '[data-page-index]:not([data-agreemint-page-canvas])'
+    )
+    for (const el of pageWrappers) observer.observe(el)
+    return () => observer.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages.length, bandCanvasEditElementId, setActivePageIndex])
+
   const requestImageInsertAt = useCallback((pos: { x: number; y: number }) => {
     pendingImagePosRef.current = pos
     setImageModalOpen(true)
@@ -2080,22 +2187,22 @@ export function EditorCanvas({
 
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const commentingEnabled = useEditorStore((s) => s.commentingEnabled)
-  const addComment = useEditorStore((s) => s.addComment)
   const setEditorSidebarTab = useEditorStore((s) => s.setEditorSidebarTab)
-  const authUserName = useAuthStore((s) => s.user?.name ?? 'User')
 
-  /** View-only mode: click comment icon → select element, open Comments tab, prompt for text. */
+  /**
+   * View-only mode: click comment icon → select element, open Comments
+   * tab, then trigger the in-app Add-Comment modal (replaces the legacy
+   * native window.prompt). The modal reads commentTargetElementId from
+   * the store and renders into the TemplateEditor tree.
+   */
+  const openAddCommentModal = useEditorStore((s) => s.openAddCommentModal)
   const onCommentClick = useCallback(
     (elId: string) => {
       select(elId)
       setEditorSidebarTab('comments')
-      // Small delay so the panel renders, then prompt
-      setTimeout(() => {
-        const text = window.prompt('Add a comment')
-        if (text?.trim()) addComment(elId, text.trim(), authUserName)
-      }, 100)
+      openAddCommentModal(elId)
     },
-    [select, setEditorSidebarTab, addComment, authUserName],
+    [select, setEditorSidebarTab, openAddCommentModal],
   )
 
   const onElementContextMenu = useCallback((e: ReactMouseEvent, elId: string) => {
@@ -3234,7 +3341,7 @@ export function EditorCanvas({
     <div
       ref={scrollRef}
       data-agreemint-canvas-root
-      className={`am-scrollbar-none min-w-0 flex-1 overflow-auto bg-zinc-200/80 p-6 dark:bg-zinc-950 ${scrollCursorClass}`}
+      className={`relative am-scrollbar-none min-w-0 flex-1 overflow-auto bg-zinc-200/80 p-6 dark:bg-zinc-950 ${scrollCursorClass}`}
       title={scrollTitle}
       // `pan-x pan-y` reserves one-finger scroll for the browser while
       // keeping two-finger pinch for us (instead of the native page
@@ -3245,11 +3352,33 @@ export function EditorCanvas({
       onPointerUp={onScrollPointerUp}
       onPointerCancel={onScrollPointerUp}
     >
+      {/* Full-width horizontal band tinting the area around the active
+          page. Extends edge-to-edge across the scroller (left:0 right:0)
+          and tracks the active page's vertical position so the user can
+          see at a glance which page they're editing without the tint
+          being clipped to the page's narrow column. */}
+      {pages.length > 1 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bg-sky-100/70 dark:bg-sky-950/40"
+          style={{
+            // p-6 (24px) padding on the scroller pushes the content
+            // down by 24px before the first page starts; mirror that
+            // here so the band aligns with the active page's top edge.
+            top: 24 + activePageIndex * ((22 + PAGE_H + 32) * canvasZoom),
+            height: (22 + PAGE_H) * canvasZoom,
+          }}
+        />
+      )}
       <div
-        className="mx-auto min-w-0"
+        className="relative mx-auto min-w-0"
         style={{
           width: (22 + PAGE_W) * canvasZoom,
-          height: (22 + PAGE_H) * canvasZoom,
+          // Stack: each page = ruler-band(22pt) + page-canvas(PAGE_H).
+          // Between pages add a vertical gap of MULTI_PAGE_GAP_PT so the
+          // user can see a visible seam (and so the active-page bg tint
+          // reads as "around" the page, not bleeding into neighbours).
+          height: (pages.length * (22 + PAGE_H) + Math.max(0, pages.length - 1) * 32) * canvasZoom,
         }}
       >
         <div
@@ -3263,12 +3392,61 @@ export function EditorCanvas({
             // empty spacers below; the page's position relative to the
             // outer scroll container stays rock-steady.
             width: 22 + PAGE_W,
-            height: 22 + PAGE_H,
+            height: pages.length * (22 + PAGE_H) + Math.max(0, pages.length - 1) * 32,
           }}
         >
-          <div className="flex flex-col">
+          <div className="flex flex-col" style={{ gap: 32 }}>
+          {pages.map((stackedPage, stackedPageIndex) => {
+            const isActivePage = stackedPageIndex === activePageIndex
+            const pageDisplayElements = isActivePage
+              ? displayElements
+              : (displayElementsByPage[stackedPageIndex] ?? [])
+            return (
+            <div
+              key={stackedPage.id}
+              ref={(el) => {
+                if (el) pageStackRefs.current.set(stackedPageIndex, el)
+                else pageStackRefs.current.delete(stackedPageIndex)
+              }}
+              data-page-index={stackedPageIndex}
+              className={
+                'flex flex-col rounded transition-colors ' +
+                (isActivePage
+                  ? 'bg-sky-100/70 dark:bg-sky-950/40'
+                  : 'bg-transparent hover:bg-zinc-300/40 dark:hover:bg-zinc-900/40 cursor-pointer')
+              }
+              onClickCapture={
+                isActivePage
+                  ? undefined
+                  : (e) => {
+                      e.stopPropagation()
+                      setActivePageIndex(stackedPageIndex)
+                    }
+              }
+              // Element selection / drag uses pointerdown / mousedown,
+              // not click — gate those in capture phase too so a single
+              // tap on a non-active page activates it without selecting
+              // or dragging the element under the cursor.
+              onMouseDownCapture={
+                isActivePage
+                  ? undefined
+                  : (e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      setActivePageIndex(stackedPageIndex)
+                    }
+              }
+              onPointerDownCapture={
+                isActivePage
+                  ? undefined
+                  : (e) => {
+                      e.stopPropagation()
+                      setActivePageIndex(stackedPageIndex)
+                    }
+              }
+            >
           <div className="flex" style={{ height: 22 }}>
-            {showRulers ? (
+            {showRulers && isActivePage ? (
               <>
                 <RulerCorner elRef={rulerCornerBoundRef} />
                 <HorizontalRuler
@@ -3285,13 +3463,14 @@ export function EditorCanvas({
                 />
               </>
             ) : (
-              // Invisible spacer keeps the horizontal band reserved so
-              // toggling rulers doesn't move the page.
+              // Reserved spacer for the ruler band — keeps the inactive
+              // page's height aligned with the active page's height so
+              // the stack reads as uniform.
               <div aria-hidden style={{ width: 22 + PAGE_W, height: 22 }} />
             )}
           </div>
           <div className="flex">
-            {showRulers ? (
+            {showRulers && isActivePage ? (
               <VerticalRuler
                 heightPt={PAGE_H}
                 elRef={verticalRulerBoundRef}
@@ -3308,28 +3487,50 @@ export function EditorCanvas({
               <div aria-hidden style={{ width: 22, height: PAGE_H, flexShrink: 0 }} />
             )}
             <div
-              ref={connectDropRef}
+              ref={isActivePage ? connectDropRef : undefined}
               data-agreemint-page-canvas
-              className={`relative bg-white shadow-lg dark:bg-zinc-100 ${
-                moveGrabActive ? 'cursor-grab' : drawMode ? 'cursor-crosshair' : ''
+              data-page-index={stackedPageIndex}
+              className={`relative shadow-lg ${
+                // Drop the white default class only when the page itself
+                // declares a background — otherwise tailwind's bg-white
+                // would paint over an inline gradient on the active page.
+                stackedPage.background ? '' : 'bg-white dark:bg-zinc-100'
+              } ${
+                isActivePage
+                  ? (moveGrabActive ? 'cursor-grab' : drawMode ? 'cursor-crosshair' : '')
+                  : 'cursor-pointer'
               }`}
               style={{
                 width: PAGE_W,
                 height: PAGE_H,
-                ...(showGrid
+                // Apply the page's own background — gradient takes
+                // precedence over solid colour, mirroring element bg
+                // semantics. Layered with the editor grid below so the
+                // grid still reads on dark backgrounds.
+                ...(stackedPage.background
+                  ? buildPageBackgroundStyle(stackedPage.background)
+                  : {}),
+                ...(showGrid && isActivePage
                   ? {
-                      backgroundImage:
-                        'linear-gradient(to right, rgb(228 228 231 / 0.5) 1px, transparent 1px), linear-gradient(to bottom, rgb(228 228 231 / 0.5) 1px, transparent 1px)',
-                      backgroundSize: `${gridSize}px ${gridSize}px`,
+                      backgroundImage: [
+                        'linear-gradient(to right, rgb(228 228 231 / 0.5) 1px, transparent 1px)',
+                        'linear-gradient(to bottom, rgb(228 228 231 / 0.5) 1px, transparent 1px)',
+                        // When a page-level gradient is set, restack it
+                        // beneath the grid so the grid stays visible.
+                        stackedPage.background?.gradient && isValidGradient(stackedPage.background.gradient)
+                          ? gradientToCss(stackedPage.background.gradient)
+                          : null,
+                      ].filter(Boolean).join(', '),
+                      backgroundSize: `${gridSize}px ${gridSize}px, ${gridSize}px ${gridSize}px${stackedPage.background?.gradient ? ', auto' : ''}`,
                     }
                   : {}),
               }}
-              onMouseDown={onPageMouseDown}
-              onMouseMove={onPageMouseMove}
-              onMouseLeave={() => setCanvasPointerPt(null)}
-              onPointerMove={onPagePointerMove}
-              onPointerUp={onPagePointerUp}
-              onPointerCancel={onPagePointerUp}
+              onMouseDown={isActivePage ? onPageMouseDown : undefined}
+              onMouseMove={isActivePage ? onPageMouseMove : undefined}
+              onMouseLeave={isActivePage ? () => setCanvasPointerPt(null) : undefined}
+              onPointerMove={isActivePage ? onPagePointerMove : undefined}
+              onPointerUp={isActivePage ? onPagePointerUp : undefined}
+              onPointerCancel={isActivePage ? onPagePointerUp : undefined}
             >
               {/* The old sky-blue dashed rectangle that traced the print
                   margins lived here. It's been replaced by the draggable
@@ -3337,7 +3538,7 @@ export function EditorCanvas({
                   the page surface stays uncluttered and the author can
                   drag margins directly from the ruler instead of hunting
                   for them in Settings. */}
-              {activePageGuides?.vertical.map((x, gi) => (
+              {isActivePage && activePageGuides?.vertical.map((x, gi) => (
                 <Fragment key={`pgv-${gi}-${x}`}>
                   <div
                     className="pointer-events-none absolute z-[3] w-px bg-sky-500/90 dark:bg-sky-400/90"
@@ -3354,7 +3555,7 @@ export function EditorCanvas({
                   />
                 </Fragment>
               ))}
-              {activePageGuides?.horizontal.map((y, gi) => (
+              {isActivePage && activePageGuides?.horizontal.map((y, gi) => (
                 <Fragment key={`pgh-${gi}-${y}`}>
                   <div
                     className="pointer-events-none absolute left-0 z-[3] h-px bg-sky-500/90 dark:bg-sky-400/90"
@@ -3371,26 +3572,26 @@ export function EditorCanvas({
                   />
                 </Fragment>
               ))}
-              {guideRulerPreview?.axis === 'vertical' ? (
+              {isActivePage && guideRulerPreview?.axis === 'vertical' ? (
                 <div
                   className="pointer-events-none absolute z-[4] w-px bg-sky-400/70 dark:bg-sky-300/70"
                   style={{ left: guideRulerPreview.pt, top: gOy, height: gGuideH }}
                 />
               ) : null}
-              {guideRulerPreview?.axis === 'horizontal' ? (
+              {isActivePage && guideRulerPreview?.axis === 'horizontal' ? (
                 <div
                   className="pointer-events-none absolute left-0 z-[4] h-px bg-sky-400/70 dark:bg-sky-300/70"
                   style={{ top: gOy + guideRulerPreview.pt, width: PAGE_W }}
                 />
               ) : null}
-              {dragGuides.vertical.map((x) => (
+              {isActivePage && dragGuides.vertical.map((x) => (
                 <div
                   key={`vg-${x}`}
                   className="pointer-events-none absolute z-[25] w-px bg-fuchsia-500 dark:bg-fuchsia-400"
                   style={{ left: gOx + x, top: gOy, height: gGuideH }}
                 />
               ))}
-              {dragGuides.horizontal.map((y) => (
+              {isActivePage && dragGuides.horizontal.map((y) => (
                 <div
                   key={`hg-${y}`}
                   className="pointer-events-none absolute left-0 z-[25] h-px bg-fuchsia-500 dark:bg-fuchsia-400"
@@ -3400,17 +3601,19 @@ export function EditorCanvas({
               {/* Path-edit mode chrome (vertex handles + snap guides).
                   Lives in page-coord space — the overlay positions
                   itself at the editing element's (x, y). Renders null
-                  when no element is being path-edited. */}
-              <div
-                className="pointer-events-none absolute z-[26]"
-                style={{ left: gOx, top: gOy, width: PAGE_W, height: PAGE_H }}
-              >
-                <PathEditOverlay />
-              </div>
+                  when no element is being path-edited. Active page only. */}
+              {isActivePage && (
+                <div
+                  className="pointer-events-none absolute z-[26]"
+                  style={{ left: gOx, top: gOy, width: PAGE_W, height: PAGE_H }}
+                >
+                  <PathEditOverlay />
+                </div>
+              )}
               {/* Marquee / rubber-band selection rectangle. Only rendered
                   while the Select-tool drag exceeds the click threshold
                   (a plain click shows nothing — matches Figma / Excalidraw). */}
-              {marqueeRect && (
+              {isActivePage && marqueeRect && (
                 <div
                   className="pointer-events-none absolute z-[24] border border-dashed border-violet-500 bg-violet-500/10 dark:border-violet-400 dark:bg-violet-400/10"
                   style={{
@@ -3421,10 +3624,10 @@ export function EditorCanvas({
                   }}
                 />
               )}
-              {bandEditBox ? (
+              {isActivePage && bandEditBox ? (
                 <BandEditOutsideMasks box={bandEditBox} pageW={PAGE_W} pageH={PAGE_H} />
               ) : null}
-              {bandEditBox ? (
+              {isActivePage && bandEditBox ? (
                 <div
                   className="absolute z-[35] overflow-hidden"
                   style={{
@@ -3435,7 +3638,7 @@ export function EditorCanvas({
                   }}
                 >
                   <div className="relative h-full w-full">
-                    {displayElements.flatMap((el) => {
+                    {pageDisplayElements.flatMap((el) => {
                       if ((el.type === 'HEADER' || el.type === 'FOOTER') && el.bandElements?.length) {
                         return [
                           <div
@@ -3487,7 +3690,7 @@ export function EditorCanvas({
                 </div>
               ) : (
                 <>
-                  {displayElements.flatMap((el) => {
+                  {pageDisplayElements.flatMap((el) => {
                     if ((el.type === 'HEADER' || el.type === 'FOOTER') && el.bandElements?.length) {
                       return [
                         <div
@@ -3495,6 +3698,7 @@ export function EditorCanvas({
                           className="absolute"
                           style={{ left: el.x, top: el.y, width: el.width, height: el.height }}
                           onDoubleClick={(e) => {
+                            if (!isActivePage) return
                             e.stopPropagation()
                             e.preventDefault()
                             useEditorStore.getState().enterBandCanvasEdit(el.id)
@@ -3523,7 +3727,7 @@ export function EditorCanvas({
                       />,
                     ]
                   })}
-                  {selectionBounds != null ? (
+                  {isActivePage && selectionBounds != null ? (
                     <div
                       className="pointer-events-none absolute z-[24] rounded border-2 border-dashed border-violet-500/80 dark:border-violet-400/70"
                       style={{
@@ -3539,6 +3743,9 @@ export function EditorCanvas({
               )}
             </div>
           </div>
+            </div>
+            )
+          })}
           </div>
         </div>
       </div>
@@ -3622,10 +3829,10 @@ export function EditorCanvas({
                 setElementContextMenu(null)
                 if (elId) {
                   setEditorSidebarTab('comments')
-                  setTimeout(() => {
-                    const text = window.prompt('Add a comment')
-                    if (text?.trim()) addComment(elId, text.trim(), authUserName)
-                  }, 100)
+                  // In-app modal — see AddCommentModal. Replaces the
+                  // native window.prompt that was producing the ugly
+                  // "localhost:5173 says" browser dialog.
+                  st.openAddCommentModal(elId)
                 }
               }}
             >
