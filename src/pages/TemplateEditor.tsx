@@ -17,6 +17,7 @@ import { EditorStatusBar } from '../components/editor/EditorStatusBar'
 import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/ShortcutCheatsheet'
 import { AiGenerateModal } from '../components/editor/AiGenerateModal'
 import { AiGenerationOverlay, AiPendingBar } from '../components/editor/AiGenerationOverlay'
+import { FixLayoutBadge } from '../components/editor/FixLayoutBadge'
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
@@ -140,6 +141,7 @@ export function TemplateEditor() {
         <AiGenerateModal />
         <AiGenerationOverlay />
         <AiPendingBar />
+        <FixLayoutBadge />
       </div>
     </DndProvider>
   )

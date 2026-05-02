@@ -407,6 +407,35 @@ export type AiChunkContext = {
  * Used by the chunked-generation flow — returns an empty array on any
  * failure so the caller can fall back to single-pass generation.
  */
+export type AiFixLayoutIssue = {
+  kind: string
+  elementId: string
+  data?: Record<string, unknown>
+}
+
+/**
+ * Per-page minimal-correction call. The frontend detects geometry / text
+ * issues client-side and posts the page JSON + issue list here; the model
+ * returns a corrected page object. Used by the per-page "Fix layout"
+ * badge.
+ */
+export async function fixPageLayout(
+  templateId: string,
+  body: {
+    page: unknown
+    pageSpec: unknown
+    variables: unknown
+    issues: AiFixLayoutIssue[]
+  },
+): Promise<Record<string, unknown>> {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/ai-fix-layout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return parseJson<Record<string, unknown>>(res)
+}
+
 export async function outlineAi(
   templateId: string,
   body: { instruction: string; currentLayout: unknown; variables: unknown },
