@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useDrag } from 'react-dnd'
+import {
+  Combine as IconUnionLucide,
+  Group as IconGroupLucide,
+  PenTool as IconEditPathLucide,
+  SquaresExclude as IconDivideLucide,
+  Ungroup as IconUngroupLucide,
+  Unlink2 as IconUnmergeLucide,
+} from 'lucide-react'
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
 import { useEditorStore } from '../../stores/editorStore'
@@ -123,90 +131,67 @@ function IconRotate() {
   )
 }
 
+// Action icons come from lucide-react — designed to fill the viewBox tightly
+// at consistent stroke weight, so they read clearly in the small ActionTile
+// buttons. Local wrappers fix render size + stroke so every icon is uniform
+// and we can swap one icon without touching the rest.
+const ACTION_ICON_SIZE = 22
+
 function IconGroup() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="2" width="8" height="8" rx="1" />
-      <rect x="14" y="14" width="8" height="8" rx="1" />
-      <path d="M10 6h4M6 10v4M14 18h-4M18 14v-4" strokeDasharray="2 2" />
-    </svg>
-  )
+  return <IconGroupLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
 }
 
 function IconUngroup() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="2" width="8" height="8" rx="1" />
-      <rect x="14" y="14" width="8" height="8" rx="1" />
-      <path d="M12 8l-2 2M16 12l-2 2" />
-    </svg>
-  )
-}
-
-function IconDivide() {
-  // Two overlapping circles with a dashed split between their shared lens —
-  // reads as "fragment into pieces".
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-      <circle cx="9" cy="12" r="6" />
-      <circle cx="15" cy="12" r="6" />
-      <path d="M12 7v10" strokeDasharray="2 2" />
-    </svg>
-  )
+  return <IconUngroupLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
 }
 
 function IconUnion() {
-  // Two overlapping circles joined — reads as "combine into one outline".
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
-      <path d="M9 6a6 6 0 1 0 0 12 6 6 0 0 1 6-6 6 6 0 0 0-6-6zm6 0a6 6 0 0 1 0 12 6 6 0 0 0-6-6 6 6 0 0 1 6-6z" />
-    </svg>
-  )
+  return <IconUnionLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
+}
+
+function IconDivide() {
+  return <IconDivideLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
 }
 
 function IconEditPath() {
-  // Polyline with two visible vertex dots — reads as "node editor".
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 18L12 8l8 10" />
-      <circle cx="4" cy="18" r="2" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="8" r="2" fill="currentColor" stroke="none" />
-      <circle cx="20" cy="18" r="2" fill="currentColor" stroke="none" />
-    </svg>
-  )
+  return <IconEditPathLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
 }
 
 function IconUnmerge() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M16 3h5v5M8 21H3v-5" />
-      <path d="M21 3l-7 7M3 21l7-7" />
-    </svg>
-  )
+  return <IconUnmergeLucide size={ACTION_ICON_SIZE} strokeWidth={1.75} aria-hidden />
 }
 
 function ActionToolButton({
   title,
   disabled,
+  disabledReason,
   onClick,
   children,
 }: {
   title: string
   disabled: boolean
+  /**
+   * Shown in the tooltip + aria-label when the button is disabled — tells
+   * the user *why* (e.g. "Select 2+ shapes") instead of repeating the
+   * action name back to them. Falls back to plain {@code title} when not
+   * provided so existing callers keep working.
+   */
+  disabledReason?: string
   onClick: () => void
   children: React.ReactNode
 }) {
+  const effectiveTitle = disabled && disabledReason ? `${title} — ${disabledReason}` : title
   return (
     <button
       type="button"
-      title={title}
-      aria-label={title}
+      title={effectiveTitle}
+      aria-label={effectiveTitle}
       disabled={disabled}
       onMouseDown={(e) => {
         e.preventDefault()
         if (!disabled) onClick()
       }}
-      className={`flex h-8 w-full items-center justify-center rounded-md border transition-colors ${
+      className={`flex h-11 w-full items-center justify-center rounded-md border transition-colors lg:h-12 ${
         disabled
           ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'
           : 'border-zinc-200 bg-white text-zinc-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-violet-500 dark:hover:bg-violet-950/50 dark:hover:text-violet-200'
@@ -214,6 +199,48 @@ function ActionToolButton({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * Wraps an {@link ActionToolButton} with a small caption below at lg+.
+ * The caption stays hidden at smaller breakpoints (where the palette is
+ * narrow and we keep the icon-only grid). CollapsedActions deliberately
+ * does NOT use this wrapper — it shows tooltips on hover instead.
+ */
+function ActionTile({
+  caption,
+  title,
+  disabled,
+  disabledReason,
+  onClick,
+  children,
+}: {
+  caption: string
+  title: string
+  disabled: boolean
+  disabledReason?: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <ActionToolButton
+        title={title}
+        disabled={disabled}
+        disabledReason={disabledReason}
+        onClick={onClick}
+      >
+        {children}
+      </ActionToolButton>
+      <span
+        className={`hidden lg:block text-[10px] leading-tight whitespace-nowrap ${
+          disabled ? 'text-zinc-400 dark:text-zinc-500' : 'text-zinc-600 dark:text-zinc-300'
+        }`}
+      >
+        {caption}
+      </span>
+    </div>
   )
 }
 
@@ -597,40 +624,69 @@ function ActionsSection() {
   const enterPathEditMode = useEditorStore((s) => s.enterPathEditMode)
   const selectedIds = useEditorStore((s) => s.selectedIds)
 
+  // Single 3-column grid: row 1 covers the "selection-as-collection" ops
+  // (Group/Ungroup) plus the lone vector op (Edit points); row 2 holds the
+  // boolean trio (Union/Divide/Unmerge). Group↔Ungroup stay horizontally
+  // adjacent and the boolean ops cluster together so muscle memory still
+  // works without the explicit family labels.
   return (
     <div>
       <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Actions</p>
-      <div className="grid grid-cols-4 gap-1 lg:grid-cols-5">
-        <ActionToolButton title="Group — combine selected elements" disabled={!canGroup} onClick={groupSelection}>
+      <div className="grid grid-cols-3 gap-1.5">
+        <ActionTile
+          caption="Group"
+          title="Group"
+          disabled={!canGroup}
+          disabledReason="Select 2 or more elements"
+          onClick={groupSelection}
+        >
           <IconGroup />
-        </ActionToolButton>
-        <ActionToolButton title="Ungroup — split grouped elements apart" disabled={!canUngroup} onClick={ungroupSelection}>
+        </ActionTile>
+        <ActionTile
+          caption="Ungroup"
+          title="Ungroup"
+          disabled={!canUngroup}
+          disabledReason="Select a grouped element"
+          onClick={ungroupSelection}
+        >
           <IconUngroup />
-        </ActionToolButton>
-        <ActionToolButton
-          title="Union — combine selected shapes into a single outline"
-          disabled={!canUnion}
-          onClick={unionSelectionIntoMergedShape}
-        >
-          <IconUnion />
-        </ActionToolButton>
-        <ActionToolButton
-          title="Divide — split overlapping shapes into their distinct regions"
-          disabled={!canDivide}
-          onClick={divideSelectionIntoRegions}
-        >
-          <IconDivide />
-        </ActionToolButton>
-        <ActionToolButton
-          title="Edit points — double-click a shape or hit this to move / add / remove vertices"
+        </ActionTile>
+        <ActionTile
+          caption="Edit points"
+          title="Edit points"
           disabled={!canEditPath}
+          disabledReason="Select a single shape"
           onClick={() => selectedIds[0] && enterPathEditMode(selectedIds[0])}
         >
           <IconEditPath />
-        </ActionToolButton>
-        <ActionToolButton title="Unmerge — restore original shapes" disabled={!canUnmerge} onClick={unmergeSelection}>
+        </ActionTile>
+        <ActionTile
+          caption="Union"
+          title="Union"
+          disabled={!canUnion}
+          disabledReason="Select 2+ shapes"
+          onClick={unionSelectionIntoMergedShape}
+        >
+          <IconUnion />
+        </ActionTile>
+        <ActionTile
+          caption="Divide"
+          title="Divide"
+          disabled={!canDivide}
+          disabledReason="Select 2+ overlapping shapes"
+          onClick={divideSelectionIntoRegions}
+        >
+          <IconDivide />
+        </ActionTile>
+        <ActionTile
+          caption="Unmerge"
+          title="Unmerge"
+          disabled={!canUnmerge}
+          disabledReason="Select a merged shape"
+          onClick={unmergeSelection}
+        >
           <IconUnmerge />
-        </ActionToolButton>
+        </ActionTile>
       </div>
     </div>
   )
