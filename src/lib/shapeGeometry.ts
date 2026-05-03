@@ -2,9 +2,14 @@ import polygonClipping from 'polygon-clipping'
 import type { MultiPolygon, Pair, Polygon, Ring } from 'polygon-clipping'
 import type { LayoutElement, ShapeMultiPolygon, ShapePolygon, ShapeRing } from '../types/layout'
 import { flattenBezierPath } from './bezierGeometry'
+import { resolvePolygonPoints } from './polygonGeometry'
 
 export const MERGEABLE_SHAPE_TYPES = new Set<string>([
   'LINE',
+  // Unified polygon — covers rect / regular / triangle / diamond / star /
+  // arrow / custom kinds. Path-edit mode treats any polygonal element as
+  // mergeable so double-click → vertex edit works on the new POLYGON tile.
+  'POLYGON',
   'BOX',
   'ELLIPSE',
   'TRIANGLE',
@@ -184,6 +189,25 @@ function elementToPolygon(el: LayoutElement): Polygon | null {
   const w = el.width
   const h = el.height
   switch (el.type) {
+    case 'POLYGON': {
+      // Unified polygon — pull the local-coord vertex list from the
+      // central resolver so path-edit / boolean ops see the same
+      // geometry as the canvas + PDF renderers, then translate into
+      // absolute coords. Using resolvePolygonPoints means every
+      // polygonKind (rect, regular, triangle, diamond, star, arrow,
+      // custom) flows through one path.
+      const local = resolvePolygonPoints(el)
+      if (local.length < 3) return null
+      const ring: Ring = local.map(([lx, ly]): Pair => [x + lx, y + ly])
+      // Close the ring — polygon-clipping expects the first and last
+      // points to coincide for proper boolean ops.
+      const first = ring[0]!
+      const last = ring[ring.length - 1]!
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        ring.push([first[0], first[1]])
+      }
+      return [ring]
+    }
     case 'BOX':
       return [[[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]]
     case 'LINE':

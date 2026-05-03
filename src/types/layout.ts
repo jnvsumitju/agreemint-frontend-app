@@ -1,4 +1,5 @@
 import { filterPersistableVariableDefinitions } from '../lib/systemTemplateVariables'
+import { legacyTypeToPolygonKind } from '../lib/polygonGeometry'
 import type { ElementBehaviour } from './layoutBehaviour'
 import { parseElementBehaviour } from './layoutBehaviour'
 
@@ -9,16 +10,48 @@ export type ElementType =
   | 'TABLE'
   | 'IMAGE'
   | 'LINE'
+  /**
+   * Unified polygonal shape — replaces BOX, TRIANGLE, DIAMOND, STAR,
+   * ARROW. The flavour is selected via {@link LayoutElement.polygonKind};
+   * geometry is computed from the bbox + kind (and {@link ElementStyle.arrowStart}
+   * / {@link ElementStyle.arrowEnd} for the arrow kind). Curves (ELLIPSE,
+   * RING) and degenerate primitives (LINE) keep their own types.
+   */
+  | 'POLYGON'
+  /** @deprecated migrated to POLYGON with {@code polygonKind: 'rect'} on parse. */
   | 'BOX'
   | 'ELLIPSE'
+  /** @deprecated migrated to POLYGON with {@code polygonKind: 'triangle'} on parse. */
   | 'TRIANGLE'
+  /** @deprecated migrated to POLYGON with {@code polygonKind: 'arrow'} on parse. */
   | 'ARROW'
+  /** @deprecated migrated to POLYGON with {@code polygonKind: 'diamond'} on parse. */
   | 'DIAMOND'
+  /** @deprecated migrated to POLYGON with {@code polygonKind: 'star'} on parse. */
   | 'STAR'
   | 'RING'
   | 'MERGED_SHAPE'
   | 'LIST'
   | 'FLOATING'
+
+/**
+ * Sub-discriminator for {@code POLYGON} elements. Each kind selects a
+ * point formula at render time:
+ * <ul>
+ *   <li>{@code rect} — vertices at bbox corners (Box / rectangle).</li>
+ *   <li>{@code regular} — regular N-gon centred in the bbox, vertex up;
+ *       N comes from {@link LayoutElement.sides}. New polygons created
+ *       from the palette use this kind so a single tile + sides slider
+ *       covers triangle (3), diamond (4), pentagon (5), hexagon (6), …</li>
+ *   <li>{@code triangle}, {@code diamond} — legacy bbox-fitted variants.
+ *       Kept so already-saved elements still render byte-for-byte.</li>
+ *   <li>{@code star} — 10-vertex star.</li>
+ *   <li>{@code arrow} — chevron with shaft; direction from
+ *       {@link ElementStyle.arrowStart} / {@link ElementStyle.arrowEnd}.</li>
+ *   <li>{@code custom} — author-supplied {@link LayoutElement.points}.</li>
+ * </ul>
+ */
+export type PolygonKind = 'rect' | 'regular' | 'triangle' | 'diamond' | 'star' | 'arrow' | 'custom'
 
 export type ListStyle = 'disc' | 'circle' | 'square' | 'dash' | 'number' | 'alpha' | 'roman' | 'none'
 
@@ -114,6 +147,15 @@ export interface ElementStyle {
   colorGradient?: GradientDef
   /** Gradient for background / fill. Takes precedence over `backgroundColor` when set. */
   bgGradient?: GradientDef
+  /**
+   * LINE: draw an arrowhead at the start of the line (left side in
+   * pre-rotation coords). Both {@link arrowStart} and {@link arrowEnd}
+   * may be set to produce a double-headed line. Ignored on non-LINE
+   * elements for now; ARROW has its own filled chevron geometry.
+   */
+  arrowStart?: boolean
+  /** LINE: draw an arrowhead at the end of the line (right side). */
+  arrowEnd?: boolean
 }
 
 /** Element-anchored comment / annotation (V1: stored in layout JSON). */
@@ -234,6 +276,26 @@ export interface LayoutElement {
    * e.g. 0.5 → inner diameters are half of outer — fill/stroke applies to the band between.
    */
   ringInnerRatio?: number
+  /**
+   * POLYGON: flavour discriminator. Selects the geometry formula used at
+   * render time (rect / triangle / diamond / star / arrow), or signals
+   * that {@link points} carries the explicit silhouette ({@code 'custom'}).
+   * Required on every POLYGON element; ignored on other types.
+   */
+  polygonKind?: PolygonKind
+  /**
+   * POLYGON ({@code polygonKind: 'custom'}): normalised vertex points
+   * (each {@code [u, v]} in {@code [0, 1]} relative to the bbox). Ignored
+   * for preset kinds — those compute points from the bbox + flags at
+   * render time.
+   */
+  points?: [number, number][]
+  /**
+   * POLYGON ({@code polygonKind: 'regular'}): vertex count of the regular
+   * n-gon. Clamped to {@code [3, 20]} at render time. Ignored for other
+   * polygon kinds.
+   */
+  sides?: number
   /**
    * HEADER / FOOTER only: child elements in band-local coordinates (top-left of the band is 0,0).
    * When present (non-empty), rendering and PDF use these instead of legacy `content` on the band.
@@ -607,6 +669,17 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
     base.mergedFromElements = el.mergedFromElements.map(elementToJson)
   }
   if (el.ringInnerRatio != null && Number.isFinite(el.ringInnerRatio)) base.ringInnerRatio = el.ringInnerRatio
+  if (el.type === 'POLYGON') {
+    // Always emit polygonKind for POLYGON so downstream consumers (PDF
+    // backend, older clients reading new layouts) don't have to guess.
+    base.polygonKind = el.polygonKind ?? 'rect'
+    if (el.polygonKind === 'custom' && Array.isArray(el.points) && el.points.length >= 3) {
+      base.points = el.points.map(([u, v]) => [u, v])
+    }
+    if (el.polygonKind === 'regular' && Number.isFinite(el.sides)) {
+      base.sides = Math.max(3, Math.min(20, Math.round(el.sides!)))
+    }
+  }
   if (el.behaviour && Object.keys(el.behaviour).length > 0) base.behaviour = el.behaviour
   if (el.bandElements && el.bandElements.length > 0) {
     base.bandElements = el.bandElements.map(elementToJson)
@@ -720,9 +793,48 @@ export function jsonToElement(raw: Record<string, unknown>): LayoutElement {
   const style = sanitizeElementStyle(raw.style)
   let type = String(raw.type ?? 'TEXT').toUpperCase()
   if (type === 'PARAGRAPH') type = 'TEXT'
+  // Migration: legacy BOX/TRIANGLE/DIAMOND/STAR/ARROW types collapse into
+  // the unified POLYGON element with a {@link PolygonKind} sub-discriminator.
+  // The original type stays in the union as @deprecated for the brief
+  // window between bootstrap and full migration, but every persisted layout
+  // we read here surfaces as POLYGON to the rest of the app.
+  let migratedPolygonKind: PolygonKind | undefined
+  const legacyKind = legacyTypeToPolygonKind(type)
+  if (legacyKind !== null) {
+    migratedPolygonKind = legacyKind
+    type = 'POLYGON'
+  } else if (type === 'POLYGON') {
+    const rawKind = typeof raw.polygonKind === 'string' ? (raw.polygonKind as PolygonKind) : 'rect'
+    migratedPolygonKind =
+      rawKind === 'rect' || rawKind === 'regular' || rawKind === 'triangle'
+        || rawKind === 'diamond' || rawKind === 'star' || rawKind === 'arrow'
+        || rawKind === 'custom'
+        ? rawKind
+        : 'rect'
+  }
   return {
     id: String(raw.id ?? newElementId()),
     type: (type as ElementType) || 'TEXT',
+    polygonKind: migratedPolygonKind,
+    points: (() => {
+      if (migratedPolygonKind !== 'custom') return undefined
+      const arr = raw.points
+      if (!Array.isArray(arr)) return undefined
+      const out: [number, number][] = []
+      for (const p of arr) {
+        if (!Array.isArray(p) || p.length < 2) continue
+        const u = Number(p[0])
+        const v = Number(p[1])
+        if (Number.isFinite(u) && Number.isFinite(v)) out.push([u, v])
+      }
+      return out.length >= 3 ? out : undefined
+    })(),
+    sides: (() => {
+      if (migratedPolygonKind !== 'regular') return undefined
+      const n = Number(raw.sides)
+      if (!Number.isFinite(n)) return undefined
+      return Math.max(3, Math.min(20, Math.round(n)))
+    })(),
     x: coerceLayoutScalar(raw.x, 0),
     y: coerceLayoutScalar(raw.y, 0),
     width: coerceLayoutScalar(raw.width, 120),

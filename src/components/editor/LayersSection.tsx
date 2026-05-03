@@ -69,6 +69,7 @@ const typeStyle: Record<LayoutElement['type'], string> = {
   TABLE: 'bg-emerald-200 text-emerald-950 dark:bg-emerald-900/50 dark:text-emerald-100',
   IMAGE: 'bg-violet-200 text-violet-950 dark:bg-violet-900/50 dark:text-violet-100',
   LINE: 'bg-orange-200 text-orange-950 dark:bg-orange-900/50 dark:text-orange-100',
+  POLYGON: 'bg-blue-200 text-blue-950 dark:bg-blue-900/50 dark:text-blue-100',
   BOX: 'bg-pink-200 text-pink-950 dark:bg-pink-900/50 dark:text-pink-100',
   ELLIPSE: 'bg-indigo-200 text-indigo-950 dark:bg-indigo-900/50 dark:text-indigo-100',
   TRIANGLE: 'bg-cyan-200 text-cyan-950 dark:bg-cyan-900/50 dark:text-cyan-100',

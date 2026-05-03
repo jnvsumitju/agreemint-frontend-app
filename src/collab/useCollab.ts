@@ -31,8 +31,8 @@ import type {
   VariableDefinition,
 } from '../types/layout'
 import { parseLayoutJson } from '../types/layout'
-import { onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
-import { connectYDoc, disconnectYDoc } from './yDocProvider'
+import { isEmitSuppressed, onRemoteOp, onSnapshot, sendOp, type CollabOp, type RemoteOpMessage } from './collabBus'
+import { clearYFragmentsForElements, connectYDoc, disconnectYDoc } from './yDocProvider'
 import { useAuthStore } from '../stores/authStore'
 import { sendSelectionUpdate, sendViewportUpdate } from '../lib/websocket'
 
@@ -132,14 +132,27 @@ export function useCollab(templateId: string | null): void {
       // element-by-element, letting local mutations win when the store's
       // content is non-empty. New elements from the server (other users'
       // additions during our disconnect) are still picked up.
+      //
+      // After the merge we baseline against the REMOTE snapshot (not the
+      // merged local state) and immediately emit a diff pass. That way
+      // any local-only fields the merge preserved — page background,
+      // localVariables, guides, page name, plus root-level pageSpec /
+      // globalVariableDefinitions changes the user made offline — flush
+      // to the server as fresh ops instead of being silently retained
+      // only on this client.
       if (hasAppliedInitialSnapshot) {
         remoteOpInFlight = true
         try {
           mergeSnapshotPreservingLocalEdits(parsed)
         } finally {
           remoteOpInFlight = false
-          captureBaseline(useEditorStore.getState())
         }
+        baseline = {
+          pages: parsed.pages,
+          globalVariableDefinitions: parsed.globalVariables,
+          pageSpec: parsed.page,
+        }
+        emitOpsForChange(useEditorStore.getState())
         return
       }
 
@@ -166,8 +179,12 @@ export function useCollab(templateId: string | null): void {
     captureBaseline(useEditorStore.getState())
 
     const unsubscribe = useEditorStore.subscribe((state) => {
-      if (remoteOpInFlight) {
-        // Rebaseline silently — don't echo a remote change back.
+      if (remoteOpInFlight || isEmitSuppressed()) {
+        // Rebaseline silently — either (a) we just applied a remote op so
+        // emitting would echo it back, or (b) a local action explicitly
+        // sent a coupled op already (see {@code runWithEmitSuppressed} in
+        // collabBus.ts) and the per-field deltas would race with the
+        // coupled op on the wire.
         captureBaseline(state)
         return
       }
@@ -445,6 +462,13 @@ function emitPageDiffs(prev: LayoutDocumentPage[], next: LayoutDocumentPage[]) {
     for (let i = prev.length - 1; i >= 0; i--) {
       if (!nextIds.includes(prev[i]!.id)) {
         sendOp({ type: 'deletePage', index: i })
+        // Cascade: clear Yjs fragments for every element on the page that
+        // just disappeared. emitElementDiffs only fires for surviving
+        // pages (matched by id below), so without this the deleted page's
+        // elements would never trigger their fragment cleanup.
+        const removedPage = prev[i]!
+        const ids = collectAllElementIds(removedPage.elements)
+        if (ids.length) clearYFragmentsForElements(ids)
       }
     }
     // Added pages — emit addPage at their new index.
@@ -489,6 +513,25 @@ function emitPageDiffs(prev: LayoutDocumentPage[], next: LayoutDocumentPage[]) {
   })
 }
 
+/**
+ * Walk an element tree (top-level + band-nested HEADER/FOOTER children)
+ * and return every element id. Used by the page-delete path so we can
+ * cascade Yjs fragment cleanup to every element that just disappeared.
+ */
+function collectAllElementIds(elements: LayoutElement[]): string[] {
+  const out: string[] = []
+  const walk = (els: LayoutElement[]) => {
+    for (const el of els) {
+      out.push(el.id)
+      if (el.bandElements && el.bandElements.length > 0) {
+        walk(el.bandElements)
+      }
+    }
+  }
+  walk(elements)
+  return out
+}
+
 function emitElementDiffs(pageIndex: number, prev: LayoutElement[], next: LayoutElement[]) {
   const prevById = new Map(prev.map((e) => [e.id, e]))
   const nextById = new Map(next.map((e) => [e.id, e]))
@@ -500,6 +543,12 @@ function emitElementDiffs(pageIndex: number, prev: LayoutElement[], next: Layout
   }
   if (removedIds.length) {
     sendOp({ type: 'deleteElements', pageIndex, elementIds: removedIds })
+    // Empty the Yjs fragment that backs each deleted element's rich text.
+    // Without this a peer still mid-edit on the element would keep typing
+    // into an orphan fragment, and the doc would slowly accumulate dead
+    // content. The Yjs delete propagates as its own update — peers don't
+    // need to do anything on receive.
+    clearYFragmentsForElements(removedIds)
   }
 
   // Additions + updates — walk in new order for correctness when both happen.

@@ -77,6 +77,7 @@ import type { Editor as TipTapEditor } from '@tiptap/core'
 import { copyElementsToClipboard, pasteElementsFromClipboard } from '../../lib/clipboard'
 import { reflowText as reflowTextApi } from '../../lib/api'
 import { gradientToCss, isValidGradient, svgGradientId, svgLinearGradientProps } from '../../lib/gradientUtils'
+import { polygonPointsToSvgString, resolvePolygonPoints } from '../../lib/polygonGeometry'
 import type { GradientDef, PageBackground } from '../../types/layout'
 
 /** Must hold pointer down this long before a move can start a drag (avoids drag stealing double-click). */
@@ -1233,6 +1234,12 @@ function CanvasElement({
       ) : (
         <ElementPreview el={el} />
       )}
+      {/* Shape-silhouette highlight on selection — sits on top of the
+          shape but underneath the resize handles. Returns null for
+          rectangular shapes so it only adds value where the bbox ring is
+          a poor visual match for the actual silhouette (ellipse, star,
+          triangle, etc.). */}
+      {selected && !locked && !isInlineEditing && <ShapeSilhouetteOverlay el={el} />}
       {soleSelected &&
         !locked &&
         !viewOnly &&
@@ -1381,6 +1388,133 @@ function resolveTextColorStyle(el: LayoutElement): React.CSSProperties {
   return c ? { color: c } : {}
 }
 
+/**
+ * Thin shape-following highlight that overlays the existing rectangular
+ * selection ring. The bbox + handles still own the editing affordance —
+ * this layer just makes it obvious *which silhouette* is selected when
+ * the bbox surrounds a lot of empty space (triangle, ellipse, star, …).
+ *
+ * Returns null for rectangular shapes (BOX, TEXT, IMAGE, TABLE, LIST,
+ * HEADER, FOOTER, FLOATING) and for LINE — in those cases the bbox ring
+ * already matches the visible silhouette so the extra outline would be
+ * redundant.
+ */
+function ShapeSilhouetteOverlay({ el }: { el: LayoutElement }) {
+  const w = el.width
+  const h = el.height
+  if (w <= 0 || h <= 0) return null
+  const stroke = 'rgb(139 92 246)'
+  const sw = 1.5
+  const common = {
+    fill: 'none' as const,
+    stroke,
+    strokeWidth: sw,
+    vectorEffect: 'non-scaling-stroke' as const,
+    strokeLinejoin: 'round' as const,
+  }
+  let geometry: React.ReactNode = null
+  switch (el.type) {
+    case 'POLYGON': {
+      const kind = el.polygonKind ?? 'rect'
+      // 'rect' silhouette already coincides with the bbox ring — drawing
+      // a second outline on top would just thicken the ring. Skip.
+      if (kind === 'rect') return null
+      const points = resolvePolygonPoints(el)
+      geometry = <polygon points={polygonPointsToSvgString(points)} {...common} />
+      break
+    }
+    case 'ELLIPSE':
+      geometry = <ellipse cx={w / 2} cy={h / 2} rx={w / 2} ry={h / 2} {...common} />
+      break
+    case 'TRIANGLE':
+      geometry = <polygon points={`${w / 2},0 ${w},${h} 0,${h}`} {...common} />
+      break
+    case 'DIAMOND':
+      geometry = <polygon points={`${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`} {...common} />
+      break
+    case 'STAR': {
+      const cx = w / 2
+      const cy = h / 2
+      const ro = Math.min(w, h) / 2
+      const ri = ro * 0.38
+      const points: string[] = []
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI) / 5 - Math.PI / 2
+        const r = i % 2 === 0 ? ro : ri
+        points.push(`${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`)
+      }
+      geometry = <polygon points={points.join(' ')} {...common} />
+      break
+    }
+    case 'RING': {
+      const ratio = Math.max(0.05, Math.min(0.95, el.ringInnerRatio ?? 0.55))
+      const iw = w * ratio
+      const ih = h * ratio
+      geometry = (
+        <>
+          <ellipse cx={w / 2} cy={h / 2} rx={w / 2} ry={h / 2} {...common} />
+          <ellipse cx={w / 2} cy={h / 2} rx={iw / 2} ry={ih / 2} {...common} />
+        </>
+      )
+      break
+    }
+    case 'ARROW': {
+      const t = Math.min(h * 0.35, w * 0.18)
+      const mid = h / 2
+      const arrowStart = el.style?.arrowStart === true
+      const arrowEnd = el.style?.arrowEnd === true || (!arrowStart && el.style?.arrowEnd !== false)
+      const headLen = w * 0.32
+      const xLeftHead = arrowStart ? headLen : 0
+      const xRightHead = arrowEnd ? w - headLen : w
+      let d: string
+      if (arrowStart && arrowEnd) {
+        d =
+          `M ${xLeftHead} ${mid - t / 2} L ${xRightHead} ${mid - t / 2} ` +
+          `L ${xRightHead} 0 L ${w} ${mid} L ${xRightHead} ${h} ` +
+          `L ${xRightHead} ${mid + t / 2} L ${xLeftHead} ${mid + t / 2} ` +
+          `L ${xLeftHead} ${h} L 0 ${mid} L ${xLeftHead} 0 Z`
+      } else if (arrowStart) {
+        d =
+          `M ${w} ${mid - t / 2} L ${xLeftHead} ${mid - t / 2} ` +
+          `L ${xLeftHead} 0 L 0 ${mid} L ${xLeftHead} ${h} ` +
+          `L ${xLeftHead} ${mid + t / 2} L ${w} ${mid + t / 2} Z`
+      } else {
+        d =
+          `M 0 ${mid - t / 2} L ${xRightHead} ${mid - t / 2} ` +
+          `L ${xRightHead} 0 L ${w} ${mid} L ${xRightHead} ${h} ` +
+          `L ${xRightHead} ${mid + t / 2} L 0 ${mid + t / 2} Z`
+      }
+      geometry = <path d={d} {...common} />
+      break
+    }
+    case 'MERGED_SHAPE': {
+      const d = el.bezierPath?.length
+        ? bezierPathToSvgPathD(el.bezierPath)
+        : el.shapePolys?.length
+          ? el.shapePolys.map(shapePolygonToSvgPathD).join(' ')
+          : null
+      if (!d) return null
+      geometry = <path d={d} fillRule="evenodd" {...common} />
+      break
+    }
+    default:
+      // Rectangular elements (BOX/TEXT/IMAGE/TABLE/LIST/HEADER/FOOTER/
+      // FLOATING) and degenerate LINE — bbox ring already matches the
+      // visible silhouette; an extra outline would just thicken the
+      // existing ring.
+      return null
+  }
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 z-[3] h-full w-full overflow-visible"
+      viewBox={`0 0 ${w} ${h}`}
+      aria-hidden
+    >
+      {geometry}
+    </svg>
+  )
+}
+
 function ElementPreview({ el }: { el: LayoutElement }) {
   const variableValues = useEditorStore((s) => s.variableValues)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
@@ -1472,50 +1606,199 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const c = el.style?.color?.trim()
     const ls = el.style?.lineStyle
     const sw = el.strokeWidth ?? 1
-    if (ls === 'dashed' || ls === 'dotted') {
-      return (
-        <div className="pointer-events-none flex h-full items-center">
-          <div
-            className={`w-full ${c ? '' : 'border-zinc-800 dark:border-zinc-200'}`}
-            style={{
-              height: 0,
-              borderTopWidth: sw,
-              borderTopStyle: ls,
-              borderTopColor: c || undefined,
-            }}
-          />
-        </div>
+    const arrowStart = el.style?.arrowStart === true
+    const arrowEnd = el.style?.arrowEnd === true
+    const dash = ls === 'dashed' ? `${sw * 3} ${sw * 2}` : ls === 'dotted' ? `${sw} ${sw}` : undefined
+    // SVG render so we can paint arrowheads via `<marker>` defs. The viewBox
+    // matches the element's pixel dimensions so the line scales with the
+    // bbox; markers are sized in stroke-width multiples (markerUnits
+    // defaults to "strokeWidth") so arrowheads grow with the line. The
+    // x endpoints are padded inwards by `markerSize × strokeWidth` when
+    // an arrowhead is present so the tip lands exactly on the bbox edge
+    // and the shaft doesn't peek through the marker fill.
+    //
+    // When the author clears the stroke colour we fall back to a dark
+    // text colour via CSS classes so the line is still visible in the
+    // editor (otherwise it'd vanish from the working surface). PDF
+    // export still honors "no stroke" for LINE.
+    const w = el.width
+    const h = el.height
+    const markerSize = 6
+    const padStart = arrowStart ? markerSize * sw : 0
+    const padEnd = arrowEnd ? markerSize * sw : 0
+    const yMid = h / 2
+    const startMarkerId = `${el.id}-arrow-start`
+    const endMarkerId = `${el.id}-arrow-end`
+    // Stroke gradient takes precedence over solid colour, mirroring BOX
+    // and other shapes. The marker fill must use the same gradient so the
+    // arrowhead colour matches the shaft along its axis.
+    const lineHasStrokeGrad = isValidGradient(el.style?.colorGradient)
+    const lineStrokeGradId = svgGradientId(el.id, 'stroke')
+    const strokeAttr = lineHasStrokeGrad
+      ? `url(#${lineStrokeGradId})`
+      : (c || 'currentColor')
+    return (
+      <svg
+        className="pointer-events-none h-full w-full overflow-visible text-zinc-800 dark:text-zinc-200"
+        viewBox={`0 0 ${w} ${h}`}
+        aria-hidden
+      >
+        <defs>
+          {lineHasStrokeGrad && (
+            <SvgGradientDef key="stroke" g={el.style!.colorGradient!} id={lineStrokeGradId} />
+          )}
+          {arrowStart && (
+            <marker id={startMarkerId} viewBox="0 0 10 10" refX="2" refY="5" markerWidth={markerSize} markerHeight={markerSize} orient="auto-start-reverse">
+              <path d="M 10 0 L 0 5 L 10 10 z" fill={strokeAttr} />
+            </marker>
+          )}
+          {arrowEnd && (
+            <marker id={endMarkerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth={markerSize} markerHeight={markerSize} orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={strokeAttr} />
+            </marker>
+          )}
+        </defs>
+        <line
+          x1={padStart}
+          y1={yMid}
+          x2={w - padEnd}
+          y2={yMid}
+          stroke={strokeAttr}
+          strokeWidth={sw}
+          strokeDasharray={dash}
+          markerStart={arrowStart ? `url(#${startMarkerId})` : undefined}
+          markerEnd={arrowEnd ? `url(#${endMarkerId})` : undefined}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    )
+  }
+  if (el.type === 'POLYGON') {
+    // Unified polygonal shape — replaces the BOX/TRIANGLE/DIAMOND/STAR/
+    // ARROW branches. Geometry is computed by {@link resolvePolygonPoints}
+    // from the bbox + {@link polygonKind} + (for arrow) arrowStart/end
+    // flags. The 'rect' kind specially uses <rect> with rx/ry so authors
+    // can still get rounded corners; every other kind renders as a
+    // <polygon> with the resolved point list.
+    const c = el.style?.color?.trim()
+    const kind = el.polygonKind ?? 'rect'
+    const sw = el.strokeWidth ?? (kind === 'rect' ? (el.style?.borderWidth ?? 2) : 2)
+    // Solid by default for every polygon kind. (The pre-migration BOX
+    // type defaulted to dashed; that was always a quirk and we've
+    // standardised on solid as part of the unification.)
+    const ls = el.style?.lineStyle ?? 'solid'
+    const polyHasFillGrad = isValidGradient(el.style?.bgGradient)
+    const polyHasStrokeGrad = isValidGradient(el.style?.colorGradient)
+    const polyFillGradId = svgGradientId(el.id, 'fill')
+    const polyStrokeGradId = svgGradientId(el.id, 'stroke')
+    const polyFill = polyHasFillGrad
+      ? `url(#${polyFillGradId})`
+      : (el.style?.backgroundColor?.trim() || 'none')
+    const polyStroke = polyHasStrokeGrad
+      ? `url(#${polyStrokeGradId})`
+      : (c || 'none')
+    const dash = ls === 'dashed' ? '8 4' : ls === 'dotted' ? '2 2' : undefined
+    const w = el.width
+    const h = el.height
+    const hasBorder = !!c || polyHasStrokeGrad
+    const polyDefs: React.ReactNode[] = []
+    if (polyHasFillGrad) polyDefs.push(<SvgGradientDef key="fill" g={el.style!.bgGradient!} id={polyFillGradId} />)
+    if (polyHasStrokeGrad) polyDefs.push(<SvgGradientDef key="stroke" g={el.style!.colorGradient!} id={polyStrokeGradId} />)
+    let geometry: React.ReactNode
+    if (kind === 'rect') {
+      // Inset by half stroke so the visual edge lands on the bbox edge
+      // (matches the legacy CSS-border behaviour). Other polygon kinds
+      // don't inset — vertices fall on the bbox corners by design.
+      const br = el.style?.borderRadius ?? 0
+      const inset = hasBorder ? sw / 2 : 0
+      geometry = (
+        <rect
+          x={inset}
+          y={inset}
+          width={Math.max(0, w - inset * 2)}
+          height={Math.max(0, h - inset * 2)}
+          rx={br}
+          ry={br}
+          fill={polyFill}
+          stroke={polyStroke}
+          strokeWidth={hasBorder ? sw : 0}
+          strokeDasharray={dash}
+          vectorEffect="non-scaling-stroke"
+        />
+      )
+    } else {
+      const points = resolvePolygonPoints(el)
+      geometry = (
+        <polygon
+          points={polygonPointsToSvgString(points)}
+          fill={polyFill}
+          stroke={polyStroke}
+          strokeWidth={hasBorder ? sw : 0}
+          strokeDasharray={dash}
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+        />
       )
     }
     return (
-      <div className="pointer-events-none flex h-full items-center">
-        <div
-          className={c ? 'w-full' : 'w-full bg-zinc-800 dark:bg-zinc-200'}
-          style={{
-            height: sw,
-            backgroundColor: c || undefined,
-          }}
-        />
-      </div>
+      <svg className="pointer-events-none h-full w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} aria-hidden>
+        {polyDefs.length > 0 && <defs>{polyDefs}</defs>}
+        {geometry}
+      </svg>
     )
   }
   if (el.type === 'BOX') {
+    // BOX is rendered as an SVG <rect> just like every other shape so its
+    // outline is a real path — that gives us stroke gradient support, a
+    // unified "no stroke / no fill" semantic, and a silhouette geometry
+    // the selection-highlight overlay can reuse. Replaces the legacy
+    // `<div>` with CSS `border` which couldn't honour stroke gradients
+    // and forced the rest of the codebase to special-case BOX.
     const c = el.style?.color?.trim()
-    const boxBg = resolveBgStyle(el)
     const bw = el.style?.borderWidth ?? 2
-    const bs = el.style?.lineStyle ?? 'dashed'
-    const br = el.style?.borderRadius
+    // Solid border default for the legacy BOX fallback branch — matches
+    // the unified POLYGON branch above. Old saved layouts that don't set
+    // lineStyle now render with a solid border instead of dashed.
+    const bs = el.style?.lineStyle ?? 'solid'
+    const br = el.style?.borderRadius ?? 0
+    const boxHasFillGrad = isValidGradient(el.style?.bgGradient)
+    const boxHasStrokeGrad = isValidGradient(el.style?.colorGradient)
+    const boxFillGradId = svgGradientId(el.id, 'fill')
+    const boxStrokeGradId = svgGradientId(el.id, 'stroke')
+    const boxFill = boxHasFillGrad
+      ? `url(#${boxFillGradId})`
+      : (el.style?.backgroundColor?.trim() || 'none')
+    const boxStroke = boxHasStrokeGrad
+      ? `url(#${boxStrokeGradId})`
+      : (c || 'none')
+    const dash = bs === 'dashed' ? '8 4' : bs === 'dotted' ? '2 2' : undefined
+    const w = el.width
+    const h = el.height
+    // Inset by half the stroke width so the visual edge lands exactly on
+    // the bbox edge (SVG strokes straddle the path by default; the legacy
+    // CSS border rendered fully inside the box).
+    const hasBorder = !!c || boxHasStrokeGrad
+    const inset = hasBorder ? bw / 2 : 0
+    const boxDefs: React.ReactNode[] = []
+    if (boxHasFillGrad) boxDefs.push(<SvgGradientDef key="fill" g={el.style!.bgGradient!} id={boxFillGradId} />)
+    if (boxHasStrokeGrad) boxDefs.push(<SvgGradientDef key="stroke" g={el.style!.colorGradient!} id={boxStrokeGradId} />)
     return (
-      <div
-        className={`pointer-events-none h-full w-full ${c ? '' : 'border-zinc-400'}`}
-        style={{
-          borderWidth: bw,
-          borderStyle: bs,
-          borderColor: c || undefined,
-          background: boxBg || undefined,
-          borderRadius: br ? br : undefined,
-        }}
-      />
+      <svg className="pointer-events-none h-full w-full overflow-visible" viewBox={`0 0 ${w} ${h}`} aria-hidden>
+        {boxDefs.length > 0 && <defs>{boxDefs}</defs>}
+        <rect
+          x={inset}
+          y={inset}
+          width={Math.max(0, w - inset * 2)}
+          height={Math.max(0, h - inset * 2)}
+          rx={br}
+          ry={br}
+          fill={boxFill}
+          stroke={boxStroke}
+          strokeWidth={hasBorder ? bw : 0}
+          strokeDasharray={dash}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
     )
   }
   const hasFillGrad = isValidGradient(el.style?.bgGradient)
@@ -1641,10 +1924,41 @@ function ElementPreview({ el }: { el: LayoutElement }) {
     const h = el.height
     const t = Math.min(h * 0.35, w * 0.18)
     const mid = h / 2
-    const x0 = 0
-    const xShaft = w * 0.68
-    const xTip = w
-    const d = `M ${x0} ${mid - t / 2} L ${xShaft} ${mid - t / 2} L ${xShaft} 0 L ${xTip} ${mid} L ${xShaft} ${h} L ${xShaft} ${mid + t / 2} L ${x0} ${mid + t / 2} Z`
+    // Direction control via shared arrowStart/arrowEnd flags. Legacy
+    // ARROW elements (no flags set) keep their right-pointing look —
+    // we only switch geometry when the author explicitly opts in.
+    const arrowStart = el.style?.arrowStart === true
+    const arrowEnd = el.style?.arrowEnd === true || (!arrowStart && el.style?.arrowEnd !== false)
+    const headLen = w * 0.32
+    const xLeftHead = arrowStart ? headLen : 0
+    const xRightHead = arrowEnd ? w - headLen : w
+    let d: string
+    if (arrowStart && arrowEnd) {
+      // Bidirectional — head on both ends, shaft in the middle.
+      d =
+        `M ${xLeftHead} ${mid - t / 2} ` +
+        `L ${xRightHead} ${mid - t / 2} ` +
+        `L ${xRightHead} 0 L ${w} ${mid} L ${xRightHead} ${h} ` +
+        `L ${xRightHead} ${mid + t / 2} ` +
+        `L ${xLeftHead} ${mid + t / 2} ` +
+        `L ${xLeftHead} ${h} L 0 ${mid} L ${xLeftHead} 0 Z`
+    } else if (arrowStart) {
+      // Left-pointing — head at start, shaft to the right.
+      d =
+        `M ${w} ${mid - t / 2} ` +
+        `L ${xLeftHead} ${mid - t / 2} ` +
+        `L ${xLeftHead} 0 L 0 ${mid} L ${xLeftHead} ${h} ` +
+        `L ${xLeftHead} ${mid + t / 2} ` +
+        `L ${w} ${mid + t / 2} Z`
+    } else {
+      // Right-pointing (legacy default).
+      d =
+        `M 0 ${mid - t / 2} ` +
+        `L ${xRightHead} ${mid - t / 2} ` +
+        `L ${xRightHead} 0 L ${w} ${mid} L ${xRightHead} ${h} ` +
+        `L ${xRightHead} ${mid + t / 2} ` +
+        `L 0 ${mid + t / 2} Z`
+    }
     return (
       <svg className="pointer-events-none h-full w-full" viewBox={`0 0 ${w} ${h}`} aria-hidden>
         {svgDefs.length > 0 && <defs>{svgDefs}</defs>}

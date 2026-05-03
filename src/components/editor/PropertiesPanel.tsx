@@ -38,6 +38,7 @@ import { ReviewsPanel } from './ReviewsPanel'
 // RichContentEditor import reserved for future use
 import {
   BoxAppearanceFields,
+  LineArrowFields,
   RichTextAppearanceFields,
   StrokeColorField,
   TableTextColorField,
@@ -790,7 +791,10 @@ function BehaviourBody() {
         count={selectedIds.length}
         selectedIds={selectedIds}
         elements={elements}
-        hideDocumentPage={bandEditorMode}
+        // The Rules tab no longer surfaces the DocumentPageSection card —
+        // it's owned by the Props tab. Always hide here regardless of
+        // band-editor mode so the two tabs don't show the same control.
+        hideDocumentPage
         bandEditorMode={bandEditorMode}
       />
     )
@@ -802,7 +806,6 @@ function BehaviourBody() {
   if (!el) {
     return (
       <div className="flex flex-col gap-3 p-3">
-        {!bandEditorMode ? <DocumentPageSection /> : null}
         <div className="text-xs text-zinc-500 lg:text-sm dark:text-zinc-400">
           Select an element to edit grouping, lock, table data, and other behaviour.
         </div>
@@ -814,7 +817,6 @@ function BehaviourBody() {
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      {!bandEditorMode ? <DocumentPageSection /> : null}
       <h2 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-xs">Behaviour</h2>
 
       {/* The Lock toggle used to live here, but it's already exposed per-row
@@ -1036,9 +1038,61 @@ function PropertiesBody() {
             showLineStyle
             element={el}
           />
+          <LineArrowFields style={el.style} onChange={(s) => patch({ style: s })} />
         </>
       )}
 
+      {el.type === 'POLYGON' && (
+        <>
+          {el.polygonKind === 'regular' && (
+            <FieldInput
+              label="Sides"
+              id={`ag-poly-sides-${el.id}`}
+              type="number"
+              min={3}
+              max={20}
+              step={1}
+              value={Math.max(3, Math.min(20, Math.round(el.sides ?? 5)))}
+              onChange={(e) => {
+                // Clamp + integer-coerce here so the rendered geometry
+                // stays valid even if the user types something out of
+                // range. The resolver clamps too as a defensive belt-
+                // and-braces — both layers agree on [3, 20].
+                const n = Math.max(3, Math.min(20, Math.round(Number(e.target.value) || 5)))
+                patch({ sides: n })
+              }}
+            />
+          )}
+          <FieldInput
+            label="Stroke width"
+            id={`ag-shape-stroke-${el.id}`}
+            type="number"
+            step={0.5}
+            value={el.strokeWidth ?? (el.polygonKind === 'rect' ? (el.style?.borderWidth ?? 2) : 2)}
+            onChange={(e) => patch({ strokeWidth: Number(e.target.value) || 1 })}
+            labelAdornment={<BindingIndicator element={el} target="strokeWidth" />}
+          />
+          <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
+          <BorderStyleFields
+            style={el.style}
+            onChange={(s) => patch({ style: s })}
+            // Corner-radius slider only matters for rectangular polygons.
+            // For other kinds it'd be silently ignored, so we hide it to
+            // avoid the dead control.
+            showBorderRadius={el.polygonKind === 'rect'}
+            showLineStyle
+            element={el}
+          />
+          {el.polygonKind === 'arrow' && (
+            <LineArrowFields style={el.style} onChange={(s) => patch({ style: s })} />
+          )}
+        </>
+      )}
+
+      {/* Legacy shape types — kept as fallbacks for any element that
+          escaped the parse-time migration to POLYGON. New layouts only
+          ever store POLYGON, but defensive handling here means
+          ad-hoc / test-injected legacy elements still get a props panel. */}
       {el.type === 'BOX' && (
         <>
           <BoxAppearanceFields style={el.style} onChange={(s) => patch({ style: s })} element={el} />
@@ -1076,6 +1130,9 @@ function PropertiesBody() {
             showLineStyle
             element={el}
           />
+          {el.type === 'ARROW' && (
+            <LineArrowFields style={el.style} onChange={(s) => patch({ style: s })} />
+          )}
         </>
       )}
 

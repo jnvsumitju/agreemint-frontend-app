@@ -30,6 +30,10 @@ export const DEFAULT_ELEMENT_DIMENSIONS: Record<ElementType, { width: number; he
   TABLE: { width: 200, height: 88 },
   IMAGE: { width: 120, height: 120 },
   LINE: { width: 400, height: 4 },
+  // POLYGON replaces BOX/TRIANGLE/DIAMOND/STAR/ARROW. The square-ish 100×100
+  // default fits a regular n-gon out of the box; arrow- and box-shaped
+  // polygons get their own dimensions on creation in createDefaultElement.
+  POLYGON: { width: 100, height: 100 },
   BOX: { width: 160, height: 80 },
   ELLIPSE: { width: 120, height: 80 },
   TRIANGLE: { width: 100, height: 100 },

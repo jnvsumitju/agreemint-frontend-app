@@ -20,6 +20,7 @@ import { ColorToolbarSwatch } from './ColorPalettePopover'
 import { TableContextToolbar } from './TableContextToolbar'
 import { RichTextFormatToolbar } from './RichTextFormatToolbar'
 import { RichTextTipTapToolbar } from './RichTextTipTapToolbar'
+import { SymbolPickerPopover } from './SymbolPickerPopover'
 import {
   IconBold, IconItalic, IconUnderline, IconStrikethrough,
   IconAlignLeft, IconAlignCenter, IconAlignRight,
@@ -687,6 +688,28 @@ export function FormatBar({
         {SEP}
         <div className="flex shrink-0 items-center">
           <RichTextTipTapToolbar editor={tipTapToolbarEditor} canvasEditing />
+        </div>
+        {/* Math + Emoji shortcut buttons. Same picker popover as the
+            LeftPalette tiles, but rendered as compact icon buttons that
+            slot in next to the rich-text formatting controls. The
+            picker's insert logic detects the active inline editor and
+            inserts the chosen glyph at the cursor — author never has to
+            leave the textbox. */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <SymbolPickerPopover
+            kind="math"
+            label="Math"
+            triggerGlyph="∑"
+            tooltip="Insert math symbol at cursor"
+            variant="toolbarButton"
+          />
+          <SymbolPickerPopover
+            kind="emoji"
+            label="Emoji"
+            triggerGlyph="😀"
+            tooltip="Insert emoji at cursor"
+            variant="toolbarButton"
+          />
         </div>
       </>
     )

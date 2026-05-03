@@ -41,6 +41,17 @@ type SnapshotSource = Pick<
 
 let suppressDepth = 0
 
+/**
+ * Run {@code fn} with the history barrier suppressed — i.e. {@code
+ * takeUndoBarrier} returns an empty patch while we're inside this block,
+ * so the action doesn't push a fresh entry onto undoPast.
+ *
+ * <p>This <strong>does not</strong> suppress collab op emission. The
+ * structural diff observer in {@code useCollab.ts} gates only on
+ * {@code remoteOpInFlight}, so undo/redo state changes still flow to
+ * peers as ordinary deltas — that's the desired behaviour, otherwise
+ * one user's undo would silently diverge from everyone else's view.
+ */
 export function withUndoSuppressed<T>(fn: () => T): T {
   suppressDepth++
   try {

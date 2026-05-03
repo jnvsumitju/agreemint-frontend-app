@@ -133,12 +133,9 @@ export function RulesEditor({
   return (
     <div className="flex flex-col gap-3">
       <header className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">Behavior</h3>
-          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            Rules are evaluated top-to-bottom. Drag to reorder — order = precedence.
-          </p>
-        </div>
+        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+          Rules are evaluated top-to-bottom. Drag to reorder — order = precedence.
+        </p>
         {rules.length > 0 && (
           <button
             type="button"
@@ -229,68 +226,34 @@ interface Preset {
   makeRule: () => Rule
 }
 
+// Presets are deliberately generic — this is a template builder, not an
+// invoice tool. Each one is a mechanic, not a business example. Status-based
+// color mapping, "overdue" red, "draft" fade etc. were removed because they
+// hard-code values from one domain and bias users toward thinking the
+// builder is for that domain.
 const PRESETS: Preset[] = [
   {
-    title: 'Hide unless a flag is set',
-    description: 'Keep a signature block or disclaimer hidden until a variable says otherwise.',
+    title: 'Show only when a variable is set',
+    description: 'Render this element only if a variable has a value at generation time.',
     makeRule: () => ({
       id: crypto.randomUUID(),
       when: {
         kind: 'compare',
-        left: '{{signatureShown}}',
+        left: '{{flag}}',
         op: 'defined',
       },
       action: { kind: 'show' },
     }),
   },
   {
-    title: 'Color by status',
-    description: 'Pick a fill color from a list (paid = green, overdue = red, etc.).',
-    makeRule: () => ({
-      id: crypto.randomUUID(),
-      action: {
-        kind: 'set',
-        target: 'fillColor',
-        value: {
-          mode: 'mapping',
-          var: 'status',
-          cases: [
-            { match: 'paid', value: '#10b981' },
-            { match: 'overdue', value: '#ef4444' },
-            { match: 'draft', value: '#6b7280' },
-          ],
-          fallback: '#e5e7eb',
-        },
-      },
-    }),
-  },
-  {
-    title: 'Width scales with a percent',
-    description: 'Progress-bar style — element width follows a 0–1 variable.',
+    title: 'Width scales with a number',
+    description: 'Element width follows a numeric variable — useful for progress bars or bar charts.',
     makeRule: () => ({
       id: crypto.randomUUID(),
       action: {
         kind: 'set',
         target: 'width',
         value: { mode: 'scaled', var: 'percent', multiplier: 200, min: 20, max: 200 },
-      },
-    }),
-  },
-  {
-    title: 'Red when overdue',
-    description: 'Change a stroke or text color when a flag is true.',
-    makeRule: () => ({
-      id: crypto.randomUUID(),
-      when: {
-        kind: 'compare',
-        left: '{{status}}',
-        op: 'eq',
-        right: 'overdue',
-      },
-      action: {
-        kind: 'set',
-        target: 'strokeColor',
-        value: { mode: 'fixed', value: '#ef4444' },
       },
     }),
   },
@@ -306,24 +269,6 @@ const PRESETS: Preset[] = [
         right: 0,
       },
       action: { kind: 'hide' },
-    }),
-  },
-  {
-    title: 'Fade while draft',
-    description: 'Dim the element while a variable marks the document as a draft.',
-    makeRule: () => ({
-      id: crypto.randomUUID(),
-      when: {
-        kind: 'compare',
-        left: '{{status}}',
-        op: 'eq',
-        right: 'draft',
-      },
-      action: {
-        kind: 'set',
-        target: 'opacity',
-        value: { mode: 'fixed', value: 50 },
-      },
     }),
   },
 ]

@@ -46,11 +46,7 @@ export function ElementBehaviourEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3 dark:border-violet-900 dark:bg-violet-950/25">
-      <p className="text-xs font-semibold text-violet-900 dark:text-violet-200">
-        Dynamic behavior
-      </p>
-
+    <div className="flex flex-col gap-3">
       <RulesEditor
         element={el}
         variables={variableKeyOptions}

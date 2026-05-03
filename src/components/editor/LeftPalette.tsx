@@ -17,7 +17,6 @@ import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
 import { PagesSection } from './PagesSection'
 import { EmptyState } from '../ui/EmptyState'
 import { Tooltip } from './ui/Tooltip'
-import { SymbolPickerTile } from './SymbolPickerPopover'
 
 const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'TEXT', label: 'Text' },
@@ -29,15 +28,20 @@ const BLOCKS: { type: ElementType; label: string }[] = [
   { type: 'IMAGE', label: 'Image' },
 ]
 
+// Triangle / Diamond / Star / Ring are intentionally absent.
+//   • Triangle, Diamond → unified "Polygon" tile (sides=3 → triangle,
+//     sides=4 → diamond, sides=5+ → pentagon, hexagon, …).
+//   • Star → the user can draw one via path-edit (double-click any
+//     polygon and freely place vertices), or build one with boolean ops.
+//   • Ring → built from two ellipses + Subtract / Divide in the Actions
+//     palette. Stored layouts that still hold STAR / RING elements keep
+//     rendering via their legacy element-type branches.
 const SHAPES: { type: ElementType; label: string }[] = [
   { type: 'LINE', label: 'Line' },
   { type: 'BOX', label: 'Box' },
   { type: 'ELLIPSE', label: 'Ellipse' },
-  { type: 'TRIANGLE', label: 'Triangle' },
+  { type: 'POLYGON', label: 'Polygon' },
   { type: 'ARROW', label: 'Arrow' },
-  { type: 'DIAMOND', label: 'Diamond' },
-  { type: 'STAR', label: 'Star' },
-  { type: 'RING', label: 'Ring' },
 ]
 
 const TOOLS: {
@@ -344,7 +348,11 @@ function BlockIcon({ type }: { type: ElementType }) {
       )
     case 'BOX':
       return (
-        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" aria-hidden>
+        // Solid stroke to match the new "solid by default" lineStyle for
+        // newly-placed Box elements. The legacy dashed icon was a relic of
+        // the old `lineStyle: 'dashed'` default — removing it here so the
+        // palette tile previews what the user will actually get on drop.
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <rect x="4" y="4" width="16" height="16" rx="1" />
         </svg>
       )
@@ -358,6 +366,15 @@ function BlockIcon({ type }: { type: ElementType }) {
       return (
         <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="M12 4L20 18H4L12 4z" strokeLinejoin="round" />
+        </svg>
+      )
+    case 'POLYGON':
+      // Pentagon glyph — distinct from triangle (3) and diamond (4),
+      // signals to the user that this tile creates an n-gon they can
+      // re-side from the props panel.
+      return (
+        <svg className={c} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M12 3l9 6.5-3.4 10.5H6.4L3 9.5 12 3z" strokeLinejoin="round" />
         </svg>
       )
     case 'ARROW':
@@ -903,28 +920,12 @@ export function LeftPalette() {
                 ))}
               </div>
             </div>
-            <div>
-              <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Symbols</p>
-              <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
-                Click a glyph to drop a text block with that character on the page.
-              </p>
-              <div className="grid grid-cols-2 gap-1" role="list">
-                <SymbolPickerTile
-                  kind="math"
-                  label="Math"
-                  triggerGlyph="∑"
-                  disabled={viewOnly}
-                  tooltip="Math symbols — operators, Greek letters, set notation"
-                />
-                <SymbolPickerTile
-                  kind="emoji"
-                  label="Emoji"
-                  triggerGlyph="😀"
-                  disabled={viewOnly}
-                  tooltip="Emoji — faces, gestures, objects"
-                />
-              </div>
-            </div>
+            {/* SYMBOLS section removed — math + emoji insertion is now
+                handled three other ways: the FormatBar buttons that appear
+                while inline-editing a textbox, the slash-command typeahead
+                inside any TipTap editor, and the contextual reuse of those
+                same picker popovers from elsewhere. The dedicated palette
+                tiles were redundant and pushed Components further down. */}
             <div>
               <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-zinc-500 lg:text-[10px] dark:text-zinc-400">Components</p>
               <p className="mb-1.5 text-[8px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
