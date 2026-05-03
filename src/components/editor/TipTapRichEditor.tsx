@@ -14,6 +14,7 @@ import type * as Y from 'yjs'
 import { LayoutVariable } from '../../lib/tiptapLayoutVariable'
 import { VariableSuggestStorage } from '../../lib/tiptapVariableSuggestStorage'
 import { VariableAtSuggestion } from '../../lib/tiptapVariableAtSuggestion'
+import { SlashSymbolSuggestion } from '../../lib/tiptapSlashSymbolSuggestion'
 import { pmDocToRuns, runsToTipTapJSON } from '../../lib/tipTapRichBridge'
 import type { VariableChipInfo, VariableMentionItem } from '../../lib/layoutBehaviourResolve'
 import {
@@ -133,6 +134,7 @@ export function TipTapRichEditor({
         VariableSuggestStorage,
         LayoutVariable,
         VariableAtSuggestion,
+        SlashSymbolSuggestion,
         StarterKit.configure({
           heading: false,
           blockquote: false,

@@ -53,6 +53,46 @@ export function fragmentKey(elementId: string): string {
 }
 
 /**
+ * Empty out the Yjs XmlFragment that backs an element's rich text. Called
+ * when the element is deleted so a peer who's still mid-edit on it can't
+ * keep typing into an orphan fragment, and so the doc doesn't accumulate
+ * dead content. The fragment object itself stays in the doc (Yjs has no
+ * "drop top-level type" API), but its contents are removed in a single
+ * Yjs transaction that propagates to every other client. Idempotent —
+ * deleting from an empty fragment is a no-op.
+ */
+export function clearYFragmentForElement(elementId: string): void {
+  if (!active) return
+  try {
+    const frag = active.doc.getXmlFragment(fragmentKey(elementId))
+    if (frag.length === 0) return
+    frag.delete(0, frag.length)
+  } catch (err) {
+    // Defensive — never let a Yjs cleanup error tear down the structural
+    // delete that triggered it.
+    // eslint-disable-next-line no-console
+    console.warn('[yjs] failed to clear fragment for element', elementId, err)
+  }
+}
+
+/** Bulk variant for batch deletes / page removals. Single Yjs transaction so
+ *  peers receive a coalesced update rather than N separate ones. */
+export function clearYFragmentsForElements(elementIds: readonly string[]): void {
+  if (!active || elementIds.length === 0) return
+  const doc = active.doc
+  doc.transact(() => {
+    for (const id of elementIds) {
+      try {
+        const frag = doc.getXmlFragment(fragmentKey(id))
+        if (frag.length > 0) frag.delete(0, frag.length)
+      } catch {
+        // continue — one bad id shouldn't abort the others
+      }
+    }
+  })
+}
+
+/**
  * Bind the Y.Doc to the STOMP transport.
  *
  * Call once per editor session, after bindCollabBus has connected. Registers

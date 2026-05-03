@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { authFetch } from '../../lib/api'
 import { useAuthStore } from '../../stores/authStore'
+import { useEditorStore } from '../../stores/editorStore'
 import { Avatar } from '../ui/Avatar'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
@@ -68,6 +69,11 @@ function dateGroup(iso: string): string {
 
 export function ActivityTab() {
   const org = useAuthStore((s) => s.org)
+  // Tab lives inside the template editor's right panel — narrow the feed
+  // to this template so users don't see lifecycle events from sibling
+  // documents in the same org. Falls back to org-wide if templateId is
+  // somehow null (defensive — shouldn't happen once the editor mounts).
+  const templateId = useEditorStore((s) => s.templateId)
   const [activities, setActivities] = useState<ActivityEntry[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -75,13 +81,16 @@ export function ActivityTab() {
     if (!org) return
     setLoading(true)
     try {
-      const res = await authFetch('/api/activity?limit=30')
+      const url = templateId
+        ? `/api/activity?limit=30&templateId=${encodeURIComponent(templateId)}`
+        : '/api/activity?limit=30'
+      const res = await authFetch(url)
       if (res.ok) setActivities(await res.json())
     } catch (err) {
       console.error('[ActivityTab] Failed to load:', err)
     }
     setLoading(false)
-  }, [org])
+  }, [org, templateId])
 
   useEffect(() => { load() }, [load])
 
@@ -117,7 +126,9 @@ export function ActivityTab() {
       {activities.length === 0 ? (
         <EmptyState
           title="No activity yet"
-          description="Activity from your team will appear here"
+          description={templateId
+            ? 'Edits and version commits on this template will appear here. Generated-document activity lives on the Documents page.'
+            : 'Activity from your team will appear here'}
           icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           className="py-6"
         />

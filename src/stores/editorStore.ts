@@ -91,6 +91,7 @@ import {
   withUndoSuppressed,
   type EditorUndoSnapshot,
 } from '../lib/editorHistory'
+import { runWithEmitSuppressed, sendOp as sendCollabOp } from '../collab/collabBus'
 import {
   clampBandGroupTranslationDelta,
   clampBandNestedElement,
@@ -735,6 +736,16 @@ export interface EditorState {
   setVariableValue: (key: string, value: string) => void
   setGlobalVariableDefinitions: (defs: VariableDefinition[]) => void
   setPageLocalVariableDefinitions: (pageId: string, defs: VariableDefinition[]) => void
+  /**
+   * Atomic global-variable rename. Updates the variables array AND every
+   * element's {@code dataKey} that references the old key in a single
+   * store mutation, then emits ONE coupled {@code renameGlobalVariable}
+   * collab op. Without this, the rename and the dataKey patches would be
+   * separate ops on the wire and a peer's concurrent UpdateElement
+   * carrying the old key could land between them, leaving the binding
+   * pointing at a now-deleted variable.
+   */
+  renameGlobalVariable: (oldKey: string, newKey: string) => void
   /** Load full layout including multiple pages. */
   loadLayout: (payload: ParsedLayoutResult) => void
   /** Single-page helper (e.g. empty template). */
@@ -1058,6 +1069,7 @@ export type CollabOpForStore =
   | { type: 'setGlobalVariables'; variables: VariableDefinition[] }
   | { type: 'setPageVariables'; pageIndex: number; variables: VariableDefinition[] | undefined }
   | { type: 'setPageSpec'; pageSpec: PageSpec }
+  | { type: 'renameGlobalVariable'; oldKey: string; newKey: string }
 
 /** Primary (last-clicked) selected element id, if any. */
 export function primarySelectedId(s: Pick<EditorState, 'selectedIds'>): string | null {
@@ -1457,6 +1469,48 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         ),
       }
     }),
+
+  renameGlobalVariable: (oldKey, newKey) => {
+    const ok = oldKey.trim()
+    const nk = newKey.trim()
+    if (!ok || !nk || ok === nk) return
+    // Send the atomic op FIRST so the server's serialized op log records
+    // a single rename event. Local state updates below run with the diff
+    // observer suppressed so we don't also re-emit per-field deltas — a
+    // peer's concurrent UpdateElement carrying the old key cannot then
+    // slip in between the rename and a binding patch.
+    sendCollabOp({ type: 'renameGlobalVariable', oldKey: ok, newKey: nk })
+    runWithEmitSuppressed(() => {
+      set((s) => {
+        const renamedDefs = s.globalVariableDefinitions.map((d) =>
+          d.key === ok ? { ...d, key: nk } : d
+        )
+        const renameElementBindings = (els: LayoutElement[]): LayoutElement[] =>
+          els.map((el) => {
+            const next = el.dataKey === ok ? { ...el, dataKey: nk } : el
+            if (next.bandElements && next.bandElements.length) {
+              return { ...next, bandElements: renameElementBindings(next.bandElements) }
+            }
+            return next
+          })
+        const renamedPages = s.pages.map((p) => ({
+          ...p,
+          elements: renameElementBindings(p.elements),
+        }))
+        const renamedValues: Record<string, string> = { ...s.variableValues }
+        if (ok in renamedValues) {
+          renamedValues[nk] = renamedValues[ok]!
+          delete renamedValues[ok]
+        }
+        return {
+          ...takeUndoBarrier(s),
+          globalVariableDefinitions: renamedDefs,
+          pages: renamedPages,
+          variableValues: renamedValues,
+        }
+      })
+    })
+  },
 
   setPageLocalVariableDefinitions: (pageId, defs) =>
     set((s) => {
@@ -2235,6 +2289,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           focusedTextRunIndex: null,
           tableSelection: null,
           tableCellEdit: null,
+          // Empty-canvas click also exits path-edit mode. Without this
+          // the vertex handles stayed visible after clicking away, since
+          // the early-return for id==null skipped the exitPathEdit
+          // branch in the regular code path below.
+          pathEditingElementId: null,
+          pathEditingSelectedVertex: null,
+          pathEditingSmartGuides: { vertical: [], horizontal: [] },
         }
       }
       const additive = opts?.additive ?? false
@@ -3908,6 +3969,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           pages = s.pages.map((p, i) =>
             i === op.pageIndex ? ({ ...p, ...op.patch } as LayoutDocumentPage) : p
           )
+          // Sticky background: when the toggle is ON and this remote patch
+          // touched `background`, mirror the post-merge bg to every other
+          // page locally. The server enforces the same invariant for new
+          // joiners' snapshots; this keeps already-connected clients in
+          // lockstep without re-emitting (we're inside applyRemoteOp so
+          // the diff observer is already gated by remoteOpInFlight).
+          if (
+            (op.patch as Record<string, unknown> | undefined)?.background !== undefined &&
+            pageSpec.applyBackgroundToAllPages === true
+          ) {
+            const sourceBg = pages[op.pageIndex]?.background
+            pages = pages.map((p, i) => {
+              if (i === op.pageIndex) return p
+              if (sourceBg) return { ...p, background: sourceBg }
+              const { background: _drop, ...rest } = p
+              return rest
+            })
+          }
           break
         }
         case 'setGlobalVariables': {
@@ -3920,8 +3999,44 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           )
           break
         }
+        case 'renameGlobalVariable': {
+          // Remote rename — mirror the local action's effect: rename the
+          // variable in the array AND walk every element (including
+          // band-nested children) updating dataKey. The peer is inside
+          // applyRemoteOp so the diff observer's remoteOpInFlight gate
+          // already prevents echoing this back as ops.
+          const { oldKey, newKey } = op
+          if (!oldKey || !newKey || oldKey === newKey) break
+          globalVariableDefinitions = globalVariableDefinitions.map((d) =>
+            d.key === oldKey ? { ...d, key: newKey } : d
+          )
+          const renameBindings = (els: LayoutElement[]): LayoutElement[] =>
+            els.map((el) => {
+              const next = el.dataKey === oldKey ? { ...el, dataKey: newKey } : el
+              if (next.bandElements && next.bandElements.length) {
+                return { ...next, bandElements: renameBindings(next.bandElements) }
+              }
+              return next
+            })
+          pages = pages.map((p) => ({ ...p, elements: renameBindings(p.elements) }))
+          break
+        }
         case 'setPageSpec': {
+          const wasOn = s.pageSpec.applyBackgroundToAllPages === true
           pageSpec = op.pageSpec
+          const nowOn = pageSpec.applyBackgroundToAllPages === true
+          // Toggle flipped OFF→ON: mirror the first non-empty bg to every
+          // page so this client's view matches the server's enforced state.
+          // Picking the first non-empty bg matches the server-side rule in
+          // CollabService.firstPageBackground().
+          if (!wasOn && nowOn) {
+            const firstBg = pages.find((p) => p.background)?.background
+            pages = pages.map((p) => {
+              if (firstBg) return { ...p, background: firstBg }
+              const { background: _drop, ...rest } = p
+              return rest
+            })
+          }
           break
         }
       }
@@ -4024,13 +4139,23 @@ export function createDefaultElement(
         height: 4,
         strokeWidth: 1,
       }
+    // BOX / TRIANGLE / DIAMOND / STAR / ARROW are deprecated as element
+    // types — they collapse into POLYGON with a {@link PolygonKind}. The
+    // palette tiles still ask for the legacy types here so existing
+    // callers (and tests) keep working; we translate to POLYGON in one
+    // place so render code only sees the unified type.
     case 'BOX':
       return {
         ...base,
-        type: 'BOX',
+        type: 'POLYGON',
+        polygonKind: 'rect',
         width: 160,
         height: 80,
-        style: { color: '#64748b' },
+        // Solid border by default — the legacy `lineStyle: 'dashed'`
+        // default surprised authors who picked Box and got a dotted-
+        // looking outline. Authors who want dashed flip the lineStyle
+        // toggle in the props panel.
+        style: { color: '#64748b', lineStyle: 'solid' },
       }
     case 'ELLIPSE':
       return {
@@ -4044,7 +4169,8 @@ export function createDefaultElement(
     case 'TRIANGLE':
       return {
         ...base,
-        type: 'TRIANGLE',
+        type: 'POLYGON',
+        polygonKind: 'triangle',
         width: 100,
         height: 90,
         strokeWidth: 2,
@@ -4053,7 +4179,8 @@ export function createDefaultElement(
     case 'ARROW':
       return {
         ...base,
-        type: 'ARROW',
+        type: 'POLYGON',
+        polygonKind: 'arrow',
         width: 140,
         height: 48,
         strokeWidth: 2,
@@ -4062,7 +4189,8 @@ export function createDefaultElement(
     case 'DIAMOND':
       return {
         ...base,
-        type: 'DIAMOND',
+        type: 'POLYGON',
+        polygonKind: 'diamond',
         width: 100,
         height: 100,
         strokeWidth: 2,
@@ -4071,11 +4199,28 @@ export function createDefaultElement(
     case 'STAR':
       return {
         ...base,
-        type: 'STAR',
+        type: 'POLYGON',
+        polygonKind: 'star',
         width: 100,
         height: 100,
         strokeWidth: 2,
         style: { color: '#ca8a04' },
+      }
+    case 'POLYGON':
+      // The "Polygon" palette tile creates a regular n-gon. Default to
+      // 5 sides (pentagon) so the new tile produces a shape that's
+      // visibly distinct from triangle (3) and diamond (4) — both of
+      // which are still reachable by changing the Sides input in the
+      // properties panel. Authors who want a triangle just set sides=3.
+      return {
+        ...base,
+        type: 'POLYGON',
+        polygonKind: 'regular',
+        sides: 5,
+        width: 100,
+        height: 100,
+        strokeWidth: 2,
+        style: { color: '#0ea5e9' },
       }
     case 'RING':
       return {

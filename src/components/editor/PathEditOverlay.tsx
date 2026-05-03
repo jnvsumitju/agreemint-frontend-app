@@ -63,6 +63,11 @@ export function PathEditOverlay() {
   const snapToGridEnabled = useEditorStore((s) => s.snapToGrid)
   const pageSpec = useEditorStore((s) => s.pageSpec)
   const smartGuidesEnabled = useEditorStore((s) => s.smartGuidesEnabled)
+  // Vertex handles get a "Click to select · Delete to remove" tooltip
+  // only when the global Hints toggle (status bar) is on. Same gating as
+  // the floating element-hint strip elsewhere — keeps the overlay clean
+  // for users who already know the keystrokes.
+  const showEditorHints = useEditorStore((s) => s.showEditorHints)
 
   const selectPathVertex = useEditorStore((s) => s.selectPathVertex)
   const updatePathShape = useEditorStore((s) => s.updatePathShape)
@@ -538,6 +543,7 @@ export function PathEditOverlay() {
               role="button"
               aria-label={`Vertex ${a.ref.pointIndex + 1}`}
               aria-pressed={selected}
+              title={showEditorHints ? 'Click to select · Delete to remove' : undefined}
               className={`pointer-events-auto absolute rounded-full border-2 transition-colors ${
                 selected
                   ? 'border-violet-700 bg-violet-500 dark:border-violet-300'

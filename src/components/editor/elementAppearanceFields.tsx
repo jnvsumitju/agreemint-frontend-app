@@ -157,6 +157,52 @@ export function StrokeColorField({
   )
 }
 
+/**
+ * Arrowhead toggles for LINE elements. Authors can set an arrowhead at
+ * either end (or both) — checkboxes write directly to {@code style.arrowStart}
+ * and {@code style.arrowEnd} on the element. Unset values are stripped from
+ * the style object so the layout JSON stays minimal for legacy lines.
+ */
+export function LineArrowFields({
+  style,
+  onChange,
+}: {
+  style: ElementStyle | undefined
+  onChange: (s: ElementStyle) => void
+}) {
+  const s = style ?? {}
+  const setFlag = (key: 'arrowStart' | 'arrowEnd', value: boolean) => {
+    const next: ElementStyle = { ...s }
+    if (value) next[key] = true
+    else delete next[key]
+    onChange(next)
+  }
+  const checkboxClass = 'rounded border-zinc-400 text-violet-600 focus:ring-violet-500 dark:border-zinc-500'
+  return (
+    <div className="flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-600">
+      <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Arrowheads</p>
+      <label className="flex cursor-pointer items-center gap-2 text-[10px] text-zinc-700 lg:text-xs dark:text-zinc-200">
+        <input
+          type="checkbox"
+          className={checkboxClass}
+          checked={s.arrowStart === true}
+          onChange={(e) => setFlag('arrowStart', e.target.checked)}
+        />
+        <span>Start (◀)</span>
+      </label>
+      <label className="flex cursor-pointer items-center gap-2 text-[10px] text-zinc-700 lg:text-xs dark:text-zinc-200">
+        <input
+          type="checkbox"
+          className={checkboxClass}
+          checked={s.arrowEnd === true}
+          onChange={(e) => setFlag('arrowEnd', e.target.checked)}
+        />
+        <span>End (▶)</span>
+      </label>
+    </div>
+  )
+}
+
 /** Border + fill for BOX (and similar). */
 export function BoxAppearanceFields({
   style,

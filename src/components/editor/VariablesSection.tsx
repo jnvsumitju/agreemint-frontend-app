@@ -400,6 +400,7 @@ export function VariablesSection() {
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
   const setGlobalVariableDefinitions = useEditorStore((s) => s.setGlobalVariableDefinitions)
+  const renameGlobalVariable = useEditorStore((s) => s.renameGlobalVariable)
   const setPageLocalVariableDefinitions = useEditorStore((s) => s.setPageLocalVariableDefinitions)
   const variableValues = useEditorStore((s) => s.variableValues)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
@@ -514,10 +515,21 @@ export function VariablesSection() {
     const latestDefs = useEditorStore.getState().globalVariableDefinitions
     const oldKey = normalizeCatalogVariableKey(focusedKeyRef.current)
     const newKey = normalizeCatalogVariableKey(latestDefs[index]?.key ?? '')
+    const merged = mergeDuplicateCatalogRowsAtBlur(latestDefs, index)
+    // Pure rename (no duplicate-merge needed) → atomic collab op. The
+    // dedicated {@code renameGlobalVariable} op pairs the variables-array
+    // rename with a walk of every element's {@code dataKey} on the wire,
+    // so a peer's concurrent UpdateElement carrying the old key cannot
+    // land between the rename and the binding fix. Falls back to the
+    // legacy split path (syncDataKeyRename + setGlobalVariableDefinitions)
+    // when a merge collapses two rows together.
+    if (oldKey && newKey && oldKey !== newKey && !merged) {
+      renameGlobalVariable(oldKey, newKey)
+      return
+    }
     if (oldKey && newKey && oldKey !== newKey) {
       syncDataKeyRename(oldKey, newKey)
     }
-    const merged = mergeDuplicateCatalogRowsAtBlur(latestDefs, index)
     if (!merged) return
     setGlobalVariableDefinitions(merged.next)
     flashMerged('global', merged.keptIndex)

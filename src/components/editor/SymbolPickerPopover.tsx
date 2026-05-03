@@ -51,6 +51,16 @@ interface SymbolPickerPopoverProps {
   disabled?: boolean
   /** Passed through to the tile's {@code title} attribute for hover. */
   tooltip?: string
+  /**
+   * Controls how the trigger renders.
+   *   - {@code 'tile'} (default): full-size palette tile with icon + label
+   *     stacked vertically. Used in the LeftPalette SYMBOLS section.
+   *   - {@code 'toolbarButton'}: square 7x7 icon button matching FormatBar
+   *     siblings. Used in the inline-edit toolbar so authors don't have
+   *     to leave the textbox to grab a glyph.
+   * Both variants share the same popover panel + insertion logic.
+   */
+  variant?: 'tile' | 'toolbarButton'
 }
 
 export function SymbolPickerPopover({
@@ -59,14 +69,13 @@ export function SymbolPickerPopover({
   triggerGlyph,
   disabled,
   tooltip,
+  variant = 'tile',
 }: SymbolPickerPopoverProps) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 })
   const [query, setQuery] = useState('')
-
-  const addElement = useEditorStore((s) => s.addElement)
 
   const entries = kind === 'math' ? MATH_SYMBOLS : EMOJI_SYMBOLS
   const filtered = useMemo(() => filterSymbols(entries, query), [entries, query])
@@ -130,10 +139,10 @@ export function SymbolPickerPopover({
 
   const handlePick = useCallback(
     (entry: SymbolEntry) => {
-      insertSymbolAsTextElement(entry.char, addElement)
+      insertSymbol(entry.char)
       setOpen(false)
     },
-    [addElement],
+    [],
   )
 
   // Enter while the search has a single result picks it — a small QoL nod
@@ -151,6 +160,16 @@ export function SymbolPickerPopover({
     ? `${tileBaseCls} cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500`
     : `${tileBaseCls} cursor-pointer border-zinc-200 bg-white text-zinc-800 hover:border-violet-300 hover:bg-violet-50/80 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-violet-500 ${
         open ? 'ring-2 ring-violet-300 dark:ring-violet-600' : ''
+      }`
+  // FormatBar-sized icon-only button. Smaller height + no label, but the
+  // popover positions identically. Matches the existing FmtBtn ergonomics
+  // so it slots into the inline toolbar without visual jitter.
+  const toolbarBtnCls = disabled
+    ? 'flex h-7 w-7 items-center justify-center rounded text-base leading-none text-zinc-400 cursor-not-allowed'
+    : `flex h-7 w-7 items-center justify-center rounded text-base leading-none transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+        open
+          ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200'
+          : 'text-zinc-700 dark:text-zinc-200'
       }`
 
   const panel =
@@ -216,8 +235,8 @@ export function SymbolPickerPopover({
           )}
         </div>
         <p className="border-t border-zinc-200 pt-1 text-[9px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-          Click a glyph to drop a text block at the top-left of the page. Drag it wherever
-          you need.
+          Click a glyph to insert at the cursor when editing a textbox, or
+          drop it as a new text block on the page.
         </p>
       </div>
     ) : null
@@ -228,18 +247,56 @@ export function SymbolPickerPopover({
         ref={triggerRef}
         type="button"
         disabled={disabled}
+        // Prevent the click from bubbling into the FormatBar's
+        // mousedown-blur-and-commit handlers when used as a toolbarButton.
+        onMouseDown={(e) => {
+          if (variant === 'toolbarButton') e.preventDefault()
+        }}
         onClick={() => !disabled && setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-haspopup="dialog"
         title={tooltip ?? label}
-        className={tileCls}
+        className={variant === 'toolbarButton' ? toolbarBtnCls : tileCls}
       >
-        <span className="shrink-0 text-base leading-none" aria-hidden>{triggerGlyph}</span>
-        <span className="w-full break-words hyphens-auto">{label}</span>
+        <span
+          className={
+            variant === 'toolbarButton'
+              ? 'leading-none'
+              : 'shrink-0 text-base leading-none'
+          }
+          aria-hidden
+        >
+          {triggerGlyph}
+        </span>
+        {variant === 'tile' && (
+          <span className="w-full break-words hyphens-auto">{label}</span>
+        )}
       </button>
       {panel ? createPortal(panel, document.body) : null}
     </>
   )
+}
+
+/**
+ * Insert {@code char} at the user's current cursor position when a
+ * TipTap inline-edit is active, otherwise drop a fresh TEXT element
+ * carrying the glyph. Same dispatch logic from every entry point —
+ * left-palette tile, FormatBar button, slash menu — so an author's
+ * mental model stays consistent: "click the picker, the glyph lands
+ * where I'm typing if I'm typing, on the page otherwise."
+ */
+export function insertSymbol(char: string): void {
+  const tipEditor = useEditorStore.getState().inlineTipTapEditor
+  if (tipEditor) {
+    try {
+      tipEditor.chain().focus().insertContent(char).run()
+      return
+    } catch {
+      // Fall through to the element-spawn path if the live editor is
+      // somehow detached / destroyed mid-click.
+    }
+  }
+  insertSymbolAsTextElement(char, useEditorStore.getState().addElement)
 }
 
 /**

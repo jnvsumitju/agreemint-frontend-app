@@ -27,6 +27,14 @@ export type CollabOp =
   | { type: 'setGlobalVariables'; variables: unknown }
   | { type: 'setPageVariables'; pageIndex: number; variables: unknown }
   | { type: 'setPageSpec'; pageSpec: unknown }
+  /**
+   * Atomic global-variable rename. Pairs the variables-array key change
+   * with a walk of every element on every page that updates {@code dataKey}
+   * (TABLE/LIST data bindings) to the new key — both halves applied in
+   * one op so a concurrent UpdateElement carrying the old key can't slip
+   * in between the rename and the binding fix.
+   */
+  | { type: 'renameGlobalVariable'; oldKey: string; newKey: string }
 
 export interface RemoteOpMessage {
   serverSeq: number
@@ -190,6 +198,34 @@ export function requestSnapshot(): void {
 /** Was the given clientOpId originated by this client (i.e. still outstanding)? */
 export function isOwnOp(clientOpId: string): boolean {
   return outstandingClientOpIds.has(clientOpId)
+}
+
+// ── Diff-observer suppress flag ─────────────────────────────────────────────
+//
+// Some local store actions (e.g. {@code renameGlobalVariable}) emit a single
+// coupled op explicitly via {@link sendOp} and then mutate state in ways
+// that would normally cause the diff observer in {@code useCollab.ts} to
+// emit a redundant cluster of per-field ops. Wrapping the state mutation
+// in {@link runWithEmitSuppressed} stops the observer from re-emitting,
+// so the coupled op is the sole representation of that change on the wire
+// — peers can't have a concurrent op slip in between the real change and
+// its broken-out per-field shadow.
+//
+// Lives here (rather than useCollab.ts) so the store can import without
+// creating a circular dependency on the React-coupled hook module.
+let emitSuppressDepth = 0
+
+export function runWithEmitSuppressed<T>(fn: () => T): T {
+  emitSuppressDepth++
+  try {
+    return fn()
+  } finally {
+    emitSuppressDepth--
+  }
+}
+
+export function isEmitSuppressed(): boolean {
+  return emitSuppressDepth > 0
 }
 
 // ── Yjs relay ────────────────────────────────────────────────────────────────
