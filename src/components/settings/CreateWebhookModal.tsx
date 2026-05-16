@@ -99,7 +99,7 @@ export function CreateWebhookModal({
             required
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://your-app.example.com/webhooks/agreemint"
+            placeholder="https://your-app.example.com/webhooks/crixaa"
           />
 
           <div>
@@ -140,7 +140,7 @@ export function CreateWebhookModal({
       ) : created ? (
         <div className="space-y-4">
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
-            Save this signing secret now. You'll use it to verify the <code>X-Agreemint-Signature</code> header on every delivery.
+            Save this signing secret now. You'll use it to verify the <code>X-Crixaa-Signature</code> header on every delivery.
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">Signing secret</label>
@@ -154,7 +154,7 @@ export function CreateWebhookModal({
           <div className="rounded-md bg-zinc-900 p-3 text-[11px] leading-snug text-zinc-100">
             <div className="mb-1 text-zinc-400">Verification (Python):</div>
             <pre>{`import hmac, hashlib
-sig = request.headers["X-Agreemint-Signature"]  # e.g. "t=...,v1=..."
+sig = request.headers["X-Crixaa-Signature"]  # e.g. "t=...,v1=..."
 ts, v1 = [s.split("=")[1] for s in sig.split(",")]
 expected = hmac.new(SECRET.encode(), f"{ts}.{request.body}".encode(), hashlib.sha256).hexdigest()
 assert hmac.compare_digest(expected, v1)`}</pre>

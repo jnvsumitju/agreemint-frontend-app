@@ -11,7 +11,7 @@ import { stripSystemVariableKeysFromData } from '../../lib/systemTemplateVariabl
  * Editor's 3-dot menu → "Developer". Shows a ready-to-run cURL snippet for the
  * current template — template id, API host, and a copy-pasteable preview
  * `data` payload built from the user's current variableValues. The actual
- * secret is never embedded; the snippet references `$AGREEMINT_API_KEY` and
+ * secret is never embedded; the snippet references `$CRIXAA_API_KEY` and
  * points the user to Settings → Developer to create / retrieve one.
  */
 export function DeveloperModal({
@@ -48,7 +48,7 @@ export function DeveloperModal({
       .map((line, i) => (i === 0 ? line : '    ' + line))
       .join('\n')
     return `curl -X POST ${apiBase}/api/v1/templates/${templateId}/generate \\
-  -H "X-Api-Key: $AGREEMINT_API_KEY" \\
+  -H "X-Api-Key: $CRIXAA_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '${jsonData}'`
   }, [apiBase, templateId, variableValues])
@@ -63,7 +63,7 @@ export function DeveloperModal({
     <Modal open={open} onClose={onClose} title="Developer — generate this template programmatically" size="lg">
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         Use this snippet from a server or CI job to render a PDF for the template you're editing.
-        Replace <code className="rounded bg-zinc-100 px-1 text-[12px] dark:bg-zinc-800">$AGREEMINT_API_KEY</code> with
+        Replace <code className="rounded bg-zinc-100 px-1 text-[12px] dark:bg-zinc-800">$CRIXAA_API_KEY</code> with
         the key you create in{' '}
         {isAdmin ? (
           <Link to="/settings?tab=developer" onClick={onClose} className="font-medium text-violet-600 hover:underline dark:text-violet-400">

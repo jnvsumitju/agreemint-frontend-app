@@ -127,12 +127,12 @@ export function CreateApiKeyModal({
 
   function downloadAsTxt() {
     if (!created) return
-    const body = `Agreemint API key\nName: ${created.key.name}\nCreated: ${created.key.createdAt}\nScopes: ${created.key.scopes.join(', ')}\nSecret: ${created.rawKey}\n`
+    const body = `Crixaa API key\nName: ${created.key.name}\nCreated: ${created.key.createdAt}\nScopes: ${created.key.scopes.join(', ')}\nSecret: ${created.rawKey}\n`
     const blob = new Blob([body], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `agreemint-api-key-${created.key.keyLast4}.txt`
+    a.download = `crixaa-api-key-${created.key.keyLast4}.txt`
     document.body.appendChild(a)
     a.click()
     a.remove()

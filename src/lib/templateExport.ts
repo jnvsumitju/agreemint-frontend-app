@@ -67,7 +67,7 @@ export async function importTemplateJson(
     // Raw LayoutJson format
     layoutJson = raw
   } else {
-    throw new Error('Unrecognized template format. Expected an Agreemint template JSON file.')
+    throw new Error('Unrecognized template format. Expected a Crixaa template JSON file.')
   }
 
   const result = parseLayoutJson(layoutJson)
