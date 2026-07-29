@@ -5,6 +5,8 @@ import { LifecycleStatusBadge } from '../components/documents/LifecycleStatusBad
 import { DocumentTimeline } from '../components/documents/DocumentTimeline'
 import { ApprovalWorkflowPanel } from '../components/documents/ApprovalWorkflowPanel'
 import { CreateWorkflowModal } from '../components/documents/CreateWorkflowModal'
+import { UpgradePrompt } from '../components/billing/UpgradePrompt'
+import { usePlan } from '../hooks/usePlan'
 import { PdfCustomViewer } from '../components/editor/PdfCustomViewer'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
@@ -69,6 +71,8 @@ export function DocumentDetail() {
     useDocumentStore()
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
+  // Lifecycle and approvals are Pro features; the server enforces this too.
+  const { isFree } = usePlan()
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -263,8 +267,15 @@ export function DocumentDetail() {
                   <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
                 </CardHeader>
                 <CardContent className="space-y-2">
+                  {isFree && (
+                    <UpgradePrompt
+                      feature="Document lifecycle"
+                      description="Move documents through review, approval and expiry, with a full audit timeline of who did what."
+                    />
+                  )}
+
                   {/* Submit for Review (special — opens modal) */}
-                  {doc.lifecycleStatus === 'DRAFT' && !workflow && (
+                  {!isFree && doc.lifecycleStatus === 'DRAFT' && !workflow && (
                     <Button
                       variant="primary"
                       className="w-full"
@@ -274,7 +285,7 @@ export function DocumentDetail() {
                     </Button>
                   )}
 
-                  {actions.map((action) => (
+                  {!isFree && actions.map((action) => (
                     <Button
                       key={action.target}
                       variant={action.variant}
@@ -286,7 +297,7 @@ export function DocumentDetail() {
                     </Button>
                   ))}
 
-                  {actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
+                  {!isFree && actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
                     <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
                       This document is archived
                     </p>

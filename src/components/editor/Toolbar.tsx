@@ -20,6 +20,7 @@ import {
 import { PresenceAvatars } from './PresenceAvatars'
 import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
+import { usePlan } from '../../hooks/usePlan'
 import { ShareModal } from './ShareModal'
 import { RequestReviewModal } from './RequestReviewModal'
 import { DeveloperModal } from './DeveloperModal'
@@ -397,6 +398,9 @@ export function Toolbar() {
   const [shareOpen, setShareOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
+  // Version history is a Pro feature (server returns 402 on the
+  // single-version endpoint the diff reads from).
+  const { isFree: planIsFree } = usePlan()
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [developerOpen, setDeveloperOpen] = useState(false)
   const [reviewModalVersion, setReviewModalVersion] = useState<{ id: string; number: number } | null>(null)
@@ -897,17 +901,35 @@ export function Toolbar() {
                   </>
                 )}
                 <div className="border-t border-zinc-100 dark:border-zinc-700" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    setVersionDiffOpen(true)
-                    setMenuOpen(false)
-                  }}
-                >
-                  Version Diff
-                </button>
+                {planIsFree ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    title="Available on Pro"
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-zinc-400 hover:bg-zinc-100 dark:text-zinc-500 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      navigate('/settings?tab=billing')
+                    }}
+                  >
+                    Version Diff
+                    <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                      PRO
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      setVersionDiffOpen(true)
+                      setMenuOpen(false)
+                    }}
+                  >
+                    Version Diff
+                  </button>
+                )}
                 <button
                   type="button"
                   role="menuitem"
