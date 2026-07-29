@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PageLoader } from './components/ui/PageLoader'
@@ -15,6 +15,7 @@ import { OtpLogin } from './pages/auth/OtpLogin'
 
 // Layout (always needed)
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
+import { RequireAdmin } from './components/layout/RequireAdmin'
 import { AppLayout } from './components/layout/AppLayout'
 
 // Lazy-loaded pages (code-split per route)
@@ -29,6 +30,8 @@ const DocumentDetail = lazy(() => import('./pages/DocumentDetail').then((m) => (
 const Products = lazy(() => import('./pages/Products').then((m) => ({ default: m.Products })))
 const ReviewsInbox = lazy(() => import('./pages/ReviewsInbox').then((m) => ({ default: m.ReviewsInbox })))
 const Notifications = lazy(() => import('./pages/Notifications').then((m) => ({ default: m.Notifications })))
+const Documentation = lazy(() => import('./pages/Documentation').then((m) => ({ default: m.Documentation })))
+const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })))
 
 export default function App() {
   useEffect(() => {
@@ -53,8 +56,11 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               {/* With AppLayout (nav bar) */}
               <Route element={<AppLayout />}>
-                <Route path="/" element={<TemplateList />} />
+                {/* Dashboard is the landing page; "/" is kept as a redirect so
+                    existing links and post-login navigate('/') still work. */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/templates" element={<TemplateList />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/marketplace" element={<Marketplace />} />
@@ -63,6 +69,15 @@ export default function App() {
                 <Route path="/products" element={<Products />} />
                 <Route path="/reviews" element={<ReviewsInbox />} />
                 <Route path="/notifications" element={<Notifications />} />
+
+                {/* Org ADMIN only — the nav entry is hidden for everyone else,
+                    and this guard blocks the deep link too. */}
+                <Route element={<RequireAdmin />}>
+                  <Route path="/documentation" element={<Documentation />} />
+                </Route>
+
+                {/* Catch-all: keep the nav bar so a bad URL isn't a dead end. */}
+                <Route path="*" element={<NotFound />} />
               </Route>
 
               {/* Full-screen (no nav bar) */}

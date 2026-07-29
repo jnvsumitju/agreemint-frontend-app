@@ -5,16 +5,23 @@ import { UserMenu } from './UserMenu'
 import { Breadcrumb } from './Breadcrumb'
 import { CommandPalette } from './CommandPalette'
 import { AnnouncementBanner } from '../AnnouncementBanner'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/products', label: 'Products' },
-  { to: '/', label: 'Templates' },
+  { to: '/templates', label: 'Templates' },
   { to: '/documents', label: 'Documents' },
   { to: '/marketplace', label: 'Marketplace' },
 ]
 
+/** API docs are only useful to whoever can mint keys — that's org ADMIN. */
+const adminNavLinks = [{ to: '/documentation', label: 'Documentation' }]
+
 export function AppLayout() {
+  const { isAdmin } = usePermissions()
+  const links = isAdmin ? [...navLinks, ...adminNavLinks] : navLinks
+
   return (
     <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
       {/* Top navigation bar */}
@@ -31,11 +38,10 @@ export function AppLayout() {
 
         {/* Center: nav links */}
         <nav className="flex items-center gap-1">
-          {navLinks.map((link) => (
+          {links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
-              end={link.to === '/'}
               className={({ isActive }) =>
                 `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   isActive

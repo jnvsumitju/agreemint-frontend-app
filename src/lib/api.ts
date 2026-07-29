@@ -1107,3 +1107,88 @@ export function isReviewBlockError(err: unknown): err is { payload: ReviewBlockP
     typeof (err as { payload?: { code?: unknown } }).payload?.code === 'string' &&
     (err as { payload: ReviewBlockPayload }).payload.code === 'REVIEW_BLOCK'
 }
+
+/* ── Billing (Razorpay) ── */
+
+export interface SubscriptionSummaryDto {
+  id: string
+  razorpaySubscriptionId: string
+  /** CREATED | AUTHENTICATED | ACTIVE | PENDING | HALTED | CANCELLED | COMPLETED | EXPIRED */
+  status: string
+  billingPeriod: 'MONTHLY' | 'YEARLY'
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+}
+
+export interface BillingStatusDto {
+  plan: string
+  /** False when the server has no Razorpay credentials — hide the upgrade UI. */
+  billingEnabled: boolean
+  /** Public key id for Checkout. The secret never reaches the browser. */
+  razorpayKeyId: string
+  monthlyAvailable: boolean
+  yearlyAvailable: boolean
+  subscription: SubscriptionSummaryDto | null
+}
+
+export interface CreateSubscriptionDto {
+  razorpaySubscriptionId: string
+  razorpayKeyId: string
+  billingPeriod: string
+}
+
+export interface PaymentRecordDto {
+  paidAt: string
+  amount: number | null
+  currency: string | null
+  paymentId: string | null
+}
+
+export async function fetchBillingStatus(orgId: string): Promise<BillingStatusDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/billing`)
+  return parseJson<BillingStatusDto>(res)
+}
+
+export async function createSubscription(
+  orgId: string,
+  billingPeriod: 'MONTHLY' | 'YEARLY',
+): Promise<CreateSubscriptionDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/billing/subscription`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billingPeriod }),
+  })
+  return parseJson<CreateSubscriptionDto>(res)
+}
+
+/**
+ * Hand the checkout result back for verification. The plan itself is granted by
+ * Razorpay's webhook, so a failure here is not fatal to the purchase.
+ */
+export async function confirmSubscription(
+  orgId: string,
+  payload: { razorpaySubscriptionId: string; razorpayPaymentId: string; razorpaySignature: string },
+): Promise<SubscriptionSummaryDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/billing/subscription/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return parseJson<SubscriptionSummaryDto>(res)
+}
+
+export async function cancelSubscription(
+  orgId: string,
+  immediately = false,
+): Promise<SubscriptionSummaryDto> {
+  const res = await authFetch(
+    `/api/orgs/${orgId}/billing/subscription?immediately=${immediately}`,
+    { method: 'DELETE' },
+  )
+  return parseJson<SubscriptionSummaryDto>(res)
+}
+
+export async function listPayments(orgId: string, limit = 20): Promise<PaymentRecordDto[]> {
+  const res = await authFetch(`/api/orgs/${orgId}/billing/payments?limit=${limit}`)
+  return parseJson<PaymentRecordDto[]>(res)
+}

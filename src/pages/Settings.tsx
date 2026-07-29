@@ -5,11 +5,12 @@ import { OrgSettingsTab } from '../components/settings/OrgSettingsTab'
 import { MembersTab } from '../components/settings/MembersTab'
 import { PreferencesTab } from '../components/settings/PreferencesTab'
 import { DeveloperTab } from '../components/settings/DeveloperTab'
+import { BillingTab } from '../components/settings/BillingTab'
 
-type TabId = 'org' | 'members' | 'preferences' | 'developer'
+type TabId = 'org' | 'members' | 'preferences' | 'developer' | 'billing'
 
 function isValidTab(v: string | null): v is TabId {
-  return v === 'org' || v === 'members' || v === 'preferences' || v === 'developer'
+  return v === 'org' || v === 'members' || v === 'preferences' || v === 'developer' || v === 'billing'
 }
 
 export function Settings() {
@@ -29,11 +30,13 @@ export function Settings() {
     // Developer tab is ADMIN-only (org-wide API credentials). Products moved
     // to a top-level /products page.
     ...(isAdmin ? [{ id: 'developer' as const, label: 'Developer' }] : []),
+    // Billing is ADMIN-only too — it spends the workspace's money.
+    ...(isAdmin ? [{ id: 'billing' as const, label: 'Billing' }] : []),
   ]
 
   const rawTab = params.get('tab')
   let activeTab: TabId = isValidTab(rawTab) ? rawTab : 'org'
-  if (activeTab === 'developer' && !isAdmin) activeTab = 'org'
+  if ((activeTab === 'developer' || activeTab === 'billing') && !isAdmin) activeTab = 'org'
 
   function selectTab(id: TabId) {
     setParams({ tab: id }, { replace: true })
@@ -66,6 +69,7 @@ export function Settings() {
       {activeTab === 'members' && <MembersTab />}
       {activeTab === 'preferences' && <PreferencesTab />}
       {activeTab === 'developer' && <DeveloperTab />}
+      {activeTab === 'billing' && <BillingTab />}
     </div>
   )
 }

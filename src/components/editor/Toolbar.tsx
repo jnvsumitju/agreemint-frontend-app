@@ -670,7 +670,7 @@ export function Toolbar() {
           <button
             type="button"
             className="text-[11px] text-violet-600 hover:underline lg:text-sm dark:text-violet-400"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/templates')}
           >
             Templates
           </button>

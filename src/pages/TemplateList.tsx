@@ -368,8 +368,8 @@ export function TemplateList() {
   const toast = useToast()
   const { canCreateTemplates, isAdmin } = usePermissions()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
-  // Deep-link support: `/?productId=...` (used by the Products page) preloads
-  // the filter to that product.
+  // Deep-link support: `/templates?productId=...` (used by the Products page)
+  // preloads the filter to that product.
   const [searchParams] = useSearchParams()
   const initialProductId = searchParams.get('productId')
   const [templates, setTemplates] = useState<TemplateDto[]>([])
