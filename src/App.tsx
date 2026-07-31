@@ -18,6 +18,7 @@ import { ImpersonationBanner } from './components/ImpersonationBanner'
 // Layout (always needed)
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { RequireAdmin } from './components/layout/RequireAdmin'
+import { RequirePaidPlan } from './components/layout/RequirePaidPlan'
 import { AppLayout } from './components/layout/AppLayout'
 
 // Lazy-loaded pages (code-split per route)
@@ -66,7 +67,11 @@ export default function App() {
                 <Route path="/templates" element={<TemplateList />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/marketplace" element={<Marketplace />} />
+                {/* Not on free. The nav link is hidden too, but a hidden link
+                    is not a closed door — this is what actually closes it. */}
+                <Route element={<RequirePaidPlan />}>
+                  <Route path="/marketplace" element={<Marketplace />} />
+                </Route>
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/documents/:documentId" element={<DocumentDetail />} />
                 <Route path="/products" element={<Products />} />
