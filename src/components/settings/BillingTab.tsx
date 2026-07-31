@@ -34,6 +34,18 @@ const STATUS_LABEL: Record<string, { label: string; tone: 'success' | 'warning' 
   EXPIRED: { label: 'Expired', tone: 'default' },
 }
 
+/** Console-side labels. Prices live on the marketing page and in Razorpay. */
+const PLAN_META: Record<string, { label: string; blurb: string }> = {
+  STARTER: {
+    label: 'Starter',
+    blurb: 'No watermark, AI drafting, the API, and unlimited templates.',
+  },
+  PRO: {
+    label: 'Pro',
+    blurb: 'Everything in Starter, plus approvals and document lifecycle.',
+  },
+}
+
 function formatAmount(paise: number | null, currency: string | null): string {
   if (paise == null) return '—'
   // Razorpay returns the smallest currency unit; INR is the common case here.
@@ -67,7 +79,8 @@ export function BillingTab() {
   const [status, setStatus] = useState<BillingStatusDto | null>(null)
   const [payments, setPayments] = useState<PaymentRecordDto[]>([])
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<'MONTHLY' | 'YEARLY' | 'cancel' | null>(null)
+  // Keyed as `${plan}:${cycle}` so two plans' buttons don't share a spinner.
+  const [busy, setBusy] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     if (!orgId) return
@@ -100,7 +113,7 @@ export function BillingTab() {
         setStatus(next)
         if (next.subscription?.status === 'ACTIVE') {
           setPayments(await listPayments(orgId).catch(() => []))
-          toast.success('Subscription active — your workspace is on Pro')
+          toast.success(`Subscription active — your workspace is on ${next.plan}`)
           return
         }
       } catch {
@@ -110,17 +123,17 @@ export function BillingTab() {
     toast.info('Payment received. Activation can take a moment — refresh shortly.')
   }, [orgId, toast])
 
-  async function handleUpgrade(period: 'MONTHLY' | 'YEARLY') {
+  async function handleUpgrade(plan: 'STARTER' | 'PRO', period: 'MONTHLY' | 'YEARLY') {
     if (!orgId || busy) return
-    setBusy(period)
+    setBusy(`${plan}:${period}`)
     try {
-      const created = await createSubscription(orgId, period)
+      const created = await createSubscription(orgId, plan, period)
 
       await openRazorpayCheckout({
         key: created.razorpayKeyId,
         subscription_id: created.razorpaySubscriptionId,
         name: 'Crixaa',
-        description: `Pro — billed ${period === 'YEARLY' ? 'yearly' : 'monthly'}`,
+        description: `${plan === 'STARTER' ? 'Starter' : 'Pro'} — billed ${period === 'YEARLY' ? 'yearly' : 'monthly'}`,
         prefill: { name: user?.name ?? undefined, email: user?.email ?? undefined },
         notes: { org: orgName },
         theme: { color: '#7c3aed' },
@@ -244,31 +257,59 @@ export function BillingTab() {
         )
       ) : (
         <section>
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Upgrade to Pro</h2>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Upgrade</h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Unlock the API, webhooks, approvals and version history for your whole workspace.
+            Choose a plan for this workspace.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {status.monthlyAvailable && (
-              <Button onClick={() => void handleUpgrade('MONTHLY')} disabled={busy !== null}>
-                {busy === 'MONTHLY' ? 'Opening…' : 'Subscribe monthly'}
-              </Button>
-            )}
-            {status.yearlyAvailable && (
-              <Button
-                variant="secondary"
-                onClick={() => void handleUpgrade('YEARLY')}
-                disabled={busy !== null}
-              >
-                {busy === 'YEARLY' ? 'Opening…' : 'Subscribe yearly'}
-              </Button>
-            )}
-            {!status.monthlyAvailable && !status.yearlyAvailable && (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                No plans are configured yet. Add the Razorpay plan ids to enable checkout.
-              </p>
-            )}
-          </div>
+
+          {status.purchasable.length === 0 ? (
+            <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+              No plans are configured yet. Add the Razorpay plan ids to enable checkout.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {status.purchasable.map((p) => {
+                const meta = PLAN_META[p.plan] ?? { label: p.plan, blurb: '' }
+                return (
+                  <div
+                    key={p.plan}
+                    className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700"
+                  >
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {meta.label}
+                    </h3>
+                    {meta.blurb && (
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {meta.blurb}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {p.monthly && (
+                        <Button
+                          size="sm"
+                          onClick={() => void handleUpgrade(p.plan as 'STARTER' | 'PRO', 'MONTHLY')}
+                          disabled={busy !== null}
+                        >
+                          {busy === `${p.plan}:MONTHLY` ? 'Opening…' : 'Monthly'}
+                        </Button>
+                      )}
+                      {p.yearly && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void handleUpgrade(p.plan as 'STARTER' | 'PRO', 'YEARLY')}
+                          disabled={busy !== null}
+                        >
+                          {busy === `${p.plan}:YEARLY` ? 'Opening…' : 'Yearly'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
           <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
             Payments are processed by Razorpay. We never see your card details.
           </p>

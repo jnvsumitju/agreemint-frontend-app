@@ -178,7 +178,7 @@ function TemplateEditorChrome({
   // unchanged when we're back in normal edit mode.
   const rearrangeMode = useEditorStore((s) => s.rearrangeMode)
   return (
-    <div className="flex h-screen min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
+    <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
       <Toolbar />
       {!rearrangeMode && (
         <FormatBar contextToolbarExemptRef={exemptFromInlineCommitRef} />

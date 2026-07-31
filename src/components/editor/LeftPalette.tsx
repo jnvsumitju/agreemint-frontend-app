@@ -1,3 +1,5 @@
+import { usePlan } from '../../hooks/usePlan'
+import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useDrag } from 'react-dnd'
 import {
@@ -456,6 +458,11 @@ function ToolButton({
  * violet/fuchsia to read as "do something special" vs the neutral tools.
  */
 function AiToolButton({ title }: { title: string }) {
+  const navigate = useNavigate()
+  const { atLeast } = usePlan()
+  // AI drafting is Starter and up. Kept visible rather than hidden — this is
+  // the most compelling thing to upgrade for, so clicking routes to billing.
+  const aiAllowed = atLeast('STARTER')
   const setAiModalOpen = useEditorStore((s) => s.setAiModalOpen)
   const aiGenerating = useEditorStore((s) => s.aiGenerating)
   const aiPendingSnapshot = useEditorStore((s) => s.aiPendingSnapshot)
@@ -463,10 +470,14 @@ function AiToolButton({ title }: { title: string }) {
   return (
     <button
       type="button"
-      title={title}
+      title={aiAllowed ? title : 'AI drafting is available on Starter and above'}
       aria-label="Generate with AI"
       disabled={disabled}
-      onClick={() => setAiModalOpen(true)}
+      onClick={() => {
+        // AI is Starter and up; the server returns 402 regardless.
+        if (!aiAllowed) { navigate('/settings?tab=billing'); return }
+        setAiModalOpen(true)
+      }}
       className={`flex h-8 items-center justify-center rounded-md border transition-colors ${
         disabled
           ? 'cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-500'

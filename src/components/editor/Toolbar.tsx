@@ -398,9 +398,10 @@ export function Toolbar() {
   const [shareOpen, setShareOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
-  // Version history is a Pro feature (server returns 402 on the
-  // single-version endpoint the diff reads from).
-  const { isFree: planIsFree } = usePlan()
+  // Version history is Starter and up — the server returns 402 on the
+  // single-version endpoint the diff reads from.
+  const { atLeast: planAtLeast } = usePlan()
+  const hasVersionHistory = planAtLeast('STARTER')
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
   const [developerOpen, setDeveloperOpen] = useState(false)
   const [reviewModalVersion, setReviewModalVersion] = useState<{ id: string; number: number } | null>(null)
@@ -901,11 +902,11 @@ export function Toolbar() {
                   </>
                 )}
                 <div className="border-t border-zinc-100 dark:border-zinc-700" />
-                {planIsFree ? (
+                {!hasVersionHistory ? (
                   <button
                     type="button"
                     role="menuitem"
-                    title="Available on Pro"
+                    title="Available on Starter and above"
                     className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-zinc-400 hover:bg-zinc-100 dark:text-zinc-500 dark:hover:bg-zinc-700"
                     onClick={() => {
                       setMenuOpen(false)
@@ -914,7 +915,7 @@ export function Toolbar() {
                   >
                     Version Diff
                     <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                      PRO
+                      STARTER
                     </span>
                   </button>
                 ) : (

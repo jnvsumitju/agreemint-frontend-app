@@ -1,13 +1,25 @@
+import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore, type OrgDto, type MeOrgEntry } from '../../stores/authStore'
 import { authFetch } from '../../lib/api'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useEntitlements } from '../../hooks/useEntitlements'
 
 export function OrgSwitcher() {
   const { canManageOrg } = usePermissions()
   const org = useAuthStore((s) => s.org)
   const orgs = useAuthStore((s) => s.orgs)
   const setOrg = useAuthStore((s) => s.setOrg)
+  const { entitlements } = useEntitlements()
+  // The workspace allowance is per-user, not per-workspace, so count the ones
+  // this user administers — mirroring PlanGate.requireWorkspaceHeadroom.
+  // maxWorkspaces is 0 for paid and grandfathered workspaces, i.e. no cap.
+  const ownedCount = orgs.filter((o) => o.role === 'ADMIN').length
+  const anyOwnedPaid = orgs.some((o) => o.role === 'ADMIN' && o.org.plan !== 'FREE')
+  const workspaceCap = entitlements?.maxWorkspaces ?? 0
+  const atWorkspaceLimit = workspaceCap > 0 && !anyOwnedPaid && ownedCount >= workspaceCap
+
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
@@ -155,7 +167,7 @@ export function OrgSwitcher() {
               </div>
             </form>
           )}
-          {canManageOrg && !showCreate && (
+          {canManageOrg && !showCreate && !atWorkspaceLimit && (
             <button
               onClick={openCreate}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
@@ -165,6 +177,21 @@ export function OrgSwitcher() {
               </svg>
               Create new workspace
             </button>
+          )}
+
+          {canManageOrg && atWorkspaceLimit && (
+            <div className="border-t border-zinc-100 px-3 py-2.5 dark:border-zinc-700">
+              <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                The free plan includes {workspaceCap} workspace.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); navigate('/settings?tab=billing') }}
+                className="mt-1 text-xs font-medium text-violet-600 hover:underline dark:text-violet-400"
+              >
+                Upgrade for more →
+              </button>
+            </div>
           )}
         </div>
       )}

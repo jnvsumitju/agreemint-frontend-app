@@ -12,6 +12,8 @@ import { ResetPassword } from './pages/auth/ResetPassword'
 import { OAuthCallback } from './pages/auth/OAuthCallback'
 import { VerifyEmail } from './pages/auth/VerifyEmail'
 import { OtpLogin } from './pages/auth/OtpLogin'
+import { ImpersonateHandoff } from './pages/ImpersonateHandoff'
+import { ImpersonationBanner } from './components/ImpersonationBanner'
 
 // Layout (always needed)
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -51,6 +53,7 @@ export default function App() {
             <Route path="/oauth/callback" element={<OAuthCallback />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/otp-login" element={<OtpLogin />} />
+            <Route path="/impersonate" element={<ImpersonateHandoff />} />
 
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
@@ -80,8 +83,26 @@ export default function App() {
                 <Route path="*" element={<NotFound />} />
               </Route>
 
-              {/* Full-screen (no nav bar) */}
-              <Route path="/editor/:templateId" element={<TemplateEditor />} />
+              {/* Full-screen (no nav bar). The impersonation banner is mounted
+                  explicitly because this route sits outside AppLayout — and it
+                  is precisely where impersonated edits get made, so it is the
+                  last screen that should be missing it. It also carries the TTL
+                  countdown and auto-logout, which otherwise stopped running the
+                  moment the operator opened a template. */}
+              <Route
+                path="/editor/:templateId"
+                element={
+                  <div className="flex h-screen flex-col overflow-hidden">
+                    <ImpersonationBanner />
+                    {/* h-full, not h-screen: TemplateEditor's own root used to
+                        claim 100vh, so with the banner above it the page grew
+                        taller than the viewport and the status bar fell off the
+                        bottom — taking the deliberately-permanent banner out of
+                        view whenever you scrolled to reach it. */}
+                    <div className="min-h-0 flex-1"><TemplateEditor /></div>
+                  </div>
+                }
+              />
             </Route>
           </Routes>
         </Suspense>

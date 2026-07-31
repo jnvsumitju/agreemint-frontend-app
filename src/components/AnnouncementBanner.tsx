@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { API_BASE, authFetch } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
 
 /**
  * Fetches active staff-authored announcements and renders them as a
@@ -39,10 +40,21 @@ export function AnnouncementBanner() {
   const [items, setItems] = useState<ActiveAnnouncement[] | null>(null)
   const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed())
 
+  // Targeting is evaluated server-side against the X-Org-Id this request carries,
+  // so the result belongs to one workspace. Keyed on the org so switching
+  // workspaces refetches immediately: otherwise the previous workspace's targeted
+  // banner stayed pinned above the new one's data for up to five minutes, while
+  // anything aimed at the workspace actually being viewed went unshown.
+  const orgId = useAuthStore((s) => s.org?.id)
+
   useEffect(() => {
     let cancelled = false
-    // Fetch once on mount; re-fetch every 5 minutes so a newly-published
-    // announcement shows up without a page reload. Cheap — one small GET.
+    // Clear first, so a stale banner is never shown against the wrong workspace
+    // during the refetch.
+    setItems(null)
+    // Fetch on mount and on workspace change; re-fetch every 5 minutes so a
+    // newly-published announcement shows up without a page reload. Cheap — one
+    // small GET.
     const load = async () => {
       try {
         const res = await authFetch(`${API_BASE}/api/announcements/active`)
@@ -59,7 +71,7 @@ export function AnnouncementBanner() {
       cancelled = true
       window.clearInterval(handle)
     }
-  }, [])
+  }, [orgId])
 
   if (!items) return null
   const visible = items.filter((a) => !dismissed.has(a.id))
