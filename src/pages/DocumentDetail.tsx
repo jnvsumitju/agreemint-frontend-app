@@ -7,7 +7,7 @@ import { ApprovalWorkflowPanel } from '../components/documents/ApprovalWorkflowP
 import { CreateWorkflowModal } from '../components/documents/CreateWorkflowModal'
 import { UpgradePrompt } from '../components/billing/UpgradePrompt'
 import { usePlan } from '../hooks/usePlan'
-import { PdfCustomViewer } from '../components/editor/PdfCustomViewer'
+import { PdfViewer } from '../components/pdf/PdfViewer'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -198,15 +198,17 @@ export function DocumentDetail() {
           {doc.fileUrl && doc.generationStatus === 'COMPLETED' && (
             <Card>
               <CardContent className="p-0">
-                <div className="h-[600px] w-full overflow-hidden rounded-xl">
+                <div className="h-[600px] w-full overflow-hidden rounded-xl lg:h-[760px]">
                   {pdfBlobUrl ? (
-                    <PdfCustomViewer
+                    <PdfViewer
                       blobUrl={pdfBlobUrl}
                       downloadFileName={`${doc.title || 'document'}.pdf`}
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <Skeleton className="h-[560px] w-[90%]" />
+                    // Page-shaped, so the placeholder and the real first page
+                    // occupy the same box and nothing jumps when it arrives.
+                    <div className="flex h-full w-full items-center justify-center bg-zinc-100 p-4 dark:bg-zinc-950">
+                      <Skeleton className="h-full w-auto" style={{ aspectRatio: '8.5 / 11' }} />
                     </div>
                   )}
                 </div>

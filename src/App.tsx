@@ -22,6 +22,18 @@ import { RequirePaidPlan } from './components/layout/RequirePaidPlan'
 import { AppLayout } from './components/layout/AppLayout'
 
 // Lazy-loaded pages (code-split per route)
+/**
+ * Dev-only bench for the PDF viewer.
+ *
+ * <p>The `lazy()` call sits *inside* the `import.meta.env.DEV` branch on
+ * purpose. Vite replaces that flag with a literal, so in a production build this
+ * whole expression is dead code and Rollup drops the dynamic import with it. A
+ * top-level `lazy(() => import(...))` guarded only where it is rendered still
+ * emits the chunk — the harness shipped in `dist/` until this was moved.
+ */
+const PdfViewerHarness = import.meta.env.DEV
+  ? lazy(() => import('./pages/PdfViewerHarness').then((m) => ({ default: m.PdfViewerHarness })))
+  : null
 const TemplateList = lazy(() => import('./pages/TemplateList').then((m) => ({ default: m.TemplateList })))
 const TemplateEditor = lazy(() => import('./pages/TemplateEditor').then((m) => ({ default: m.TemplateEditor })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
@@ -46,6 +58,10 @@ export default function App() {
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
+            {PdfViewerHarness && (
+              <Route path="/__pdf-harness" element={<PdfViewerHarness />} />
+            )}
+
             {/* Public auth routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

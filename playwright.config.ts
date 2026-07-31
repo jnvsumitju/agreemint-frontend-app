@@ -33,6 +33,21 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    // The PDF viewer's canvas budget and its device-pixel maths are a function
+    // of devicePixelRatio, so it is exercised at 1× and 3× as well. These are
+    // separate projects rather than an edit to the one above, because the
+    // pixel-parity suite pins DPR 2 to match its rasterisation step — changing
+    // that would silently invalidate every one of its baselines.
+    {
+      name: 'pdf-dpr1',
+      testMatch: /pdf-viewer\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
+    },
+    {
+      name: 'pdf-dpr3',
+      testMatch: /pdf-viewer\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
+    },
   ],
   webServer: [
     {
