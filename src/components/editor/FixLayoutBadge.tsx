@@ -1,3 +1,4 @@
+import { usePlan } from '../../hooks/usePlan'
 import { useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { fixPageLayout } from '../../lib/api'
@@ -32,11 +33,16 @@ export function FixLayoutBadge() {
   const viewOnly = useEditorStore((s) => s.viewOnly)
 
   const [state, setState] = useState<ModalState>({ kind: 'closed' })
+  const { atLeast } = usePlan()
 
   // Hide for read-only roles (REVIEWER / VIEWER). Fix Layout produces
   // a pending-preview that mutates the layout — users without edit
   // rights can't accept it, so showing the affordance is misleading.
   if (viewOnly) return null
+  // AI layout repair is Starter and up. Hidden rather than badged: this is a
+  // contextual fix-it affordance, and a dead one next to a real problem reads
+  // as broken rather than as an upsell.
+  if (!atLeast('STARTER')) return null
   // Suppress while a pending AI preview is already on screen — the user
   // can't see what "fix layout" would do until they accept/reject the
   // existing suggestion.

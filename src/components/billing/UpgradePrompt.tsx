@@ -15,10 +15,13 @@ import { usePermissions } from '../../hooks/usePermissions'
 export function UpgradePrompt({
   feature,
   description,
+  requiredPlan = 'Pro',
   compact = false,
 }: {
   feature: string
   description: string
+  /** Lowest plan that includes the feature — tiers differ, so name it. */
+  requiredPlan?: 'Starter' | 'Pro'
   compact?: boolean
 }) {
   const navigate = useNavigate()
@@ -28,7 +31,7 @@ export function UpgradePrompt({
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm dark:border-violet-900 dark:bg-violet-950/40">
         <span className="text-violet-900 dark:text-violet-200">
-          <span className="font-medium">{feature}</span> is a Pro feature.
+          <span className="font-medium">{feature}</span> is a {requiredPlan} feature.
         </span>
         {isAdmin ? (
           <button
@@ -67,7 +70,7 @@ export function UpgradePrompt({
 
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-violet-900 dark:text-violet-100">
-            {feature} is available on Pro
+            {feature} is available on {requiredPlan}
           </h3>
           <p className="mt-1 text-sm leading-relaxed text-violet-800 dark:text-violet-200">
             {description}
@@ -76,7 +79,7 @@ export function UpgradePrompt({
           <div className="mt-3">
             {isAdmin ? (
               <Button size="sm" onClick={() => navigate('/settings?tab=billing')}>
-                Upgrade to Pro
+                Upgrade to {requiredPlan}
               </Button>
             ) : (
               <p className="text-sm text-violet-700 dark:text-violet-300">

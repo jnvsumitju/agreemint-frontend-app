@@ -5,7 +5,9 @@ import { UserMenu } from './UserMenu'
 import { Breadcrumb } from './Breadcrumb'
 import { CommandPalette } from './CommandPalette'
 import { AnnouncementBanner } from '../AnnouncementBanner'
+import { ImpersonationBanner } from '../ImpersonationBanner'
 import { usePermissions } from '../../hooks/usePermissions'
+import { useAuthStore } from '../../stores/authStore'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -19,6 +21,7 @@ const navLinks = [
 const adminNavLinks = [{ to: '/documentation', label: 'Documentation' }]
 
 export function AppLayout() {
+  const impersonation = useAuthStore((s) => s.impersonation)
   const { isAdmin } = usePermissions()
   const links = isAdmin ? [...navLinks, ...adminNavLinks] : navLinks
 
@@ -74,10 +77,17 @@ export function AppLayout() {
           </button>
 
           <NotificationBell />
-          <OrgSwitcher />
+          {/* Hidden during a support session: the session is pinned to the
+              workspace the operator chose and which the audit trail names, so
+              offering a switcher would invite them straight out of it. */}
+          {!impersonation && <OrgSwitcher />}
           <UserMenu />
         </div>
       </header>
+
+      {/* Above announcements and not dismissible: if this tab is a support
+          session, that outranks anything else on screen. */}
+      <ImpersonationBanner />
 
       {/* Staff-authored announcements — rendered just below the header
           so they're the first thing users see. Dismissed IDs persist in

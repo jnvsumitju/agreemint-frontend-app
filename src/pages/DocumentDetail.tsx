@@ -71,8 +71,10 @@ export function DocumentDetail() {
     useDocumentStore()
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
-  // Lifecycle and approvals are Pro features; the server enforces this too.
-  const { isFree } = usePlan()
+  // Lifecycle and approvals are PRO-only (Starter does not include them).
+  // The server enforces the same bar and returns 402.
+  const { atLeast } = usePlan()
+  const hasLifecycle = atLeast('PRO')
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -267,15 +269,16 @@ export function DocumentDetail() {
                   <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Actions</h3>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {isFree && (
+                  {!hasLifecycle && (
                     <UpgradePrompt
                       feature="Document lifecycle"
+                      requiredPlan="Pro"
                       description="Move documents through review, approval and expiry, with a full audit timeline of who did what."
                     />
                   )}
 
                   {/* Submit for Review (special — opens modal) */}
-                  {!isFree && doc.lifecycleStatus === 'DRAFT' && !workflow && (
+                  {hasLifecycle && doc.lifecycleStatus === 'DRAFT' && !workflow && (
                     <Button
                       variant="primary"
                       className="w-full"
@@ -285,7 +288,7 @@ export function DocumentDetail() {
                     </Button>
                   )}
 
-                  {!isFree && actions.map((action) => (
+                  {hasLifecycle && actions.map((action) => (
                     <Button
                       key={action.target}
                       variant={action.variant}
@@ -297,7 +300,7 @@ export function DocumentDetail() {
                     </Button>
                   ))}
 
-                  {!isFree && actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
+                  {hasLifecycle && actions.length === 0 && doc.lifecycleStatus === 'ARCHIVED' && (
                     <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
                       This document is archived
                     </p>

@@ -22,6 +22,16 @@ export async function authFetch(url: string, init?: RequestInit): Promise<Respon
 
   let res = await fetch(fullUrl, { ...init, headers })
 
+  // An impersonation session has no refresh token by design, so it would fall
+  // straight past the block below and leave the tab silently 401ing on every
+  // request — exactly what happens when a staff member ends the session from
+  // the admin portal. Handle it explicitly.
+  if (res.status === 401 && store.impersonation) {
+    store.logout()
+    window.location.replace('/impersonate#ended')
+    return res
+  }
+
   if (res.status === 401 && store.refreshToken) {
     // Use singleton promise to prevent concurrent refresh calls
     if (!refreshPromise) {
@@ -1120,20 +1130,27 @@ export interface SubscriptionSummaryDto {
   cancelAtPeriodEnd: boolean
 }
 
+/** A plan the server can sell, and on which cycles it has a Razorpay Plan. */
+export interface PurchasablePlanDto {
+  plan: string
+  monthly: boolean
+  yearly: boolean
+}
+
 export interface BillingStatusDto {
   plan: string
   /** False when the server has no Razorpay credentials — hide the upgrade UI. */
   billingEnabled: boolean
   /** Public key id for Checkout. The secret never reaches the browser. */
   razorpayKeyId: string
-  monthlyAvailable: boolean
-  yearlyAvailable: boolean
+  purchasable: PurchasablePlanDto[]
   subscription: SubscriptionSummaryDto | null
 }
 
 export interface CreateSubscriptionDto {
   razorpaySubscriptionId: string
   razorpayKeyId: string
+  plan: string
   billingPeriod: string
 }
 
@@ -1151,12 +1168,13 @@ export async function fetchBillingStatus(orgId: string): Promise<BillingStatusDt
 
 export async function createSubscription(
   orgId: string,
+  plan: 'STARTER' | 'PRO',
   billingPeriod: 'MONTHLY' | 'YEARLY',
 ): Promise<CreateSubscriptionDto> {
   const res = await authFetch(`/api/orgs/${orgId}/billing/subscription`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ billingPeriod }),
+    body: JSON.stringify({ plan, billingPeriod }),
   })
   return parseJson<CreateSubscriptionDto>(res)
 }
@@ -1191,4 +1209,21 @@ export async function cancelSubscription(
 export async function listPayments(orgId: string, limit = 20): Promise<PaymentRecordDto[]> {
   const res = await authFetch(`/api/orgs/${orgId}/billing/payments?limit=${limit}`)
   return parseJson<PaymentRecordDto[]>(res)
+}
+
+/* ── Org entitlements (plan limits for the console) ── */
+
+export interface OrgEntitlementsDto {
+  plan: string
+  /** False for paid plans AND for grandfathered free workspaces. */
+  freeRestricted: boolean
+  /** 0 means unlimited. */
+  maxTemplates: number
+  templateCount: number
+  maxWorkspaces: number
+}
+
+export async function fetchOrgEntitlements(orgId: string): Promise<OrgEntitlementsDto> {
+  const res = await authFetch(`/api/orgs/${orgId}/entitlements`)
+  return parseJson<OrgEntitlementsDto>(res)
 }

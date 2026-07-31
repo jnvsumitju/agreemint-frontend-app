@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
+import { useEntitlements } from '../hooks/useEntitlements'
+import { UpgradePrompt } from '../components/billing/UpgradePrompt'
 import { useAuthStore } from '../stores/authStore'
 import {
   createProduct,
@@ -367,6 +369,9 @@ export function TemplateList() {
   const navigate = useNavigate()
   const toast = useToast()
   const { canCreateTemplates, isAdmin } = usePermissions()
+  // Free-plan template ceiling. Null while loading, and false for
+  // grandfathered workspaces, so no spurious prompt appears.
+  const { entitlements, atTemplateLimit } = useEntitlements()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
   // Deep-link support: `/templates?productId=...` (used by the Products page)
   // preloads the filter to that product.
@@ -530,11 +535,15 @@ export function TemplateList() {
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Templates</h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
             {templates.length} template{templates.length !== 1 ? 's' : ''} in your workspace
+            {entitlements?.freeRestricted && entitlements.maxTemplates > 0 &&
+              ` · ${entitlements.templateCount} of ${entitlements.maxTemplates} used`}
           </p>
         </div>
         {canCreateTemplates && (
           <Button
             variant="primary"
+            disabled={atTemplateLimit}
+            title={atTemplateLimit ? 'Free plan template limit reached' : undefined}
             onClick={() => { setShowCreateModal(true); setTimeout(() => createInputRef.current?.focus(), 100) }}
             icon={
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -546,6 +555,16 @@ export function TemplateList() {
           </Button>
         )}
       </div>
+
+      {atTemplateLimit && (
+        <div className="mb-6">
+          <UpgradePrompt
+            feature="More templates"
+            requiredPlan="Starter"
+            description={`The free plan is limited to ${entitlements?.maxTemplates ?? 10} templates. Upgrade for unlimited templates, or delete one you no longer need.`}
+          />
+        </div>
+      )}
 
       {/* Toolbar: search + sort + tag filter + view toggle */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
