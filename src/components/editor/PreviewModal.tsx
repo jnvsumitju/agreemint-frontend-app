@@ -18,7 +18,7 @@ import { selectAllTemplateElements, useEditorStore } from '../../stores/editorSt
 import { serializeRunsToContent } from '../../lib/richContent'
 import { findOverflowingElements, type Overflow } from '../../lib/overflowCheck'
 import { pixelParityEnabled } from '../../lib/features'
-import { PdfCustomViewer } from './PdfCustomViewer'
+import { PdfViewer } from '../pdf/PdfViewer'
 import { PreviewDataPanel } from './PreviewDataPanel'
 
 interface PreviewModalProps {
@@ -224,9 +224,10 @@ export function PreviewModal({ open, onClose, templateId }: PreviewModalProps) {
               </div>
             ) : null}
             {pdfSrc ? (
-              <PdfCustomViewer
+              <PdfViewer
                 blobUrl={pdfSrc}
                 downloadFileName={`preview-${templateId.slice(0, 8)}.pdf`}
+                className="rounded-lg border border-zinc-200 dark:border-zinc-700"
               />
             ) : (
               <button
