@@ -7,6 +7,7 @@ import { CommandPalette } from './CommandPalette'
 import { AnnouncementBanner } from '../AnnouncementBanner'
 import { ImpersonationBanner } from '../ImpersonationBanner'
 import { usePermissions } from '../../hooks/usePermissions'
+import { usePlan } from '../../hooks/usePlan'
 import { useAuthStore } from '../../stores/authStore'
 
 const navLinks = [
@@ -14,16 +15,23 @@ const navLinks = [
   { to: '/products', label: 'Products' },
   { to: '/templates', label: 'Templates' },
   { to: '/documents', label: 'Documents' },
-  { to: '/marketplace', label: 'Marketplace' },
 ]
 
 /** API docs are only useful to whoever can mint keys — that's org ADMIN. */
 const adminNavLinks = [{ to: '/documentation', label: 'Documentation' }]
 
+/** Starter and up. The route redirects and the API 402s — see App.tsx. */
+const paidNavLinks = [{ to: '/marketplace', label: 'Marketplace' }]
+
 export function AppLayout() {
   const impersonation = useAuthStore((s) => s.impersonation)
   const { isAdmin } = usePermissions()
-  const links = isAdmin ? [...navLinks, ...adminNavLinks] : navLinks
+  const { isFree } = usePlan()
+  const links = [
+    ...navLinks,
+    ...(isFree ? [] : paidNavLinks),
+    ...(isAdmin ? adminNavLinks : []),
+  ]
 
   return (
     <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">

@@ -1,5 +1,3 @@
-import { usePlan } from '../../hooks/usePlan'
-import { UpgradePrompt } from '../billing/UpgradePrompt'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   listApiKeys,
@@ -25,10 +23,10 @@ import { WebhookDeliveriesDrawer } from './WebhookDeliveriesDrawer'
  */
 export function DeveloperTab() {
   const toast = useToast()
-  // API access starts at Starter. Existing keys stay listed and usable — only
-  // creating new ones is gated, matching the server.
-  const { atLeast } = usePlan()
-  const apiAllowed = atLeast('STARTER')
+  // No plan gate: the API is on every plan, free included, bounded by rate
+  // limits rather than by a wall. What a lapsed paid plan does instead is start
+  // a grace period, after which the keys minted under it are revoked — the
+  // customer is emailed at both ends and can create a new key on free.
   const orgId = useAuthStore((s) => s.org?.id ?? null)
   const [keys, setKeys] = useState<ApiKeyDto[]>([])
   const [loading, setLoading] = useState(false)
@@ -101,22 +99,10 @@ export function DeveloperTab() {
               Secrets are shown once at creation — store them in your secret manager.
             </p>
           </div>
-          {apiAllowed && (
-            <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
-              Create API key
-            </Button>
-          )}
+          <Button size="sm" variant="primary" onClick={() => setCreateOpen(true)}>
+            Create API key
+          </Button>
         </div>
-
-        {!apiAllowed && (
-          <div className="mt-4">
-            <UpgradePrompt
-              feature="API access"
-              requiredPlan="Starter"
-              description="Generate documents from your own systems with scoped API keys and signed webhooks."
-            />
-          </div>
-        )}
 
         <div className="mt-4 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
           <table className="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
