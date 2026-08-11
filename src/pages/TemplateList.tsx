@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
+import { usePlan } from '../hooks/usePlan'
+import { PublishTemplateModal } from '../components/marketplace/PublishTemplateModal'
 import { useEntitlements } from '../hooks/useEntitlements'
 import { UpgradePrompt } from '../components/billing/UpgradePrompt'
 import { useAuthStore } from '../stores/authStore'
@@ -145,13 +147,15 @@ function TagEditor({ templateId, tags, onUpdate }: { templateId: string; tags: s
 /* ── Template Card ── */
 
 function TemplateCard({
-  template, thumbnail, tags, onDuplicate, onDelete, onTagUpdate, duplicating, deleting,
+  template, thumbnail, tags, onDuplicate, onDelete, onPublish, onTagUpdate, duplicating, deleting,
 }: {
   template: TemplateDto; thumbnail: string | null; tags: string[]
-  onDuplicate: () => void; onDelete: () => void; onTagUpdate: () => void
+  onDuplicate: () => void; onDelete: () => void; onPublish: () => void; onTagUpdate: () => void
   duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
+  const { isFree } = usePlan()
+  const canUseMarketplace = canCreateTemplates && !isFree
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600">
       {/* Status badge */}
@@ -218,6 +222,20 @@ function TemplateCard({
               </svg>
             )}
           </button>
+          {/* Marketplace is Starter+; the page itself is already gated, but the
+              action is hidden rather than shown-then-402'd. */}
+          {canUseMarketplace && (
+            <button
+              type="button"
+              className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-violet-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-violet-400"
+              title="Publish to marketplace"
+              onClick={(e) => { e.preventDefault(); onPublish() }}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-red-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
@@ -373,6 +391,7 @@ export function TemplateList() {
   // grandfathered workspaces, so no spurious prompt appears.
   const { entitlements, atTemplateLimit } = useEntitlements()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
+  const authorName = useAuthStore((s) => s.user?.name ?? s.user?.email ?? 'Anonymous')
   // Deep-link support: `/templates?productId=...` (used by the Products page)
   // preloads the filter to that product.
   const [searchParams] = useSearchParams()
@@ -389,6 +408,7 @@ export function TemplateList() {
    * so the row's spinner shows. Soft-resets after success/cancel.
    */
   const [deleteTarget, setDeleteTarget] = useState<TemplateDto | null>(null)
+  const [publishTarget, setPublishTarget] = useState<TemplateDto | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   // Products loaded once per org — used by the filter dropdown above the
   // grid and by the create-modal product picker.
@@ -665,6 +685,7 @@ export function TemplateList() {
               deleting={deletingId === t.id}
               onDuplicate={() => void onDuplicate(t)}
               onDelete={() => setDeleteTarget(t)}
+              onPublish={() => setPublishTarget(t)}
               onTagUpdate={refreshTags}
             />
           ))}
@@ -789,6 +810,17 @@ export function TemplateList() {
           </ModalFooter>
         </form>
       </Modal>
+
+      {publishTarget && (
+        <PublishTemplateModal
+          open
+          onClose={() => setPublishTarget(null)}
+          templateId={publishTarget.id}
+          templateName={publishTarget.name}
+          authorName={authorName}
+          onPublished={() => toast.success(`"${publishTarget.name}" is now listed in the marketplace`)}
+        />
+      )}
 
       {/* Delete confirmation — destructive action, explicit copy. Gated to
           ADMIN/DESIGNER via the trash-icon's canCreateTemplates check on the

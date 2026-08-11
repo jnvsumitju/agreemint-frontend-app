@@ -6,12 +6,32 @@ import { DocumentTimeline } from '../components/documents/DocumentTimeline'
 import { ApprovalWorkflowPanel } from '../components/documents/ApprovalWorkflowPanel'
 import { CreateWorkflowModal } from '../components/documents/CreateWorkflowModal'
 import { UpgradePrompt } from '../components/billing/UpgradePrompt'
+import { SetExpiryModal } from '../components/documents/SetExpiryModal'
 import { usePlan } from '../hooks/usePlan'
+import { usePermissions } from '../hooks/usePermissions'
 import { PdfViewer } from '../components/pdf/PdfViewer'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader, CardContent } from '../components/ui/Card'
 import { Skeleton } from '../components/ui/Skeleton'
 import { fetchDocumentFileBlob, type LifecycleStatus } from '../lib/api'
+
+/**
+ * An expiry date, rendered in the zone it was chosen in.
+ *
+ * <p>`endOfDayUtc` stores 23:59:59Z for the day the user picked, so formatting
+ * it in the browser's zone pushes every viewer east of UTC onto the following
+ * day — in IST, picking 31 Dec displayed "1 January". The modal reads the same
+ * instant back in UTC, so the page and the picker disagreed on the same screen.
+ * Date only: the time is an implementation detail of "end of that day".
+ */
+function formatExpiryDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -67,14 +87,19 @@ function getActions(status: LifecycleStatus | null): { label: string; target: Li
 
 export function DocumentDetail() {
   const { documentId } = useParams<{ documentId: string }>()
-  const { currentDocument, isLoading, fetchDocumentDetail, transitionStatus, clearCurrentDocument } =
+  const { currentDocument, isLoading, fetchDocumentDetail, transitionStatus, setExpiry, clearCurrentDocument } =
     useDocumentStore()
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
+  const [showExpiryModal, setShowExpiryModal] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
   // Lifecycle and approvals are PRO-only (Starter does not include them).
   // The server enforces the same bar and returns 402.
   const { atLeast } = usePlan()
   const hasLifecycle = atLeast('PRO')
+  // DocumentLifecycleController.setExpiry asserts ADMIN/DESIGNER before the
+  // plan gate, so gating the control on plan alone handed REVIEWER and VIEWER
+  // members a button that could only ever 403.
+  const { canEdit } = usePermissions()
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -237,8 +262,21 @@ export function DocumentDetail() {
                 </div>
                 <div>
                   <dt className="text-zinc-500 dark:text-zinc-400">Expires</dt>
-                  <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {doc.expiresAt ? formatDate(doc.expiresAt) : 'No expiration'}
+                  <dd className="flex items-center gap-2 font-medium text-zinc-900 dark:text-zinc-100">
+                    {doc.expiresAt ? formatExpiryDate(doc.expiresAt) : 'No expiration'}
+                    {/* Same PRO bar as the lifecycle actions: an expiry date is
+                        only meaningful because a transition enforces it. API
+                        documents opt out of the lifecycle entirely, and the
+                        server rejects an expiry on them. */}
+                    {hasLifecycle && canEdit && doc.source !== 'API_GENERATED' ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowExpiryModal(true)}
+                        className="rounded px-1.5 py-0.5 text-xs font-medium text-violet-600 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/40"
+                      >
+                        {doc.expiresAt ? 'Change' : 'Set'}
+                      </button>
+                    ) : null}
                   </dd>
                 </div>
               </dl>
@@ -338,6 +376,13 @@ export function DocumentDetail() {
         open={showWorkflowModal}
         onClose={() => setShowWorkflowModal(false)}
         documentId={doc.id}
+      />
+
+      <SetExpiryModal
+        open={showExpiryModal}
+        onClose={() => setShowExpiryModal(false)}
+        currentExpiresAt={doc.expiresAt}
+        onSave={(expiresAt) => setExpiry(doc.id, expiresAt)}
       />
     </div>
   )

@@ -56,6 +56,8 @@ interface AuthState {
   logout: () => void
   refreshTokens: () => Promise<boolean>
   setOrg: (org: OrgDto) => void
+  /** Reflect a plan change (billing) into the session without a reload. */
+  setOrgPlan: (plan: OrgDto['plan']) => void
   /**
    * Adopt a staff-minted impersonation token for this tab only.
    * Resolves false when the token is rejected or its session is already dead.
@@ -386,6 +388,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setOrg: (org) => {
     localStorage.setItem(ORG_KEY, org.id)
     set({ org })
+  },
+
+  /**
+   * Record a plan change without a page reload.
+   *
+   * <p>`org` is otherwise only assigned by init() and login(), so after a
+   * customer paid, `usePlan()` kept reporting the old plan for the rest of the
+   * session: the Marketplace link stayed hidden, RequirePaidPlan kept bouncing
+   * them, and the publish action never appeared. They had paid and could see
+   * none of it until they reloaded. The downgrade direction is worse — a stale
+   * tab offers paid actions the server then refuses with a 402.
+   */
+  setOrgPlan: (plan) => {
+    const org = get().org
+    if (!org || org.plan === plan) return
+    set({ org: { ...org, plan } })
   },
 
   setUser: (patch) => {

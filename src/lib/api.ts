@@ -724,6 +724,39 @@ export async function transitionDocumentStatus(
   return parseJson<DocumentLifecycleDto>(res)
 }
 
+/**
+ * Set or clear a document's expiration date.
+ *
+ * <p>`expiresAt` is an absolute instant, so the caller resolves the calendar
+ * day the user picked to a specific moment before calling — see
+ * {@link endOfDayUtc}. Passing null removes the expiry.
+ */
+export async function setDocumentExpiry(
+  id: string,
+  expiresAt: string | null,
+): Promise<DocumentLifecycleDto> {
+  const res = await authFetch(`${API_BASE}/api/documents/${id}/expiry`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresAt }),
+  })
+  return parseJson<DocumentLifecycleDto>(res)
+}
+
+/**
+ * Turn a `yyyy-mm-dd` from a date input into the last instant of that day, UTC.
+ *
+ * <p>A date input gives a calendar day with no time and no zone, but the
+ * document expires at an instant. Interpreting the bare date would expire it at
+ * 00:00 — the very start of the day the user chose, which reads as a day early.
+ * End-of-day UTC is the defensible reading of "expires on the 31st", and it is
+ * explicit rather than dependent on the viewer's timezone; the backend stores no
+ * org timezone to do better.
+ */
+export function endOfDayUtc(yyyyMmDd: string): string {
+  return `${yyyyMmDd}T23:59:59.000Z`
+}
+
 export async function fetchLifecycleStats(): Promise<LifecycleStatsDto> {
   const res = await authFetch(`${API_BASE}/api/documents/stats`)
   return parseJson<LifecycleStatsDto>(res)

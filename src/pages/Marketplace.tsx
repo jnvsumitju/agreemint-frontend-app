@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { authFetch } from '../lib/api'
 import { usePermissions } from '../hooks/usePermissions'
+import { useAuthStore } from '../stores/authStore'
 
 /* ── Types ── */
 
@@ -14,6 +15,8 @@ interface MarketplaceListing {
   category: string | null
   tags: string | null
   installCount: number
+  /** Only meaningful on /mine — the browse list returns published rows only. */
+  published?: boolean
   createdAt: string
 }
 
@@ -111,6 +114,7 @@ function ListingCard({
 
 export function Marketplace() {
   const { canCreateTemplates } = usePermissions()
+  const orgId = useAuthStore((st) => st.org?.id ?? null)
   const [listings, setListings] = useState<MarketplaceListing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,6 +122,11 @@ export function Marketplace() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [cloningId, setCloningId] = useState<string | null>(null)
   const [cloneSuccess, setCloneSuccess] = useState<string | null>(null)
+  // The workspace's own listings. Kept separate from the browse list because
+  // it deliberately includes withdrawn ones — an author needs to see that a
+  // withdrawal actually took effect.
+  const [myListings, setMyListings] = useState<MarketplaceListing[]>([])
+  const [withdrawing, setWithdrawing] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +136,7 @@ export function Marketplace() {
       setError(null)
       try {
         const res = await authFetch('/api/marketplace')
+        if (canCreateTemplates) void loadMine()
         if (!cancelled) {
           if (res.ok) {
             const data = await res.json()
@@ -145,7 +155,14 @@ export function Marketplace() {
 
     void load()
     return () => { cancelled = true }
-  }, [])
+    // Re-runs when the active workspace changes. With an empty dependency list
+    // the component stayed mounted across an OrgSwitcher change (setOrg only
+    // does set({ org }) — no navigation, no remount), so "Published by your
+    // workspace" kept showing the PREVIOUS workspace's listings and Withdraw
+    // acted on them. canCreateTemplates is in here for the same reason: the
+    // caller's role differs per workspace, so whether the section loads at all
+    // has to be re-evaluated.
+  }, [orgId, canCreateTemplates])
 
   const filtered = useMemo(() => {
     let result = listings
@@ -196,6 +213,31 @@ export function Marketplace() {
     }
   }
 
+  async function loadMine() {
+    try {
+      const res = await authFetch('/api/marketplace/mine')
+      if (res.ok) setMyListings(await res.json())
+    } catch {
+      // A failure here only hides the management section; browsing still works.
+    }
+  }
+
+  async function withdraw(listingId: string) {
+    setWithdrawing(listingId)
+    try {
+      const res = await authFetch(`/api/marketplace/${listingId}/withdraw`, { method: 'POST' })
+      if (!res.ok) throw new Error('Could not withdraw this listing')
+      await loadMine()
+      // The catalogue no longer contains it either.
+      const refreshed = await authFetch('/api/marketplace')
+      if (refreshed.ok) setListings(await refreshed.json())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setWithdrawing(null)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       {/* Header */}
@@ -242,6 +284,50 @@ export function Marketplace() {
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
+      )}
+
+      {/* Your listings — withdrawal lives here. Publishing has no review step,
+          so this is the only way to take a listing back out of the catalogue.
+          Withdrawn rows stay visible so an author can confirm it worked. */}
+      {canCreateTemplates && myListings.length > 0 && (
+        <section className="mb-8 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+          <h2 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Published by your workspace
+          </h2>
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {myListings.map((l) => (
+              <li key={l.id} className="flex items-center justify-between gap-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    {l.title}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {l.installCount} install{l.installCount === 1 ? '' : 's'}
+                    {l.category ? ` · ${l.category}` : ''}
+                  </p>
+                </div>
+                {l.published ? (
+                  <button
+                    type="button"
+                    onClick={() => void withdraw(l.id)}
+                    disabled={withdrawing === l.id}
+                    className="shrink-0 rounded-lg border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    {withdrawing === l.id ? 'Withdrawing…' : 'Withdraw'}
+                  </button>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                    Withdrawn
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+            Withdrawing removes a listing from the catalogue. Copies already installed by other
+            workspaces are theirs and are not affected.
+          </p>
+        </section>
       )}
 
       <div className="flex gap-8">

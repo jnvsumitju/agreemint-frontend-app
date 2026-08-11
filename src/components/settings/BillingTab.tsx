@@ -73,6 +73,7 @@ function formatDate(iso: string | null): string {
 export function BillingTab() {
   const toast = useToast()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
+  const setOrgPlan = useAuthStore((s) => s.setOrgPlan)
   const orgName = useAuthStore((s) => s.org?.name ?? 'Crixaa')
   const user = useAuthStore((s) => s.user)
 
@@ -87,6 +88,10 @@ export function BillingTab() {
     try {
       const next = await fetchBillingStatus(orgId)
       setStatus(next)
+      // The server is the authority on the plan; mirror it into the session so
+      // usePlan()-gated UI (Marketplace link, RequirePaidPlan, the publish
+      // action) reflects an upgrade or downgrade without a reload.
+      setOrgPlan(next.plan)
       if (next.subscription) {
         setPayments(await listPayments(orgId).catch(() => []))
       }
@@ -95,7 +100,7 @@ export function BillingTab() {
     } finally {
       setLoading(false)
     }
-  }, [orgId, toast])
+  }, [orgId, toast, setOrgPlan])
 
   useEffect(() => { void refresh() }, [refresh])
 
@@ -111,6 +116,7 @@ export function BillingTab() {
       try {
         const next = await fetchBillingStatus(orgId)
         setStatus(next)
+        setOrgPlan(next.plan)
         if (next.subscription?.status === 'ACTIVE') {
           setPayments(await listPayments(orgId).catch(() => []))
           toast.success(`Subscription active — your workspace is on ${next.plan}`)
@@ -121,7 +127,7 @@ export function BillingTab() {
       }
     }
     toast.info('Payment received. Activation can take a moment — refresh shortly.')
-  }, [orgId, toast])
+  }, [orgId, toast, setOrgPlan])
 
   async function handleUpgrade(plan: 'STARTER' | 'PRO', period: 'MONTHLY' | 'YEARLY') {
     if (!orgId || busy) return
@@ -166,7 +172,7 @@ export function BillingTab() {
 
   async function handleCancel() {
     if (!orgId || busy) return
-    if (!confirm('Cancel this subscription? You keep Pro until the end of the period you have paid for.')) return
+    if (!confirm('Cancel this subscription? You keep your paid features until the end of the period you have paid for.')) return
     setBusy('cancel')
     try {
       await cancelSubscription(orgId, false)
@@ -174,6 +180,29 @@ export function BillingTab() {
       await refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not cancel')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * Abandon a checkout that was started and never paid.
+   *
+   * <p>Distinct from cancelling a real subscription: nothing was charged, so
+   * there is no access to keep until the end of a period and the copy must not
+   * imply otherwise. Cancelling immediately is enforced server-side too — an
+   * unpaid subscription has no cycle to run out.
+   */
+  async function handleCancelPending() {
+    if (!orgId || busy) return
+    if (!confirm('Discard this unfinished checkout? Nothing has been charged, and you can start a new one straight away.')) return
+    setBusy('cancel')
+    try {
+      await cancelSubscription(orgId, true)
+      toast.success('Unfinished checkout discarded')
+      await refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not discard the checkout')
     } finally {
       setBusy(null)
     }
@@ -187,7 +216,12 @@ export function BillingTab() {
 
   const sub = status.subscription
   const statusMeta = sub ? STATUS_LABEL[sub.status] ?? { label: sub.status, tone: 'default' as const } : null
-  const hasLiveSub = sub != null && ['ACTIVE', 'AUTHENTICATED', 'PENDING', 'HALTED'].includes(sub.status)
+  // Mirrors SubscriptionStatus.grantsAccess() on the server. HALTED used to be
+  // in here, which suppressed the plan cards and left the "Payment failed"
+  // banner telling the admin to start a new subscription with no way to do it —
+  // the only rendered action was a cancel whose copy promised access they had
+  // already lost.
+  const hasLiveSub = sub != null && ['ACTIVE', 'AUTHENTICATED', 'PENDING'].includes(sub.status)
 
   return (
     <div className="space-y-8">
@@ -257,6 +291,32 @@ export function BillingTab() {
         )
       ) : (
         <section>
+          {/* A CREATED subscription is an abandoned checkout: never
+              authenticated, so nothing was charged. Choosing a plan below now
+              supersedes it automatically, but the "Awaiting payment" badge is
+              alarming on its own and someone who has changed their mind needs a
+              way to clear it without buying anything. */}
+          {sub?.status === 'CREATED' && (
+            <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                You have an unfinished checkout
+              </p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                It was started but never paid, so nothing has been charged. Pick a plan below to
+                start again, or discard it.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-3"
+                onClick={() => void handleCancelPending()}
+                disabled={busy !== null}
+              >
+                {busy === 'cancel' ? 'Discarding…' : 'Discard unfinished checkout'}
+              </Button>
+            </div>
+          )}
+
           <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Upgrade</h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Choose a plan for this workspace.
