@@ -665,6 +665,18 @@ export function elementToJson(el: LayoutElement): Record<string, unknown> {
   if (el.locked) base.locked = true
   if (el.groupId?.trim()) base.groupId = el.groupId
   if (el.shapePolys != null && el.shapePolys.length > 0) base.shapePolys = el.shapePolys
+  // The curve data, alongside the flattened polygons above.
+  //
+  // This was previously missing while `parseShapeBezierMultiPath` happily read
+  // it back, so the read path was ready and the write path silently dropped it:
+  // draw a curve, save, reload, and the handles were gone and the shape came
+  // back as a 16-segment polyline. Curves survived live co-editing only because
+  // the collab diff walks keys generically — they died on persist.
+  //
+  // Both are emitted on purpose. `shapePolys` stays the compatibility surface
+  // (the PDF renderer and older clients read only that); `bezierPath` is what
+  // makes the shape editable again after a reload.
+  if (el.bezierPath != null && el.bezierPath.length > 0) base.bezierPath = el.bezierPath
   if (el.mergedFromElements && el.mergedFromElements.length > 0) {
     base.mergedFromElements = el.mergedFromElements.map(elementToJson)
   }

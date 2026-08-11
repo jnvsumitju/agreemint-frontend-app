@@ -3,6 +3,7 @@ import {
   fetchDocuments,
   fetchDocumentLifecycle,
   transitionDocumentStatus,
+  setDocumentExpiry,
   fetchLifecycleStats,
   fetchPendingApprovals,
   type DocumentLifecycleDto,
@@ -33,6 +34,8 @@ interface DocumentState {
   fetchStats: () => Promise<void>
   fetchPendingApprovals: () => Promise<void>
   transitionStatus: (id: string, target: LifecycleStatus, comment?: string) => Promise<void>
+  /** `expiresAt` is an absolute instant, or null to remove the expiry. */
+  setExpiry: (id: string, expiresAt: string | null) => Promise<void>
   setFilterStatus: (status: LifecycleStatus | null) => void
   setFilterSource: (source: DocumentSource | null) => void
   clearCurrentDocument: () => void
@@ -105,6 +108,26 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       await get().fetchStats()
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false })
+    }
+  },
+
+  setExpiry: async (id: string, expiresAt: string | null) => {
+    // Deliberately does NOT touch `isLoading`. DocumentDetail early-returns a
+    // full-page skeleton while that flag is set, which unmounted the expiry
+    // modal the instant Save was pressed: a rejected save then set state on a
+    // dead component, the modal remounted seeded with the OLD date, and the
+    // user saw no error at all — the failure looked like a success. The modal
+    // owns its own saving/error state; this action only reports the outcome.
+    set({ error: null })
+    try {
+      await setDocumentExpiry(id, expiresAt)
+      // The detail view shows the date and the timeline shows the EXPIRY_SET
+      // event, so both have to be re-read; the list carries an Expires column.
+      await get().fetchDocumentDetail(id)
+      await get().fetchDocuments()
+    } catch (e) {
+      set({ error: (e as Error).message })
+      throw e
     }
   },
 
