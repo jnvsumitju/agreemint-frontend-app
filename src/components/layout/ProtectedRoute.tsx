@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { ClaimTryTemplate } from '../try/ClaimTryTemplate'
 
 export function ProtectedRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -20,5 +21,15 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />
   }
 
-  return <Outlet />
+  // Mounted here, once, rather than on a dedicated route: a template edited
+  // anonymously has to be rescued whichever way the visitor ended up with a
+  // session, and registration, email verification, OAuth and plain login all
+  // land somewhere different. It renders nothing unless there is a claim
+  // waiting on disk.
+  return (
+    <>
+      <ClaimTryTemplate />
+      <Outlet />
+    </>
+  )
 }

@@ -11,6 +11,7 @@ import {
 import { openRazorpayCheckout } from '../../lib/razorpay'
 import { useAuthStore } from '../../stores/authStore'
 import { Button, Badge, useToast } from '../ui'
+import { useConfirm } from '../ui/ConfirmDialog'
 
 /**
  * Settings → Billing. ADMIN-only, same as the Developer tab — this spends the
@@ -72,6 +73,7 @@ function formatDate(iso: string | null): string {
 
 export function BillingTab() {
   const toast = useToast()
+  const confirm = useConfirm()
   const orgId = useAuthStore((s) => s.org?.id ?? null)
   const setOrgPlan = useAuthStore((s) => s.setOrgPlan)
   const orgName = useAuthStore((s) => s.org?.name ?? 'Crixaa')
@@ -172,7 +174,12 @@ export function BillingTab() {
 
   async function handleCancel() {
     if (!orgId || busy) return
-    if (!confirm('Cancel this subscription? You keep your paid features until the end of the period you have paid for.')) return
+    if (!(await confirm({
+      title: 'Cancel subscription?',
+      description: 'You keep your paid features until the end of the period you have already paid for.',
+      confirmLabel: 'Cancel subscription',
+      variant: 'danger',
+    }))) return
     setBusy('cancel')
     try {
       await cancelSubscription(orgId, false)
@@ -195,7 +202,12 @@ export function BillingTab() {
    */
   async function handleCancelPending() {
     if (!orgId || busy) return
-    if (!confirm('Discard this unfinished checkout? Nothing has been charged, and you can start a new one straight away.')) return
+    if (!(await confirm({
+      title: 'Discard unfinished checkout?',
+      description: 'Nothing has been charged. You can start a new checkout straight away.',
+      confirmLabel: 'Discard',
+      variant: 'danger',
+    }))) return
     setBusy('cancel')
     try {
       await cancelSubscription(orgId, true)

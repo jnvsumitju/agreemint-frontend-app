@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { useEditorStore } from '../../stores/editorStore'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/ConfirmDialog'
 
 /**
  * Sidebar panel that lists every review request on the current template.
@@ -142,6 +143,7 @@ function ReviewRow({
   toastSuccess: (m: string) => void
   toastError: (m: string) => void
 }) {
+  const confirm = useConfirm()
   const lbl = statusLabel(r.status)
   const [decidingAs, setDecidingAs] = useState<null | 'APPROVED' | 'CHANGES_REQUESTED'>(null)
   const [summary, setSummary] = useState('')
@@ -176,7 +178,12 @@ function ReviewRow({
   }
 
   async function submitDismiss() {
-    if (!confirm('Dismiss this review? It will no longer block the next commit.')) return
+    if (!(await confirm({
+      title: 'Dismiss review?',
+      description: 'It will no longer block the next commit.',
+      confirmLabel: 'Dismiss review',
+      variant: 'danger',
+    }))) return
     setWorking(true)
     try {
       await dismissReview(templateId, r.id)

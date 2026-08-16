@@ -2,8 +2,14 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 /* ── Variants ── */
 
+// `whitespace-nowrap shrink-0`: a button is a fixed-size control, not a text
+// block. Without them, a button placed beside a long paragraph in a flex row
+// gets compressed until its label wraps — "Create API key" rendered as "Create"
+// over "API key", breaking out of the button's own padding. The size classes
+// set a height, so a second line has nowhere to go.
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-150 ' +
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium ' +
+  'transition-all duration-150 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 ' +
   'dark:focus-visible:ring-offset-zinc-900 disabled:pointer-events-none disabled:opacity-50 select-none'
 

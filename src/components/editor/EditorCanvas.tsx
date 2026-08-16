@@ -318,6 +318,12 @@ function CanvasElement({
   const scheduleBackendReflow = useCallback(async (headId: string) => {
     try {
       const st = useEditorStore.getState()
+      // Anonymous sandbox: no session, so this would 401 on every inline text
+      // commit. Read from state rather than closing over a selector — the
+      // callback already has the store here, and adding a dep would rebuild it.
+      // The local reflow has already run, so the chain is still split, just by
+      // the frontend's approximation rather than iText's answer.
+      if (st.sandbox) return
       // The element id passed in might be mid-chain after the FE reflow ran;
       // walk back to the actual head before sending.
       let actualHeadId = headId
@@ -2261,12 +2267,23 @@ export function EditorCanvas({
   const measurement = useLayoutMeasurement()
   const editorGlobalVars = useEditorStore((s) => s.globalVariableDefinitions)
   const editorPageSpec = useEditorStore((s) => s.pageSpec)
+  const sandbox = useEditorStore((s) => s.sandbox)
   useEffect(() => {
+    // No session, so measurement would 401 after every layout change — and the
+    // hook's only guard is the pixel-parity feature flag, which defaults on.
+    //
+    // The cost of skipping it is real and worth naming: without measurements,
+    // RichTextAbsoluteLines never engages and text is laid out by CSS flow
+    // rather than by the engine that will produce the PDF. So the sandbox
+    // canvas is a close approximation of the final document, not a pixel-exact
+    // one. The try-templates are drawn with slack around text to keep that
+    // difference invisible.
+    if (sandbox) return
     const layoutJson = buildLayoutJson(pages, editorPageSpec, editorGlobalVars) as unknown as Record<string, unknown>
     measurement.requestMeasurement(layoutJson, variableValues as unknown as Record<string, unknown>)
     // Dependency intent: remeasure whenever the document shape or preview data
     // changes. `requestMeasurement` is stable across renders (useCallback).
-  }, [pages, editorPageSpec, editorGlobalVars, variableValues, measurement.requestMeasurement])
+  }, [pages, editorPageSpec, editorGlobalVars, variableValues, measurement.requestMeasurement, sandbox])
   const mergedElements = useMemo(() => {
     if (bandContainerEl) return elements
     const withBands = mergeDocumentBandsIntoPageElements(pages, activePageIndex, activePageElements)

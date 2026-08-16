@@ -1,0 +1,757 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [
+      {
+        "key": "phases"
+      }
+    ],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 507,
+        "height": 4,
+        "style": {
+          "backgroundColor": "#1d4ed8"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 44,
+        "y": 62,
+        "width": 507,
+        "height": 30,
+        "content": "Warehouse Automation Programme",
+        "style": {
+          "fontSize": 24,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 44,
+        "y": 94,
+        "width": 507,
+        "height": 16,
+        "content": "Prepared for Halcyon Design Studio LLP by Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "r004",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 128,
+        "width": 507,
+        "height": 56,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 5
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 58,
+        "y": 140,
+        "width": 109.75,
+        "height": 12,
+        "content": "PROPOSAL NO.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 58,
+        "y": 152,
+        "width": 109.75,
+        "height": 16,
+        "content": "PRP-2026-0033",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 177.75,
+        "y": 140,
+        "width": 109.75,
+        "height": 12,
+        "content": "DATE",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 177.75,
+        "y": 152,
+        "width": 109.75,
+        "height": 16,
+        "content": "16 August 2026",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t009",
+        "type": "TEXT",
+        "x": 297.5,
+        "y": 140,
+        "width": 109.75,
+        "height": 12,
+        "content": "VALID UNTIL",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 297.5,
+        "y": 152,
+        "width": 109.75,
+        "height": 16,
+        "content": "30 September 2026",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t011",
+        "type": "TEXT",
+        "x": 417.25,
+        "y": 140,
+        "width": 109.75,
+        "height": 12,
+        "content": "PREPARED BY",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 417.25,
+        "y": 152,
+        "width": 109.75,
+        "height": 16,
+        "content": "Vikram Shetty",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 204,
+        "width": 507,
+        "height": 46,
+        "content": "This proposal sets out a phased programme to reduce order-to-dispatch time at the Hosur Road facility from an average of 38 hours to under 12, without expanding headcount.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 262,
+        "width": 507,
+        "height": 16,
+        "content": "The problem we are solving",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#1d4ed8",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t015",
+        "type": "TEXT",
+        "x": 44,
+        "y": 282,
+        "width": 507,
+        "height": 52,
+        "content": "Order picking is currently paper-driven, with three manual handoffs between receipt and dispatch. Each handoff is a point where orders stall, and none of them is instrumented — so the delay is visible only after the fact, in customer complaints.",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 44,
+        "y": 346,
+        "width": 507,
+        "height": 16,
+        "content": "Our approach",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#1d4ed8",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "li017",
+        "type": "LIST",
+        "x": 50,
+        "y": 366,
+        "width": 495,
+        "height": 63,
+        "listStyle": "disc",
+        "listItems": [
+          {
+            "text": "Instrument the existing process first, so improvements can be measured rather than assumed."
+          },
+          {
+            "text": "Replace the paper pick list with handheld scanning, removing two of the three handoffs."
+          },
+          {
+            "text": "Introduce wave planning so dispatch cut-offs drive picking priority automatically."
+          }
+        ],
+        "listItemSpacing": 7,
+        "listIndent": 20,
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t018",
+        "type": "TEXT",
+        "x": 44,
+        "y": 443,
+        "width": 507,
+        "height": 16,
+        "content": "Investment",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#1d4ed8",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "tb019",
+        "type": "TABLE",
+        "x": 44,
+        "y": 463,
+        "width": 507,
+        "height": 92,
+        "columns": [
+          {
+            "header": "Phase",
+            "key": "phase"
+          },
+          {
+            "header": "Deliverable",
+            "key": "deliverable"
+          },
+          {
+            "header": "Duration",
+            "key": "duration"
+          },
+          {
+            "header": "Fee",
+            "key": "fee"
+          }
+        ],
+        "columnWidths": [
+          1,
+          2.6,
+          1,
+          1.1
+        ],
+        "dataKey": "phases",
+        "tablePreviewBodyRows": 3,
+        "tableRowBackgrounds": {
+          "-1": "#f8fafc"
+        },
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#374151"
+        }
+      },
+      {
+        "id": "l020",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "This proposal is confidential and prepared solely for Halcyon Design Studio LLP.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 507,
+            "height": 4,
+            "style": {
+              "backgroundColor": "#1d4ed8"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 44,
+            "y": 62,
+            "width": 507,
+            "height": 30,
+            "content": "Warehouse Automation Programme",
+            "style": {
+              "fontSize": 24,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 44,
+            "y": 94,
+            "width": 507,
+            "height": 16,
+            "content": "Prepared for Halcyon Design Studio LLP by Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "r004",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 128,
+            "width": 507,
+            "height": 56,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 5
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 58,
+            "y": 140,
+            "width": 109.75,
+            "height": 12,
+            "content": "PROPOSAL NO.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 58,
+            "y": 152,
+            "width": 109.75,
+            "height": 16,
+            "content": "PRP-2026-0033",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 177.75,
+            "y": 140,
+            "width": 109.75,
+            "height": 12,
+            "content": "DATE",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 177.75,
+            "y": 152,
+            "width": 109.75,
+            "height": 16,
+            "content": "16 August 2026",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t009",
+            "type": "TEXT",
+            "x": 297.5,
+            "y": 140,
+            "width": 109.75,
+            "height": 12,
+            "content": "VALID UNTIL",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 297.5,
+            "y": 152,
+            "width": 109.75,
+            "height": 16,
+            "content": "30 September 2026",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t011",
+            "type": "TEXT",
+            "x": 417.25,
+            "y": 140,
+            "width": 109.75,
+            "height": 12,
+            "content": "PREPARED BY",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 417.25,
+            "y": 152,
+            "width": 109.75,
+            "height": 16,
+            "content": "Vikram Shetty",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 204,
+            "width": 507,
+            "height": 46,
+            "content": "This proposal sets out a phased programme to reduce order-to-dispatch time at the Hosur Road facility from an average of 38 hours to under 12, without expanding headcount.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 262,
+            "width": 507,
+            "height": 16,
+            "content": "The problem we are solving",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#1d4ed8",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t015",
+            "type": "TEXT",
+            "x": 44,
+            "y": 282,
+            "width": 507,
+            "height": 52,
+            "content": "Order picking is currently paper-driven, with three manual handoffs between receipt and dispatch. Each handoff is a point where orders stall, and none of them is instrumented — so the delay is visible only after the fact, in customer complaints.",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 44,
+            "y": 346,
+            "width": 507,
+            "height": 16,
+            "content": "Our approach",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#1d4ed8",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "li017",
+            "type": "LIST",
+            "x": 50,
+            "y": 366,
+            "width": 495,
+            "height": 63,
+            "listStyle": "disc",
+            "listItems": [
+              {
+                "text": "Instrument the existing process first, so improvements can be measured rather than assumed."
+              },
+              {
+                "text": "Replace the paper pick list with handheld scanning, removing two of the three handoffs."
+              },
+              {
+                "text": "Introduce wave planning so dispatch cut-offs drive picking priority automatically."
+              }
+            ],
+            "listItemSpacing": 7,
+            "listIndent": 20,
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t018",
+            "type": "TEXT",
+            "x": 44,
+            "y": 443,
+            "width": 507,
+            "height": 16,
+            "content": "Investment",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#1d4ed8",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "tb019",
+            "type": "TABLE",
+            "x": 44,
+            "y": 463,
+            "width": 507,
+            "height": 92,
+            "columns": [
+              {
+                "header": "Phase",
+                "key": "phase"
+              },
+              {
+                "header": "Deliverable",
+                "key": "deliverable"
+              },
+              {
+                "header": "Duration",
+                "key": "duration"
+              },
+              {
+                "header": "Fee",
+                "key": "fee"
+              }
+            ],
+            "columnWidths": [
+              1,
+              2.6,
+              1,
+              1.1
+            ],
+            "dataKey": "phases",
+            "tablePreviewBodyRows": 3,
+            "tableRowBackgrounds": {
+              "-1": "#f8fafc"
+            },
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#374151"
+            }
+          },
+          {
+            "id": "l020",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "This proposal is confidential and prepared solely for Halcyon Design Studio LLP.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {
+    "phases": "[{\"phase\":\"Phase 1\",\"deliverable\":\"Baseline instrumentation and reporting\",\"duration\":\"4 weeks\",\"fee\":\"₹4,20,000\"},{\"phase\":\"Phase 2\",\"deliverable\":\"Handheld scanning rollout and training\",\"duration\":\"8 weeks\",\"fee\":\"₹11,60,000\"},{\"phase\":\"Phase 3\",\"deliverable\":\"Wave planning and dispatch integration\",\"duration\":\"6 weeks\",\"fee\":\"₹7,80,000\"}]"
+  },
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}

@@ -1215,6 +1215,7 @@ export function PropertiesPanel() {
   const tab = useEditorStore((s) => s.editorSidebarTab)
   const setTab = useEditorStore((s) => s.setEditorSidebarTab)
   const viewOnly = useEditorStore((s) => s.viewOnly)
+  const sandbox = useEditorStore((s) => s.sandbox)
 
   // Persisted collapsed-to-rail state — a hard snap to w-10 with only icons
   // stacked vertically. Separate from the drag width so the rail click can
@@ -1282,6 +1283,10 @@ export function PropertiesPanel() {
   // In view-only mode, redirect edit-only tabs to history
   const effectiveTab = viewOnly && (tab === 'properties' || tab === 'behaviour' || tab === 'layers' || tab === 'variables')
     ? 'history'
+    // ...and in a sandbox, redirect the two tabs removed below, so a stale
+    // selection can't render a panel whose own tab button is gone.
+    : sandbox && (tab === 'activity' || tab === 'reviews')
+    ? 'properties'
     : tab
 
   const sidebarTabs = useMemo(() => {
@@ -1299,8 +1304,16 @@ export function PropertiesPanel() {
     if (viewOnly) {
       return tabs.filter((t) => ['history', 'comments', 'activity', 'reviews'].includes(t.key))
     }
+    // Anonymous sandbox: drop the two server-backed tabs. Activity reads the
+    // org's activity feed and, with no org, returns early without ever
+    // clearing its loading flag — so it spins forever rather than failing.
+    // Reviews fetches on mount. History (local undo stack) and Comments (held
+    // entirely in the store) both work offline and stay.
+    if (sandbox) {
+      return tabs.filter((t) => !['activity', 'reviews'].includes(t.key))
+    }
     return tabs
-  }, [viewOnly])
+  }, [viewOnly, sandbox])
 
   // Collapsed — icon rail only. Clicking any icon sets the tab AND expands.
   if (collapsed) {

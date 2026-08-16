@@ -1,0 +1,723 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 3,
+        "height": 34,
+        "style": {
+          "backgroundColor": "#0f766e"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 56,
+        "y": 44,
+        "width": 250,
+        "height": 20,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 16,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 56,
+        "y": 64,
+        "width": 270,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4
+        }
+      },
+      {
+        "id": "t004",
+        "type": "TEXT",
+        "x": 321,
+        "y": 42,
+        "width": 230,
+        "height": 26,
+        "content": "RELIEVING",
+        "style": {
+          "fontSize": 22,
+          "fontFamily": "Inter",
+          "color": "#0f766e",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 321,
+        "y": 72,
+        "width": 110,
+        "height": 12,
+        "content": "Reference",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 435,
+        "y": 72,
+        "width": 116,
+        "height": 12,
+        "content": "NW/HR/REL/2026/0091",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 321,
+        "y": 85,
+        "width": 110,
+        "height": 12,
+        "content": "Date",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 435,
+        "y": 85,
+        "width": 116,
+        "height": 12,
+        "content": "01 August 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l009",
+        "type": "LINE",
+        "x": 44,
+        "y": 116,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 44,
+        "y": 134,
+        "width": 507,
+        "height": 14,
+        "content": "01 August 2026",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "t011",
+        "type": "TEXT",
+        "x": 44,
+        "y": 158,
+        "width": 507,
+        "height": 16,
+        "content": "Mr Arjun Desai",
+        "style": {
+          "fontSize": 11.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 44,
+        "y": 175,
+        "width": 507,
+        "height": 34,
+        "content": "7 Brookefield Road, Bengaluru 560037",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 218,
+        "width": 507,
+        "height": 16,
+        "content": "Subject: Relieving from services",
+        "style": {
+          "fontSize": 10.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 242,
+        "width": 507,
+        "height": 16,
+        "content": "Dear Arjun,",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "t015",
+        "type": "TEXT",
+        "x": 44,
+        "y": 264,
+        "width": 507,
+        "height": 56,
+        "content": "With reference to your resignation dated 30 May 2026, we confirm that you have been relieved from your duties as Logistics Coordinator at Northwind Traders Pvt Ltd at the close of business on 31 July 2026.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 44,
+        "y": 332,
+        "width": 507,
+        "height": 56,
+        "content": "You served the organisation from 04 July 2022 to 31 July 2026. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t017",
+        "type": "TEXT",
+        "x": 44,
+        "y": 400,
+        "width": 507,
+        "height": 52,
+        "content": "Your full and final settlement of ₹2,14,380.00 has been processed and will be credited to your registered bank account by 10 August 2026. Form 16 for the relevant financial year will be issued in the usual cycle.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t018",
+        "type": "TEXT",
+        "x": 44,
+        "y": 464,
+        "width": 507,
+        "height": 16,
+        "content": "We thank you for your contribution and wish you well in your next role.\n\nFor Northwind Traders Pvt Ltd,",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "l019",
+        "type": "LINE",
+        "x": 44,
+        "y": 510,
+        "width": 200,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#9ca3af"
+        }
+      },
+      {
+        "id": "t020",
+        "type": "TEXT",
+        "x": 44,
+        "y": 516,
+        "width": 200,
+        "height": 14,
+        "content": "Devika Menon",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "left"
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 44,
+        "y": 530,
+        "width": 200,
+        "height": 24,
+        "content": "Head of People",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.35,
+          "align": "left"
+        }
+      },
+      {
+        "id": "l022",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t023",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "Issued on request. Please retain this letter for your records.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 3,
+            "height": 34,
+            "style": {
+              "backgroundColor": "#0f766e"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 56,
+            "y": 44,
+            "width": 250,
+            "height": 20,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 16,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 56,
+            "y": 64,
+            "width": 270,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4
+            }
+          },
+          {
+            "id": "t004",
+            "type": "TEXT",
+            "x": 321,
+            "y": 42,
+            "width": 230,
+            "height": 26,
+            "content": "RELIEVING",
+            "style": {
+              "fontSize": 22,
+              "fontFamily": "Inter",
+              "color": "#0f766e",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 321,
+            "y": 72,
+            "width": 110,
+            "height": 12,
+            "content": "Reference",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 435,
+            "y": 72,
+            "width": 116,
+            "height": 12,
+            "content": "NW/HR/REL/2026/0091",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 321,
+            "y": 85,
+            "width": 110,
+            "height": 12,
+            "content": "Date",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 435,
+            "y": 85,
+            "width": 116,
+            "height": 12,
+            "content": "01 August 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l009",
+            "type": "LINE",
+            "x": 44,
+            "y": 116,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 44,
+            "y": 134,
+            "width": 507,
+            "height": 14,
+            "content": "01 August 2026",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "t011",
+            "type": "TEXT",
+            "x": 44,
+            "y": 158,
+            "width": 507,
+            "height": 16,
+            "content": "Mr Arjun Desai",
+            "style": {
+              "fontSize": 11.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 44,
+            "y": 175,
+            "width": 507,
+            "height": 34,
+            "content": "7 Brookefield Road, Bengaluru 560037",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 218,
+            "width": 507,
+            "height": 16,
+            "content": "Subject: Relieving from services",
+            "style": {
+              "fontSize": 10.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 242,
+            "width": 507,
+            "height": 16,
+            "content": "Dear Arjun,",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "t015",
+            "type": "TEXT",
+            "x": 44,
+            "y": 264,
+            "width": 507,
+            "height": 56,
+            "content": "With reference to your resignation dated 30 May 2026, we confirm that you have been relieved from your duties as Logistics Coordinator at Northwind Traders Pvt Ltd at the close of business on 31 July 2026.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 44,
+            "y": 332,
+            "width": 507,
+            "height": 56,
+            "content": "You served the organisation from 04 July 2022 to 31 July 2026. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t017",
+            "type": "TEXT",
+            "x": 44,
+            "y": 400,
+            "width": 507,
+            "height": 52,
+            "content": "Your full and final settlement of ₹2,14,380.00 has been processed and will be credited to your registered bank account by 10 August 2026. Form 16 for the relevant financial year will be issued in the usual cycle.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t018",
+            "type": "TEXT",
+            "x": 44,
+            "y": 464,
+            "width": 507,
+            "height": 16,
+            "content": "We thank you for your contribution and wish you well in your next role.\n\nFor Northwind Traders Pvt Ltd,",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "l019",
+            "type": "LINE",
+            "x": 44,
+            "y": 510,
+            "width": 200,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#9ca3af"
+            }
+          },
+          {
+            "id": "t020",
+            "type": "TEXT",
+            "x": 44,
+            "y": 516,
+            "width": 200,
+            "height": 14,
+            "content": "Devika Menon",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "left"
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 44,
+            "y": 530,
+            "width": 200,
+            "height": 24,
+            "content": "Head of People",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.35,
+              "align": "left"
+            }
+          },
+          {
+            "id": "l022",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t023",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "Issued on request. Please retain this letter for your records.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {},
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}

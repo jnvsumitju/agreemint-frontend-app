@@ -1,0 +1,1531 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [
+      {
+        "key": "line_items"
+      }
+    ],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 3,
+        "height": 34,
+        "style": {
+          "backgroundColor": "#4338ca"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 56,
+        "y": 44,
+        "width": 250,
+        "height": 20,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 16,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 56,
+        "y": 64,
+        "width": 270,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4
+        }
+      },
+      {
+        "id": "t004",
+        "type": "TEXT",
+        "x": 321,
+        "y": 42,
+        "width": 230,
+        "height": 26,
+        "content": "TAX INVOICE",
+        "style": {
+          "fontSize": 22,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 321,
+        "y": 72,
+        "width": 110,
+        "height": 12,
+        "content": "Invoice no.",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 435,
+        "y": 72,
+        "width": 116,
+        "height": 12,
+        "content": "GST/2026-27/0411",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 321,
+        "y": 85,
+        "width": 110,
+        "height": 12,
+        "content": "Invoice date",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 435,
+        "y": 85,
+        "width": 116,
+        "height": 12,
+        "content": "16 Aug 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t009",
+        "type": "TEXT",
+        "x": 321,
+        "y": 98,
+        "width": 110,
+        "height": 12,
+        "content": "Place of supply",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 435,
+        "y": 98,
+        "width": 116,
+        "height": 12,
+        "content": "Karnataka (29)",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l011",
+        "type": "LINE",
+        "x": 44,
+        "y": 121,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 44,
+        "y": 139,
+        "width": 230,
+        "height": 12,
+        "content": "BILLED TO",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 152,
+        "width": 230,
+        "height": 16,
+        "content": "Halcyon Design Studio",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 169,
+        "width": 230,
+        "height": 46,
+        "content": "22 Residency Road, Bengaluru 560025\nGSTIN 29AACCH1234R1Z8",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t015",
+        "type": "TEXT",
+        "x": 312,
+        "y": 139,
+        "width": 239,
+        "height": 12,
+        "content": "SUPPLIER",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 312,
+        "y": 152,
+        "width": 239,
+        "height": 16,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t017",
+        "type": "TEXT",
+        "x": 312,
+        "y": 169,
+        "width": 239,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\nGSTIN 29AABCN2233K1ZP",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "r018",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 217,
+        "width": 507,
+        "height": 30,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 4
+        }
+      },
+      {
+        "id": "t019",
+        "type": "TEXT",
+        "x": 54,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "REVERSE CHARGE",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t020",
+        "type": "TEXT",
+        "x": 54,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "No",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 223,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "TRANSPORT",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t022",
+        "type": "TEXT",
+        "x": 223,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "Blue Dart · BD8841203",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t023",
+        "type": "TEXT",
+        "x": 392,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "E-WAY BILL",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t024",
+        "type": "TEXT",
+        "x": 392,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "3319 4477 8120",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "tb025",
+        "type": "TABLE",
+        "x": 44,
+        "y": 265,
+        "width": 507,
+        "height": 118,
+        "columns": [
+          {
+            "header": "Description",
+            "key": "description"
+          },
+          {
+            "header": "HSN/SAC",
+            "key": "hsn"
+          },
+          {
+            "header": "Qty",
+            "key": "qty"
+          },
+          {
+            "header": "Rate",
+            "key": "rate"
+          },
+          {
+            "header": "Taxable",
+            "key": "taxable"
+          },
+          {
+            "header": "GST",
+            "key": "gst"
+          },
+          {
+            "header": "Amount",
+            "key": "amount"
+          }
+        ],
+        "columnWidths": [
+          2.6,
+          0.9,
+          0.5,
+          0.9,
+          1,
+          0.7,
+          1
+        ],
+        "dataKey": "line_items",
+        "tablePreviewBodyRows": 4,
+        "tableRowBackgrounds": {
+          "-1": "#f8fafc"
+        },
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#374151"
+        }
+      },
+      {
+        "id": "t026",
+        "type": "TEXT",
+        "x": 309,
+        "y": 401,
+        "width": 145,
+        "height": 14,
+        "content": "Taxable value",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t027",
+        "type": "TEXT",
+        "x": 446,
+        "y": 401,
+        "width": 97,
+        "height": 14,
+        "content": "₹1,20,000.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t028",
+        "type": "TEXT",
+        "x": 309,
+        "y": 417,
+        "width": 145,
+        "height": 14,
+        "content": "CGST",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t029",
+        "type": "TEXT",
+        "x": 446,
+        "y": 417,
+        "width": 97,
+        "height": 14,
+        "content": "₹10,800.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t030",
+        "type": "TEXT",
+        "x": 309,
+        "y": 433,
+        "width": 145,
+        "height": 14,
+        "content": "SGST",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t031",
+        "type": "TEXT",
+        "x": 446,
+        "y": 433,
+        "width": 97,
+        "height": 14,
+        "content": "₹10,800.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t032",
+        "type": "TEXT",
+        "x": 309,
+        "y": 449,
+        "width": 145,
+        "height": 14,
+        "content": "IGST",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t033",
+        "type": "TEXT",
+        "x": 446,
+        "y": 449,
+        "width": 97,
+        "height": 14,
+        "content": "₹0.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "r034",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 301,
+        "y": 461,
+        "width": 250,
+        "height": 22,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 3
+        }
+      },
+      {
+        "id": "t035",
+        "type": "TEXT",
+        "x": 309,
+        "y": 465,
+        "width": 145,
+        "height": 14,
+        "content": "Invoice total",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t036",
+        "type": "TEXT",
+        "x": 446,
+        "y": 465,
+        "width": 97,
+        "height": 14,
+        "content": "₹1,41,600.00",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "JetBrains Mono",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t037",
+        "type": "TEXT",
+        "x": 44,
+        "y": 401,
+        "width": 240,
+        "height": 12,
+        "content": "AMOUNT IN WORDS",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t038",
+        "type": "TEXT",
+        "x": 44,
+        "y": 413,
+        "width": 240,
+        "height": 40,
+        "content": "One lakh forty-one thousand six hundred rupees only",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.45,
+          "italic": true
+        }
+      },
+      {
+        "id": "t039",
+        "type": "TEXT",
+        "x": 44,
+        "y": 507,
+        "width": 250,
+        "height": 12,
+        "content": "DECLARATION",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t040",
+        "type": "TEXT",
+        "x": 44,
+        "y": 520,
+        "width": 250,
+        "height": 58,
+        "content": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "l041",
+        "type": "LINE",
+        "x": 311,
+        "y": 541,
+        "width": 240,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#9ca3af"
+        }
+      },
+      {
+        "id": "t042",
+        "type": "TEXT",
+        "x": 311,
+        "y": 547,
+        "width": 240,
+        "height": 14,
+        "content": "Ananya Rao",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t043",
+        "type": "TEXT",
+        "x": 311,
+        "y": 561,
+        "width": 240,
+        "height": 24,
+        "content": "Authorised signatory, Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.35,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l044",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t045",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "This is a computer-generated tax invoice. Subject to Bengaluru jurisdiction.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 3,
+            "height": 34,
+            "style": {
+              "backgroundColor": "#4338ca"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 56,
+            "y": 44,
+            "width": 250,
+            "height": 20,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 16,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 56,
+            "y": 64,
+            "width": 270,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4
+            }
+          },
+          {
+            "id": "t004",
+            "type": "TEXT",
+            "x": 321,
+            "y": 42,
+            "width": 230,
+            "height": 26,
+            "content": "TAX INVOICE",
+            "style": {
+              "fontSize": 22,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 321,
+            "y": 72,
+            "width": 110,
+            "height": 12,
+            "content": "Invoice no.",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 435,
+            "y": 72,
+            "width": 116,
+            "height": 12,
+            "content": "GST/2026-27/0411",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 321,
+            "y": 85,
+            "width": 110,
+            "height": 12,
+            "content": "Invoice date",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 435,
+            "y": 85,
+            "width": 116,
+            "height": 12,
+            "content": "16 Aug 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t009",
+            "type": "TEXT",
+            "x": 321,
+            "y": 98,
+            "width": 110,
+            "height": 12,
+            "content": "Place of supply",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 435,
+            "y": 98,
+            "width": 116,
+            "height": 12,
+            "content": "Karnataka (29)",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l011",
+            "type": "LINE",
+            "x": 44,
+            "y": 121,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 44,
+            "y": 139,
+            "width": 230,
+            "height": 12,
+            "content": "BILLED TO",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 152,
+            "width": 230,
+            "height": 16,
+            "content": "Halcyon Design Studio",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 169,
+            "width": 230,
+            "height": 46,
+            "content": "22 Residency Road, Bengaluru 560025\nGSTIN 29AACCH1234R1Z8",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t015",
+            "type": "TEXT",
+            "x": 312,
+            "y": 139,
+            "width": 239,
+            "height": 12,
+            "content": "SUPPLIER",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 312,
+            "y": 152,
+            "width": 239,
+            "height": 16,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t017",
+            "type": "TEXT",
+            "x": 312,
+            "y": 169,
+            "width": 239,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\nGSTIN 29AABCN2233K1ZP",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "r018",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 217,
+            "width": 507,
+            "height": 30,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 4
+            }
+          },
+          {
+            "id": "t019",
+            "type": "TEXT",
+            "x": 54,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "REVERSE CHARGE",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t020",
+            "type": "TEXT",
+            "x": 54,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "No",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 223,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "TRANSPORT",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t022",
+            "type": "TEXT",
+            "x": 223,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "Blue Dart · BD8841203",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t023",
+            "type": "TEXT",
+            "x": 392,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "E-WAY BILL",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t024",
+            "type": "TEXT",
+            "x": 392,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "3319 4477 8120",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "tb025",
+            "type": "TABLE",
+            "x": 44,
+            "y": 265,
+            "width": 507,
+            "height": 118,
+            "columns": [
+              {
+                "header": "Description",
+                "key": "description"
+              },
+              {
+                "header": "HSN/SAC",
+                "key": "hsn"
+              },
+              {
+                "header": "Qty",
+                "key": "qty"
+              },
+              {
+                "header": "Rate",
+                "key": "rate"
+              },
+              {
+                "header": "Taxable",
+                "key": "taxable"
+              },
+              {
+                "header": "GST",
+                "key": "gst"
+              },
+              {
+                "header": "Amount",
+                "key": "amount"
+              }
+            ],
+            "columnWidths": [
+              2.6,
+              0.9,
+              0.5,
+              0.9,
+              1,
+              0.7,
+              1
+            ],
+            "dataKey": "line_items",
+            "tablePreviewBodyRows": 4,
+            "tableRowBackgrounds": {
+              "-1": "#f8fafc"
+            },
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#374151"
+            }
+          },
+          {
+            "id": "t026",
+            "type": "TEXT",
+            "x": 309,
+            "y": 401,
+            "width": 145,
+            "height": 14,
+            "content": "Taxable value",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t027",
+            "type": "TEXT",
+            "x": 446,
+            "y": 401,
+            "width": 97,
+            "height": 14,
+            "content": "₹1,20,000.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t028",
+            "type": "TEXT",
+            "x": 309,
+            "y": 417,
+            "width": 145,
+            "height": 14,
+            "content": "CGST",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t029",
+            "type": "TEXT",
+            "x": 446,
+            "y": 417,
+            "width": 97,
+            "height": 14,
+            "content": "₹10,800.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t030",
+            "type": "TEXT",
+            "x": 309,
+            "y": 433,
+            "width": 145,
+            "height": 14,
+            "content": "SGST",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t031",
+            "type": "TEXT",
+            "x": 446,
+            "y": 433,
+            "width": 97,
+            "height": 14,
+            "content": "₹10,800.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t032",
+            "type": "TEXT",
+            "x": 309,
+            "y": 449,
+            "width": 145,
+            "height": 14,
+            "content": "IGST",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t033",
+            "type": "TEXT",
+            "x": 446,
+            "y": 449,
+            "width": 97,
+            "height": 14,
+            "content": "₹0.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "r034",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 301,
+            "y": 461,
+            "width": 250,
+            "height": 22,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 3
+            }
+          },
+          {
+            "id": "t035",
+            "type": "TEXT",
+            "x": 309,
+            "y": 465,
+            "width": 145,
+            "height": 14,
+            "content": "Invoice total",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t036",
+            "type": "TEXT",
+            "x": 446,
+            "y": 465,
+            "width": 97,
+            "height": 14,
+            "content": "₹1,41,600.00",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "JetBrains Mono",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t037",
+            "type": "TEXT",
+            "x": 44,
+            "y": 401,
+            "width": 240,
+            "height": 12,
+            "content": "AMOUNT IN WORDS",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t038",
+            "type": "TEXT",
+            "x": 44,
+            "y": 413,
+            "width": 240,
+            "height": 40,
+            "content": "One lakh forty-one thousand six hundred rupees only",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.45,
+              "italic": true
+            }
+          },
+          {
+            "id": "t039",
+            "type": "TEXT",
+            "x": 44,
+            "y": 507,
+            "width": 250,
+            "height": 12,
+            "content": "DECLARATION",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t040",
+            "type": "TEXT",
+            "x": 44,
+            "y": 520,
+            "width": 250,
+            "height": 58,
+            "content": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "l041",
+            "type": "LINE",
+            "x": 311,
+            "y": 541,
+            "width": 240,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#9ca3af"
+            }
+          },
+          {
+            "id": "t042",
+            "type": "TEXT",
+            "x": 311,
+            "y": 547,
+            "width": 240,
+            "height": 14,
+            "content": "Ananya Rao",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t043",
+            "type": "TEXT",
+            "x": 311,
+            "y": 561,
+            "width": 240,
+            "height": 24,
+            "content": "Authorised signatory, Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.35,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l044",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t045",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "This is a computer-generated tax invoice. Subject to Bengaluru jurisdiction.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {
+    "line_items": "[{\"description\":\"Steel shelving unit — 5 tier\",\"hsn\":\"9403\",\"qty\":\"10\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹60,000.00\",\"gst\":\"18%\",\"amount\":\"₹70,800.00\"},{\"description\":\"Workbench 1800mm\",\"hsn\":\"9403\",\"qty\":\"4\",\"rate\":\"₹9,000.00\",\"taxable\":\"₹36,000.00\",\"gst\":\"18%\",\"amount\":\"₹42,480.00\"},{\"description\":\"Installation service\",\"hsn\":\"9954\",\"qty\":\"1\",\"rate\":\"₹18,000.00\",\"taxable\":\"₹18,000.00\",\"gst\":\"18%\",\"amount\":\"₹21,240.00\"},{\"description\":\"Freight and handling\",\"hsn\":\"9965\",\"qty\":\"1\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹6,000.00\",\"gst\":\"18%\",\"amount\":\"₹7,080.00\"}]"
+  },
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}

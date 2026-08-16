@@ -14,6 +14,8 @@ import { exportElementAsImage } from '../../lib/canvasExport'
 import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
 import { useCollabConnectionStore, type CollabConnectionStatus } from '../../stores/collabConnectionStore'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
+import { useTrySignUpStore } from '../../stores/trySignUpStore'
+import { TEMPLATE_GALLERY_URL } from '../../lib/tryTemplates'
 import {
   IconUndo, IconRedo, IconEye, IconSave, IconMoreVertical,
 } from './ToolbarIcons'
@@ -390,6 +392,12 @@ export function Toolbar() {
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const setViewOnly = useEditorStore((s) => s.setViewOnly)
   const canEdit = useEditorStore((s) => s.canEdit)
+  // Anonymous try-a-template session: the layout came from a static bundle,
+  // `templateId` is synthetic, and there is no session behind any request. Note
+  // this cannot be inferred from viewOnly/canEdit — a sandbox visitor is an
+  // editor, which is exactly what those two describe.
+  const sandbox = useEditorStore((s) => s.sandbox)
+  const promptSignUp = useTrySignUpStore((s) => s.promptSignUp)
 
   const [saving, setSaving] = useState(false)
   const [generatingVersionPdf, setGeneratingVersionPdf] = useState(false)
@@ -464,6 +472,10 @@ export function Toolbar() {
   useEffect(() => {
     const tid = templateId
     if (!tid) return
+    // A sandbox session keys this by a synthetic `try:` id and writes a
+    // snapshot the real editor would later try to reconcile against a server
+    // draft that does not exist. TryTemplateEditor persists its own draft.
+    if (sandbox) return
     const ms = editorLocalSaveIntervalMs()
     if (ms <= 0) return
     const id = window.setInterval(() => {
@@ -476,7 +488,7 @@ export function Toolbar() {
       writeLocalEditorSnapshot(tid, snap)
     }, ms)
     return () => window.clearInterval(id)
-  }, [templateId])
+  }, [templateId, sandbox])
 
   // Legacy per-client draft sync — replaced by the collaborative-editor flow in
   // src/collab/*. Ops flow via STOMP; the backend CollabFlushJob persists the hot
@@ -489,6 +501,7 @@ export function Toolbar() {
   useEffect(() => {
     const tid = templateId
     if (!tid) return
+    if (sandbox) return
     const ms = editorDraftSyncIntervalMs()
     if (ms <= 0) return
     const id = window.setInterval(() => {
@@ -503,7 +516,7 @@ export function Toolbar() {
       })
     }, ms)
     return () => window.clearInterval(id)
-  }, [templateId])
+  }, [templateId, sandbox])
 
   // Variable-values debounced persist.
   //
@@ -518,6 +531,13 @@ export function Toolbar() {
   useEffect(() => {
     const tid = templateId
     if (!tid) return
+    // The easiest gate in this file to miss: no button starts this, it just
+    // fires 800ms after any variable edit. In a sandbox session there is no
+    // draft on the server and no session to authenticate with, so every one of
+    // those PUTs would be a 401 — and a 401 with a stale refresh token in
+    // localStorage triggers authFetch's logout-and-redirect, throwing away the
+    // visitor's unsaved work.
+    if (sandbox) return
     let lastSaved = JSON.stringify(useEditorStore.getState().variableValues)
     let timer: number | null = null
     const flush = () => {
@@ -541,10 +561,18 @@ export function Toolbar() {
       unsubscribe()
       if (timer != null) window.clearTimeout(timer)
     }
-  }, [templateId])
+  }, [templateId, sandbox])
 
   const commitVersion = async () => {
     if (!templateId) return
+    // Backstop for the sandbox. The Commit button already routes to the
+    // sign-up prompt, but this function is also reachable from VersionBadge
+    // and from the keyboard shortcut, and a synthetic templateId passes the
+    // check above.
+    if (sandbox) {
+      promptSignUp('save')
+      return
+    }
     setSaving(true)
     setError(null)
     setCommitBlockers(null)
@@ -675,7 +703,13 @@ export function Toolbar() {
           <button
             type="button"
             className="text-[11px] text-violet-600 hover:underline lg:text-sm dark:text-violet-400"
-            onClick={() => navigate('/templates')}
+            // `/templates` is behind ProtectedRoute, so for a signed-out
+            // visitor it is a one-way trip to /login with their work left
+            // behind. Send them to the public gallery instead.
+            onClick={() => {
+              if (sandbox) window.location.href = TEMPLATE_GALLERY_URL
+              else navigate('/templates')
+            }}
           >
             Templates
           </button>
@@ -741,7 +775,7 @@ export function Toolbar() {
             </span>
           )}
           <CollabConnectionIndicator />
-          {!viewOnly && (
+          {!viewOnly && !sandbox && (
             <button
               type="button"
               className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
@@ -758,9 +792,13 @@ export function Toolbar() {
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            title="Preview PDF from current editor state"
+            title={sandbox ? 'Sign up to preview the PDF' : 'Preview PDF from current editor state'}
             disabled={!templateId}
-            onClick={() => setPreviewOpen(true)}
+            // PDF rendering runs on the server, so this is the sign-up wall
+            // rather than a hidden button — it is the moment the visitor most
+            // wants an account, and hiding it would just look like a missing
+            // feature.
+            onClick={() => (sandbox ? promptSignUp('preview') : setPreviewOpen(true))}
           >
             <IconEye size={15} />
             <span className="hidden lg:inline">Preview</span>
@@ -769,12 +807,14 @@ export function Toolbar() {
             <button
               type="button"
               className="flex h-7 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-[11px] font-medium text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-violet-600 dark:bg-violet-900/40 dark:text-violet-100 dark:hover:bg-violet-900/60"
-              title="Save current draft as a new numbered version"
+              title={sandbox ? 'Sign up to save this template' : 'Save current draft as a new numbered version'}
               disabled={!templateId || saving}
-              onClick={() => void commitVersion()}
+              onClick={() => (sandbox ? promptSignUp('save') : void commitVersion())}
             >
               <IconSave size={15} />
-              <span className="hidden lg:inline">{saving ? 'Saving…' : 'Commit'}</span>
+              <span className="hidden lg:inline">
+                {sandbox ? 'Save' : saving ? 'Saving…' : 'Commit'}
+              </span>
             </button>
           )}
           {/* Dark-mode toggle lives in Settings → Preferences — the
@@ -829,22 +869,38 @@ export function Toolbar() {
                 style={{ top: menuPos.top, right: menuPos.right }}
                 role="menu"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  disabled={!currentVersionId || generatingVersionPdf}
-                  title={
-                    !currentVersionId
-                      ? 'Commit a version first'
-                      : 'Layout from last committed version; data from current Variables preview'
-                  }
-                  onClick={() => void generateFromLatestCommitted()}
-                >
-                  {generatingVersionPdf ? 'Generating…' : 'Generate PDF (latest version)'}
-                </button>
+                {sandbox ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      promptSignUp('download')
+                    }}
+                  >
+                    Download PDF
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    disabled={!currentVersionId || generatingVersionPdf}
+                    title={
+                      !currentVersionId
+                        ? 'Commit a version first'
+                        : 'Layout from last committed version; data from current Variables preview'
+                    }
+                    onClick={() => void generateFromLatestCommitted()}
+                  >
+                    {generatingVersionPdf ? 'Generating…' : 'Generate PDF (latest version)'}
+                  </button>
+                )}
                 <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                  Uses committed layout with current variable values.
+                  {sandbox
+                    ? 'Rendering a PDF needs a free account.'
+                    : 'Uses committed layout with current variable values.'}
                 </p>
                 {!viewOnly && (
                   <>
@@ -901,8 +957,13 @@ export function Toolbar() {
                     </button>
                   </>
                 )}
-                <div className="border-t border-zinc-100 dark:border-zinc-700" />
-                {!hasVersionHistory ? (
+                {/* Version Diff and Developer are hidden outright in a sandbox
+                    session: there are no versions to diff, and Developer opens
+                    onto API keys and org settings that do not exist yet. Both
+                    upsell branches also navigate to /settings, which is behind
+                    ProtectedRoute. */}
+                {!sandbox && <div className="border-t border-zinc-100 dark:border-zinc-700" />}
+                {sandbox ? null : !hasVersionHistory ? (
                   <button
                     type="button"
                     role="menuitem"
@@ -931,17 +992,19 @@ export function Toolbar() {
                     Version Diff
                   </button>
                 )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
-                  onClick={() => {
-                    setDeveloperOpen(true)
-                    setMenuOpen(false)
-                  }}
-                >
-                  Developer
-                </button>
+                {!sandbox && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    onClick={() => {
+                      setDeveloperOpen(true)
+                      setMenuOpen(false)
+                    }}
+                  >
+                    Developer
+                  </button>
+                )}
                 {!viewOnly && (
                   <>
                     <div className="border-t border-zinc-100 dark:border-zinc-700" />
@@ -981,28 +1044,34 @@ export function Toolbar() {
           </div>
         </div>
       </header>
-      {templateId && (
+      {/* All four are gated on `!sandbox` as well as `templateId`. The id alone
+          is not enough any more: a try-session has a synthetic one, so these
+          would mount against a template that does not exist server-side. Their
+          triggers are already hidden or redirected above — this is the second
+          line, so a future edit that re-exposes a trigger cannot quietly start
+          issuing authenticated requests from an anonymous page. */}
+      {templateId && !sandbox && (
         <PreviewModal
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
           templateId={templateId}
         />
       )}
-      {templateId && (
+      {templateId && !sandbox && (
         <VersionDiffModal
           open={versionDiffOpen}
           onClose={() => setVersionDiffOpen(false)}
           templateId={templateId}
         />
       )}
-      {templateId && (
+      {templateId && !sandbox && (
         <ShareModal
           open={shareOpen}
           onClose={() => setShareOpen(false)}
           templateId={templateId}
         />
       )}
-      {templateId && reviewModalOpen && (
+      {templateId && !sandbox && reviewModalOpen && (
         <RequestReviewModal
           open={reviewModalOpen}
           onClose={() => setReviewModalOpen(false)}
@@ -1011,7 +1080,7 @@ export function Toolbar() {
           versionNumber={reviewModalVersion?.number ?? null}
         />
       )}
-      <DeveloperModal open={developerOpen} onClose={() => setDeveloperOpen(false)} />
+      {!sandbox && <DeveloperModal open={developerOpen} onClose={() => setDeveloperOpen(false)} />}
       {commitBlockers && commitBlockers.length > 0 && (
         <CommitBlockerBanner
           blockers={commitBlockers}
