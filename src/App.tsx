@@ -36,6 +36,7 @@ const PdfViewerHarness = import.meta.env.DEV
   : null
 const TemplateList = lazy(() => import('./pages/TemplateList').then((m) => ({ default: m.TemplateList })))
 const TemplateEditor = lazy(() => import('./pages/TemplateEditor').then((m) => ({ default: m.TemplateEditor })))
+const TryTemplateEditor = lazy(() => import('./pages/TryTemplateEditor').then((m) => ({ default: m.TryTemplateEditor })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })))
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })))
@@ -71,6 +72,19 @@ export default function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/otp-login" element={<OtpLogin />} />
             <Route path="/impersonate" element={<ImpersonateHandoff />} />
+
+            {/* Anonymous "try a template" sandbox. Public on purpose: it is the
+                landing target for the template pages on the marketing site, and
+                the whole point is that it works with no account. It loads a
+                static bundle and makes no API calls, so there is nothing here
+                for ProtectedRoute to protect.
+
+                Placement matters. React Router ranks by path specificity rather
+                than source order, so `/try/:slug` still wins over the `*`
+                catch-all nested in the protected subtree below — but keeping it
+                up here with the other public routes is what makes that
+                intentional rather than lucky. */}
+            <Route path="/try/:slug" element={<TryTemplateEditor />} />
 
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>

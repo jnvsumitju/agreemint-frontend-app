@@ -13,6 +13,7 @@ import {
 import type { ElementType } from '../../types/layout'
 import type { EditorCanvasTool } from '../../stores/editorStore'
 import { useEditorStore } from '../../stores/editorStore'
+import { useTrySignUpStore } from '../../stores/trySignUpStore'
 import { canDivideSelection, canUnionSelection, isMergeableShapeType } from '../../lib/shapeGeometry'
 import { DND_COMPONENT, DND_NEW, type LayoutComponentDragItem, type NewElementDragItem } from './dndTypes'
 import type { SavedLayoutComponent } from '../../lib/savedLayoutComponents'
@@ -466,14 +467,26 @@ function AiToolButton({ title }: { title: string }) {
   const setAiModalOpen = useEditorStore((s) => s.setAiModalOpen)
   const aiGenerating = useEditorStore((s) => s.aiGenerating)
   const aiPendingSnapshot = useEditorStore((s) => s.aiPendingSnapshot)
+  const sandbox = useEditorStore((s) => s.sandbox)
+  const promptSignUp = useTrySignUpStore((s) => s.promptSignUp)
   const disabled = aiGenerating || aiPendingSnapshot != null
   return (
     <button
       type="button"
-      title={aiAllowed ? title : 'AI drafting is available on Starter and above'}
+      title={
+        sandbox
+          ? 'Sign up to draft with AI'
+          : aiAllowed
+            ? title
+            : 'AI drafting is available on Starter and above'
+      }
       aria-label="Generate with AI"
       disabled={disabled}
       onClick={() => {
+        // In a sandbox `aiAllowed` is false (no org, so no plan), and the
+        // upsell below navigates to /settings — which is behind ProtectedRoute
+        // and would bounce an anonymous visitor to /login, losing their work.
+        if (sandbox) { promptSignUp('save'); return }
         // AI is Starter and up; the server returns 402 regardless.
         if (!aiAllowed) { navigate('/settings?tab=billing'); return }
         setAiModalOpen(true)

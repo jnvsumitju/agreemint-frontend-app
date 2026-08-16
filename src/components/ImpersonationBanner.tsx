@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { API_BASE } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
+import { useConfirm } from './ui/ConfirmDialog'
 
 /**
  * End the session server-side, then locally.
@@ -40,6 +41,7 @@ export function ImpersonationBanner() {
   const logout = useAuthStore((s) => s.logout)
   const [remaining, setRemaining] = useState<number | null>(null)
   const [ending, setEnding] = useState(false)
+  const confirm = useConfirm()
 
   // An absolute deadline, not a counter.
   //
@@ -130,10 +132,22 @@ export function ImpersonationBanner() {
           type="button"
           disabled={ending}
           onClick={() => {
-            if (!confirm('End this support session and sign out of this tab?')) return
-            setEnding(true)
-            const token = useAuthStore.getState().accessToken
-            void endSession(token).finally(() => logout())
+            void (async () => {
+              if (
+                !(await confirm({
+                  title: 'End support session?',
+                  description:
+                    'This tab will be signed out. Any other tabs keep their own session.',
+                  confirmLabel: 'End session',
+                  variant: 'danger',
+                }))
+              ) {
+                return
+              }
+              setEnding(true)
+              const token = useAuthStore.getState().accessToken
+              void endSession(token).finally(() => logout())
+            })()
           }}
           className="rounded bg-amber-950 px-2 py-1 text-xs font-semibold text-amber-100 transition-opacity hover:opacity-90 disabled:opacity-60"
         >

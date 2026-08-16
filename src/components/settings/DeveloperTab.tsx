@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { Badge } from '../ui/Badge'
 import { Button } from '../ui/Button'
 import { useToast } from '../ui/Toast'
+import { useConfirm } from '../ui/ConfirmDialog'
 import { CreateApiKeyModal } from './CreateApiKeyModal'
 import { RotateApiKeyModal } from './RotateApiKeyModal'
 import { CreateWebhookModal } from './CreateWebhookModal'
@@ -23,6 +24,7 @@ import { WebhookDeliveriesDrawer } from './WebhookDeliveriesDrawer'
  */
 export function DeveloperTab() {
   const toast = useToast()
+  const confirm = useConfirm()
   // No plan gate: the API is on every plan, free included, bounded by rate
   // limits rather than by a wall. What a lapsed paid plan does instead is start
   // a grace period, after which the keys minted under it are revoked — the
@@ -66,7 +68,12 @@ export function DeveloperTab() {
 
   async function handleRevokeWebhook(w: WebhookDto) {
     if (!orgId) return
-    if (!confirm(`Revoke webhook at "${w.url}"? Future events will stop being delivered.`)) return
+    if (!(await confirm({
+      title: 'Revoke webhook?',
+      description: `Future events will stop being delivered to ${w.url}. This cannot be undone.`,
+      confirmLabel: 'Revoke webhook',
+      variant: 'danger',
+    }))) return
     try {
       await revokeWebhook(orgId, w.id)
       toast.success('Webhook revoked')
@@ -78,7 +85,12 @@ export function DeveloperTab() {
 
   async function handleRevoke(k: ApiKeyDto) {
     if (!orgId) return
-    if (!confirm(`Revoke "${k.name}"? Integrations using it will stop working immediately.`)) return
+    if (!(await confirm({
+      title: 'Revoke API key?',
+      description: `Any integration using "${k.name}" stops working immediately. This cannot be undone.`,
+      confirmLabel: 'Revoke key',
+      variant: 'danger',
+    }))) return
     try {
       await revokeApiKey(orgId, k.id)
       toast.success('Key revoked')

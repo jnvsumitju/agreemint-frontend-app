@@ -1,0 +1,1311 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [
+      {
+        "key": "line_items"
+      }
+    ],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 3,
+        "height": 34,
+        "style": {
+          "backgroundColor": "#4338ca"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 56,
+        "y": 44,
+        "width": 250,
+        "height": 20,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 16,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 56,
+        "y": 64,
+        "width": 270,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4
+        }
+      },
+      {
+        "id": "t004",
+        "type": "TEXT",
+        "x": 321,
+        "y": 42,
+        "width": 230,
+        "height": 26,
+        "content": "PURCHASE ORDER",
+        "style": {
+          "fontSize": 22,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 321,
+        "y": 72,
+        "width": 110,
+        "height": 12,
+        "content": "PO number",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 435,
+        "y": 72,
+        "width": 116,
+        "height": 12,
+        "content": "PO-2026-1140",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 321,
+        "y": 85,
+        "width": 110,
+        "height": 12,
+        "content": "PO date",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 435,
+        "y": 85,
+        "width": 116,
+        "height": 12,
+        "content": "16 Aug 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t009",
+        "type": "TEXT",
+        "x": 321,
+        "y": 98,
+        "width": 110,
+        "height": 12,
+        "content": "Required by",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 435,
+        "y": 98,
+        "width": 116,
+        "height": 12,
+        "content": "05 Sep 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l011",
+        "type": "LINE",
+        "x": 44,
+        "y": 121,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 44,
+        "y": 139,
+        "width": 230,
+        "height": 12,
+        "content": "VENDOR",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 152,
+        "width": 230,
+        "height": 16,
+        "content": "Sterling Components Pvt Ltd",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 169,
+        "width": 230,
+        "height": 46,
+        "content": "Plot 14, Peenya Industrial Area, Bengaluru 560058\nGSTIN 29AAECS8891M1Z4",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t015",
+        "type": "TEXT",
+        "x": 312,
+        "y": 139,
+        "width": 239,
+        "height": 12,
+        "content": "DELIVER TO",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 312,
+        "y": 152,
+        "width": 239,
+        "height": 16,
+        "content": "Northwind Traders — Central Warehouse",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t017",
+        "type": "TEXT",
+        "x": 312,
+        "y": 169,
+        "width": 239,
+        "height": 46,
+        "content": "Survey 88, Hosur Road, Bengaluru 560068",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "r018",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 217,
+        "width": 507,
+        "height": 30,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 4
+        }
+      },
+      {
+        "id": "t019",
+        "type": "TEXT",
+        "x": 54,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "PAYMENT TERMS",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t020",
+        "type": "TEXT",
+        "x": 54,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "Net 30",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 223,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "DELIVERY TERMS",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t022",
+        "type": "TEXT",
+        "x": 223,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "FOR destination",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t023",
+        "type": "TEXT",
+        "x": 392,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "BUYER CONTACT",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t024",
+        "type": "TEXT",
+        "x": 392,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "R. Subramanian",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "tb025",
+        "type": "TABLE",
+        "x": 44,
+        "y": 265,
+        "width": 507,
+        "height": 118,
+        "columns": [
+          {
+            "header": "Item code",
+            "key": "code"
+          },
+          {
+            "header": "Description",
+            "key": "description"
+          },
+          {
+            "header": "Qty",
+            "key": "qty"
+          },
+          {
+            "header": "Unit price",
+            "key": "rate"
+          },
+          {
+            "header": "Amount",
+            "key": "amount"
+          }
+        ],
+        "columnWidths": [
+          1,
+          2.8,
+          0.6,
+          1,
+          1.1
+        ],
+        "dataKey": "line_items",
+        "tablePreviewBodyRows": 4,
+        "tableRowBackgrounds": {
+          "-1": "#f8fafc"
+        },
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#374151"
+        }
+      },
+      {
+        "id": "t026",
+        "type": "TEXT",
+        "x": 309,
+        "y": 401,
+        "width": 145,
+        "height": 14,
+        "content": "Subtotal",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t027",
+        "type": "TEXT",
+        "x": 446,
+        "y": 401,
+        "width": 97,
+        "height": 14,
+        "content": "₹4,12,000.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t028",
+        "type": "TEXT",
+        "x": 309,
+        "y": 417,
+        "width": 145,
+        "height": 14,
+        "content": "Tax",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t029",
+        "type": "TEXT",
+        "x": 446,
+        "y": 417,
+        "width": 97,
+        "height": 14,
+        "content": "₹74,160.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "r030",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 301,
+        "y": 429,
+        "width": 250,
+        "height": 22,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 3
+        }
+      },
+      {
+        "id": "t031",
+        "type": "TEXT",
+        "x": 309,
+        "y": 433,
+        "width": 145,
+        "height": 14,
+        "content": "Order total",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t032",
+        "type": "TEXT",
+        "x": 446,
+        "y": 433,
+        "width": 97,
+        "height": 14,
+        "content": "₹4,86,160.00",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "JetBrains Mono",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t033",
+        "type": "TEXT",
+        "x": 44,
+        "y": 475,
+        "width": 250,
+        "height": 12,
+        "content": "CONDITIONS",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t034",
+        "type": "TEXT",
+        "x": 44,
+        "y": 488,
+        "width": 250,
+        "height": 58,
+        "content": "Goods must match the specification quoted.\nPartial delivery requires written approval.\nRejected material will be returned at vendor cost.",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "l035",
+        "type": "LINE",
+        "x": 311,
+        "y": 509,
+        "width": 240,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#9ca3af"
+        }
+      },
+      {
+        "id": "t036",
+        "type": "TEXT",
+        "x": 311,
+        "y": 515,
+        "width": 240,
+        "height": 14,
+        "content": "R. Subramanian",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t037",
+        "type": "TEXT",
+        "x": 311,
+        "y": 529,
+        "width": 240,
+        "height": 24,
+        "content": "Procurement Manager",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.35,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l038",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t039",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "Quote the PO number on all invoices, delivery notes and correspondence.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 3,
+            "height": 34,
+            "style": {
+              "backgroundColor": "#4338ca"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 56,
+            "y": 44,
+            "width": 250,
+            "height": 20,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 16,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 56,
+            "y": 64,
+            "width": 270,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4
+            }
+          },
+          {
+            "id": "t004",
+            "type": "TEXT",
+            "x": 321,
+            "y": 42,
+            "width": 230,
+            "height": 26,
+            "content": "PURCHASE ORDER",
+            "style": {
+              "fontSize": 22,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 321,
+            "y": 72,
+            "width": 110,
+            "height": 12,
+            "content": "PO number",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 435,
+            "y": 72,
+            "width": 116,
+            "height": 12,
+            "content": "PO-2026-1140",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 321,
+            "y": 85,
+            "width": 110,
+            "height": 12,
+            "content": "PO date",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 435,
+            "y": 85,
+            "width": 116,
+            "height": 12,
+            "content": "16 Aug 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t009",
+            "type": "TEXT",
+            "x": 321,
+            "y": 98,
+            "width": 110,
+            "height": 12,
+            "content": "Required by",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 435,
+            "y": 98,
+            "width": 116,
+            "height": 12,
+            "content": "05 Sep 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l011",
+            "type": "LINE",
+            "x": 44,
+            "y": 121,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 44,
+            "y": 139,
+            "width": 230,
+            "height": 12,
+            "content": "VENDOR",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 152,
+            "width": 230,
+            "height": 16,
+            "content": "Sterling Components Pvt Ltd",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 169,
+            "width": 230,
+            "height": 46,
+            "content": "Plot 14, Peenya Industrial Area, Bengaluru 560058\nGSTIN 29AAECS8891M1Z4",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t015",
+            "type": "TEXT",
+            "x": 312,
+            "y": 139,
+            "width": 239,
+            "height": 12,
+            "content": "DELIVER TO",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 312,
+            "y": 152,
+            "width": 239,
+            "height": 16,
+            "content": "Northwind Traders — Central Warehouse",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t017",
+            "type": "TEXT",
+            "x": 312,
+            "y": 169,
+            "width": 239,
+            "height": 46,
+            "content": "Survey 88, Hosur Road, Bengaluru 560068",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "r018",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 217,
+            "width": 507,
+            "height": 30,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 4
+            }
+          },
+          {
+            "id": "t019",
+            "type": "TEXT",
+            "x": 54,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "PAYMENT TERMS",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t020",
+            "type": "TEXT",
+            "x": 54,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "Net 30",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 223,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "DELIVERY TERMS",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t022",
+            "type": "TEXT",
+            "x": 223,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "FOR destination",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t023",
+            "type": "TEXT",
+            "x": 392,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "BUYER CONTACT",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t024",
+            "type": "TEXT",
+            "x": 392,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "R. Subramanian",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "tb025",
+            "type": "TABLE",
+            "x": 44,
+            "y": 265,
+            "width": 507,
+            "height": 118,
+            "columns": [
+              {
+                "header": "Item code",
+                "key": "code"
+              },
+              {
+                "header": "Description",
+                "key": "description"
+              },
+              {
+                "header": "Qty",
+                "key": "qty"
+              },
+              {
+                "header": "Unit price",
+                "key": "rate"
+              },
+              {
+                "header": "Amount",
+                "key": "amount"
+              }
+            ],
+            "columnWidths": [
+              1,
+              2.8,
+              0.6,
+              1,
+              1.1
+            ],
+            "dataKey": "line_items",
+            "tablePreviewBodyRows": 4,
+            "tableRowBackgrounds": {
+              "-1": "#f8fafc"
+            },
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#374151"
+            }
+          },
+          {
+            "id": "t026",
+            "type": "TEXT",
+            "x": 309,
+            "y": 401,
+            "width": 145,
+            "height": 14,
+            "content": "Subtotal",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t027",
+            "type": "TEXT",
+            "x": 446,
+            "y": 401,
+            "width": 97,
+            "height": 14,
+            "content": "₹4,12,000.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t028",
+            "type": "TEXT",
+            "x": 309,
+            "y": 417,
+            "width": 145,
+            "height": 14,
+            "content": "Tax",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t029",
+            "type": "TEXT",
+            "x": 446,
+            "y": 417,
+            "width": 97,
+            "height": 14,
+            "content": "₹74,160.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "r030",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 301,
+            "y": 429,
+            "width": 250,
+            "height": 22,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 3
+            }
+          },
+          {
+            "id": "t031",
+            "type": "TEXT",
+            "x": 309,
+            "y": 433,
+            "width": 145,
+            "height": 14,
+            "content": "Order total",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t032",
+            "type": "TEXT",
+            "x": 446,
+            "y": 433,
+            "width": 97,
+            "height": 14,
+            "content": "₹4,86,160.00",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "JetBrains Mono",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t033",
+            "type": "TEXT",
+            "x": 44,
+            "y": 475,
+            "width": 250,
+            "height": 12,
+            "content": "CONDITIONS",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t034",
+            "type": "TEXT",
+            "x": 44,
+            "y": 488,
+            "width": 250,
+            "height": 58,
+            "content": "Goods must match the specification quoted.\nPartial delivery requires written approval.\nRejected material will be returned at vendor cost.",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "l035",
+            "type": "LINE",
+            "x": 311,
+            "y": 509,
+            "width": 240,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#9ca3af"
+            }
+          },
+          {
+            "id": "t036",
+            "type": "TEXT",
+            "x": 311,
+            "y": 515,
+            "width": 240,
+            "height": 14,
+            "content": "R. Subramanian",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t037",
+            "type": "TEXT",
+            "x": 311,
+            "y": 529,
+            "width": 240,
+            "height": 24,
+            "content": "Procurement Manager",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.35,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l038",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t039",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "Quote the PO number on all invoices, delivery notes and correspondence.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {
+    "line_items": "[{\"code\":\"SC-4410\",\"description\":\"Precision bearing assembly 40mm\",\"qty\":\"200\",\"rate\":\"₹1,120.00\",\"amount\":\"₹2,24,000.00\"},{\"code\":\"SC-2280\",\"description\":\"Drive belt, reinforced\",\"qty\":\"120\",\"rate\":\"₹850.00\",\"amount\":\"₹1,02,000.00\"},{\"code\":\"SC-9013\",\"description\":\"Mounting bracket, powder coated\",\"qty\":\"300\",\"rate\":\"₹220.00\",\"amount\":\"₹66,000.00\"},{\"code\":\"SC-7702\",\"description\":\"Fastener kit (M8, 50 pcs)\",\"qty\":\"40\",\"rate\":\"₹500.00\",\"amount\":\"₹20,000.00\"}]"
+  },
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}

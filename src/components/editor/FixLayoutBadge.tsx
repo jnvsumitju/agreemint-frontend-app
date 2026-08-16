@@ -31,6 +31,7 @@ export function FixLayoutBadge() {
   const applyPending = useEditorStore((s) => s.applyAiPendingLayout)
   const aiPending = useEditorStore((s) => s.aiPendingSnapshot)
   const viewOnly = useEditorStore((s) => s.viewOnly)
+  const sandbox = useEditorStore((s) => s.sandbox)
 
   const [state, setState] = useState<ModalState>({ kind: 'closed' })
   const { atLeast } = usePlan()
@@ -43,6 +44,11 @@ export function FixLayoutBadge() {
   // contextual fix-it affordance, and a dead one next to a real problem reads
   // as broken rather than as an upsell.
   if (!atLeast('STARTER')) return null
+  // Anonymous sandbox. Covered incidentally by the plan check above — with no
+  // org there is no plan — but stated explicitly so this cannot silently start
+  // firing authenticated AI requests from a public page if plan resolution
+  // ever changes its default.
+  if (sandbox) return null
   // Suppress while a pending AI preview is already on screen — the user
   // can't see what "fix layout" would do until they accept/reject the
   // existing suggestion.

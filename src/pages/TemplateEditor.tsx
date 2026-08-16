@@ -1,31 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
 import { authFetch, fetchTemplate, fetchVersions } from '../lib/api'
 import { bootstrapEditorFromRemote } from '../lib/templateEditorBootstrap'
 import { connectToTemplate, disconnectFromTemplate } from '../lib/websocket'
 import { useEditorStore } from '../stores/editorStore'
 import { useFollowMode } from '../hooks/useFollowMode'
 import { useCollab } from '../collab/useCollab'
-import { LeftPalette } from '../components/editor/LeftPalette'
-import { EditorCanvas } from '../components/editor/EditorCanvas'
-import { PropertiesPanel } from '../components/editor/PropertiesPanel'
-import { Toolbar } from '../components/editor/Toolbar'
-import { FormatBar } from '../components/editor/FormatBar'
-import { EditorStatusBar } from '../components/editor/EditorStatusBar'
-import { ShortcutCheatsheet, useShortcutCheatsheet } from '../components/editor/ShortcutCheatsheet'
-import { AiGenerateModal } from '../components/editor/AiGenerateModal'
-import { AiGenerationOverlay, AiPendingBar } from '../components/editor/AiGenerationOverlay'
-import { FixLayoutBadge } from '../components/editor/FixLayoutBadge'
-import { RearrangePagesView } from '../components/editor/RearrangePagesView'
-import { AddCommentModal } from '../components/editor/AddCommentModal'
+import { EditorShell } from '../components/editor/EditorShell'
 
 export function TemplateEditor() {
   const { templateId } = useParams<{ templateId: string }>()
   const [searchParams] = useSearchParams()
-  const contextToolbarExemptRef = useRef<HTMLDivElement | null>(null)
-  const shortcuts = useShortcutCheatsheet()
   useFollowMode()
   useCollab(templateId ?? null)
 
@@ -94,7 +79,13 @@ export function TemplateEditor() {
             }
           }
         } catch {
-          // If access endpoint not available (e.g. no auth), default to full edit
+          // Network-level failure only. Note this does NOT catch an
+          // unauthenticated or forbidden response: `authFetch` resolves a 401
+          // as a Response rather than throwing, so that path falls out of the
+          // `accessRes.ok` check above with none of the setters having run —
+          // leaving the fail-closed `viewOnly: true, canEdit: false` from
+          // `reset()`. Either way the editor stays read-only, which is the
+          // intended fallback.
         }
 
         const versions = await fetchVersions(templateId)
@@ -155,50 +146,5 @@ export function TemplateEditor() {
     return <p className="p-6 text-sm text-red-600">Missing template id</p>
   }
 
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <TemplateEditorChrome
-        exemptFromInlineCommitRef={contextToolbarExemptRef}
-        shortcuts={shortcuts}
-      />
-    </DndProvider>
-  )
-}
-
-function TemplateEditorChrome({
-  exemptFromInlineCommitRef,
-  shortcuts,
-}: {
-  exemptFromInlineCommitRef: React.RefObject<HTMLDivElement | null>
-  shortcuts: ReturnType<typeof useShortcutCheatsheet>
-}) {
-  // The Rearrange tool collapses the side panels + format bar so the
-  // canvas can spread out into a 4-column thumbnail grid (Google Slides
-  // sorter-style). Reading the flag here keeps the rest of the chrome
-  // unchanged when we're back in normal edit mode.
-  const rearrangeMode = useEditorStore((s) => s.rearrangeMode)
-  return (
-    <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
-      <Toolbar />
-      {!rearrangeMode && (
-        <FormatBar contextToolbarExemptRef={exemptFromInlineCommitRef} />
-      )}
-      <div className="flex min-h-0 min-w-0 flex-1">
-        {!rearrangeMode && <LeftPalette />}
-        {rearrangeMode ? (
-          <RearrangePagesView />
-        ) : (
-          <EditorCanvas exemptFromInlineCommitRef={exemptFromInlineCommitRef} />
-        )}
-        {!rearrangeMode && <PropertiesPanel />}
-      </div>
-      <EditorStatusBar />
-      <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
-      <AiGenerateModal />
-      <AiGenerationOverlay />
-      <AiPendingBar />
-      <AddCommentModal />
-      {!rearrangeMode && <FixLayoutBadge />}
-    </div>
-  )
+  return <EditorShell />
 }

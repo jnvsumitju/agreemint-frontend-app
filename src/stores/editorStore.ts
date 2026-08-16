@@ -875,6 +875,25 @@ export interface EditorState {
   canEdit: boolean
   setCanEdit: (v: boolean) => void
   /**
+   * True only inside the anonymous "try this template" sandbox
+   * ({@code /try/:slug}). The layout came from a static bundle, the
+   * {@link templateId} is synthetic ({@code try:<slug>}), and there is no
+   * session — so every call that would hit {@code /api/**} must be skipped.
+   *
+   * <p>This needs to be its own flag rather than being inferred from
+   * {@link viewOnly} / {@link canEdit}, because the sandbox is *editable*:
+   * those two say "a designer is working on a real template", which is
+   * exactly the state a try-session imitates. Gating on them would either
+   * lock the sandbox read-only or leak authenticated calls into it.
+   */
+  sandbox: boolean
+  /**
+   * Enter sandbox mode and grant edit rights in a single atomic update.
+   * Must be called *before* {@link loadLayout} — see {@code enterSandbox}
+   * in the store body for why the ordering is load-bearing.
+   */
+  enterSandbox: () => void
+  /**
    * Template-scoped role from {@code /access}: 'ADMIN' | 'DESIGNER' |
    * 'REVIEWER' | 'VIEWER' | null (null until the access call returns).
    * Distinct from the org-wide role in {@code authStore} — a user can be
@@ -1159,6 +1178,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tableCellEdit: null,
   viewOnly: false,
   canEdit: true,
+  sandbox: false,
   role: null as 'ADMIN' | 'DESIGNER' | 'REVIEWER' | 'VIEWER' | null,
   liveMode: false,
   commentingEnabled: true,
@@ -1382,6 +1402,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         // /access fails outright.
         viewOnly: true,
         canEdit: false,
+        // Sandbox is opt-in per mount: `reset()` always lands back on the
+        // authenticated-editor defaults, and only TryTemplateEditor calls
+        // `enterSandbox()` afterwards. Note this is deliberately absent from
+        // `clearEditorUi` — `loadLayout` spreads that, and a sandbox session
+        // loads a layout, so clearing the flag there would drop the visitor
+        // out of sandbox mode the instant their template appeared.
+        sandbox: false,
         role: null,
         liveMode: false,
         commentingEnabled: true,
@@ -2588,6 +2615,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setViewOnly: (v) => set((s) => ({ viewOnly: s.canEdit ? v : true })),
   setCanEdit: (v) => set({ canEdit: v }),
+
+  /**
+   * Anonymous try-a-template sessions enter here.
+   *
+   * <p>One `set`, not several, for two reasons. `setViewOnly` is a no-op
+   * unless `canEdit` is already true (see just above), so calling the two
+   * setters in the wrong order silently leaves the visitor read-only — a
+   * trap worth removing rather than documenting. And two sequential updates
+   * would render an intermediate `canEdit: true, viewOnly: true` frame, which
+   * is the exact combination that shows the Editing/View-only toggle, so the
+   * toolbar would flash a control that then disappears.
+   *
+   * <p>Call this *before* `loadLayout`. That action spreads `clearEditorUi`
+   * (fail-closed) and then re-applies the *current* `viewOnly`/`canEdit`/
+   * `role`, so it preserves whatever was true when it ran — permissions set
+   * afterwards are fine, but permissions set before are what survive the load.
+   *
+   * <p>`role` stays null on purpose: `CollabConnectionIndicator` hides itself
+   * on a null role and `ReviewerLiveToggle` hides itself on `canEdit`, so two
+   * pieces of session-only chrome stay out of the sandbox for free.
+   */
+  enterSandbox: () =>
+    set({
+      sandbox: true,
+      canEdit: true,
+      viewOnly: false,
+      role: null,
+      liveMode: false,
+      commentingEnabled: true,
+    }),
   setRole: (r) => set({ role: r }),
   setLiveMode: (v) => set({ liveMode: v }),
 

@@ -92,14 +92,35 @@ export function clearYFragmentsForElements(elementIds: readonly string[]): void 
   })
 }
 
+export interface ConnectYDocOptions {
+  /**
+   * Wire the doc to STOMP. Default true.
+   *
+   * <p>Pass `false` for the anonymous try-a-template sandbox, which has no
+   * session and therefore no websocket. Registering the transport anyway is
+   * *nearly* harmless — every send is already a guarded no-op while
+   * `currentClient` is null — but the 60s compaction timer would keep
+   * re-encoding the whole document forever to feed that no-op, which on a
+   * tab left open all day is real CPU spent on nothing.
+   *
+   * <p>What this flag never skips is creating the doc and assigning `active`.
+   * That part is mandatory even offline: `getYDoc` mints a *fresh* `Y.Doc` on
+   * every call while `active` is null, and `EditorCanvas` calls `getYFragment`
+   * during render — so with no active provider each render yields a new
+   * fragment identity, TipTap's `extensions` memo invalidates, and `useEditor`
+   * tears down and rebuilds the editor on every keystroke.
+   */
+  transport?: boolean
+}
+
 /**
- * Bind the Y.Doc to the STOMP transport.
+ * Create the session's Y.Doc, and (by default) bind it to the STOMP transport.
  *
  * Call once per editor session, after bindCollabBus has connected. Registers
  * inbound update/state listeners, observes local Y.Doc updates and pushes them
  * over STOMP, and schedules periodic compaction.
  */
-export function connectYDoc(templateId: string): Y.Doc {
+export function connectYDoc(templateId: string, opts?: ConnectYDocOptions): Y.Doc {
   if (active?.templateId === templateId) return active.doc
 
   if (active) {
@@ -107,6 +128,20 @@ export function connectYDoc(templateId: string): Y.Doc {
   }
 
   const doc = new Y.Doc()
+
+  if (opts?.transport === false) {
+    // Local-only: the doc exists and is `active`, so fragment identity is
+    // stable across renders, but nothing is sent, received or scheduled.
+    active = {
+      templateId,
+      doc,
+      teardown: () => {
+        try { doc.destroy() } catch { /* ignore */ }
+      },
+    }
+    return doc
+  }
+
   const myUserId = ownUserId()
 
   // ── Outbound: local Y.Doc mutations → STOMP update broadcast ───────────────

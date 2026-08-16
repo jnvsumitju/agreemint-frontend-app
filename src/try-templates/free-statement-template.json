@@ -1,0 +1,1295 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [
+      {
+        "key": "transactions"
+      }
+    ],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 3,
+        "height": 34,
+        "style": {
+          "backgroundColor": "#4338ca"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 56,
+        "y": 44,
+        "width": 250,
+        "height": 20,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 16,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 56,
+        "y": 64,
+        "width": 270,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4
+        }
+      },
+      {
+        "id": "t004",
+        "type": "TEXT",
+        "x": 321,
+        "y": 42,
+        "width": 230,
+        "height": 26,
+        "content": "STATEMENT",
+        "style": {
+          "fontSize": 22,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 321,
+        "y": 72,
+        "width": 110,
+        "height": 12,
+        "content": "Statement no.",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 435,
+        "y": 72,
+        "width": 116,
+        "height": 12,
+        "content": "STM-2026-08-0184",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 321,
+        "y": 85,
+        "width": 110,
+        "height": 12,
+        "content": "Period",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 435,
+        "y": 85,
+        "width": 116,
+        "height": 12,
+        "content": "01 Jul – 31 Jul 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t009",
+        "type": "TEXT",
+        "x": 321,
+        "y": 98,
+        "width": 110,
+        "height": 12,
+        "content": "Issued",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 435,
+        "y": 98,
+        "width": 116,
+        "height": 12,
+        "content": "01 August 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l011",
+        "type": "LINE",
+        "x": 44,
+        "y": 121,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 44,
+        "y": 139,
+        "width": 230,
+        "height": 12,
+        "content": "ACCOUNT",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 152,
+        "width": 230,
+        "height": 16,
+        "content": "Halcyon Design Studio",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 169,
+        "width": 230,
+        "height": 46,
+        "content": "22 Residency Road, Bengaluru 560025\nAccount NW-CUST-01184",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "r015",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 217,
+        "width": 507,
+        "height": 30,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 4
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 54,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "OPENING BALANCE",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t017",
+        "type": "TEXT",
+        "x": 54,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "₹86,400.00",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t018",
+        "type": "TEXT",
+        "x": 223,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "PAYMENTS RECEIVED",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t019",
+        "type": "TEXT",
+        "x": 223,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "₹1,41,600.00",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t020",
+        "type": "TEXT",
+        "x": 392,
+        "y": 224,
+        "width": 157,
+        "height": 12,
+        "content": "CLOSING BALANCE",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 392,
+        "y": 234,
+        "width": 157,
+        "height": 12,
+        "content": "₹94,340.00",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "tb022",
+        "type": "TABLE",
+        "x": 44,
+        "y": 265,
+        "width": 507,
+        "height": 158,
+        "columns": [
+          {
+            "header": "Date",
+            "key": "date"
+          },
+          {
+            "header": "Reference",
+            "key": "reference"
+          },
+          {
+            "header": "Description",
+            "key": "description"
+          },
+          {
+            "header": "Debit",
+            "key": "debit"
+          },
+          {
+            "header": "Credit",
+            "key": "credit"
+          },
+          {
+            "header": "Balance",
+            "key": "balance"
+          }
+        ],
+        "columnWidths": [
+          1,
+          1.2,
+          2.4,
+          1,
+          1,
+          1.1
+        ],
+        "dataKey": "transactions",
+        "tablePreviewBodyRows": 6,
+        "tableRowBackgrounds": {
+          "-1": "#f8fafc"
+        },
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#374151"
+        }
+      },
+      {
+        "id": "t023",
+        "type": "TEXT",
+        "x": 309,
+        "y": 441,
+        "width": 145,
+        "height": 14,
+        "content": "Current",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t024",
+        "type": "TEXT",
+        "x": 446,
+        "y": 441,
+        "width": 97,
+        "height": 14,
+        "content": "₹94,340.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t025",
+        "type": "TEXT",
+        "x": 309,
+        "y": 457,
+        "width": 145,
+        "height": 14,
+        "content": "31–60 days",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t026",
+        "type": "TEXT",
+        "x": 446,
+        "y": 457,
+        "width": 97,
+        "height": 14,
+        "content": "₹0.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t027",
+        "type": "TEXT",
+        "x": 309,
+        "y": 473,
+        "width": 145,
+        "height": 14,
+        "content": "61–90 days",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t028",
+        "type": "TEXT",
+        "x": 446,
+        "y": 473,
+        "width": 97,
+        "height": 14,
+        "content": "₹0.00",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": false,
+          "align": "right"
+        }
+      },
+      {
+        "id": "r029",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 301,
+        "y": 485,
+        "width": 250,
+        "height": 22,
+        "style": {
+          "backgroundColor": "#f8fafc",
+          "borderRadius": 3
+        }
+      },
+      {
+        "id": "t030",
+        "type": "TEXT",
+        "x": 309,
+        "y": 489,
+        "width": 145,
+        "height": 14,
+        "content": "Amount due",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t031",
+        "type": "TEXT",
+        "x": 446,
+        "y": 489,
+        "width": 97,
+        "height": 14,
+        "content": "₹94,340.00",
+        "style": {
+          "fontSize": 11,
+          "fontFamily": "JetBrains Mono",
+          "color": "#4338ca",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t032",
+        "type": "TEXT",
+        "x": 44,
+        "y": 531,
+        "width": 250,
+        "height": 12,
+        "content": "REMITTANCE",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t033",
+        "type": "TEXT",
+        "x": 44,
+        "y": 544,
+        "width": 250,
+        "height": 58,
+        "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "l034",
+        "type": "LINE",
+        "x": 311,
+        "y": 565,
+        "width": 240,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#9ca3af"
+        }
+      },
+      {
+        "id": "t035",
+        "type": "TEXT",
+        "x": 311,
+        "y": 571,
+        "width": 240,
+        "height": 14,
+        "content": "Ananya Rao",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t036",
+        "type": "TEXT",
+        "x": 311,
+        "y": 585,
+        "width": 240,
+        "height": 24,
+        "content": "Accounts receivable, Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.35,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l037",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t038",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "Please report any discrepancy within 15 days of the statement date.",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 3,
+            "height": 34,
+            "style": {
+              "backgroundColor": "#4338ca"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 56,
+            "y": 44,
+            "width": 250,
+            "height": 20,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 16,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 56,
+            "y": 64,
+            "width": 270,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4
+            }
+          },
+          {
+            "id": "t004",
+            "type": "TEXT",
+            "x": 321,
+            "y": 42,
+            "width": 230,
+            "height": 26,
+            "content": "STATEMENT",
+            "style": {
+              "fontSize": 22,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 321,
+            "y": 72,
+            "width": 110,
+            "height": 12,
+            "content": "Statement no.",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 435,
+            "y": 72,
+            "width": 116,
+            "height": 12,
+            "content": "STM-2026-08-0184",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 321,
+            "y": 85,
+            "width": 110,
+            "height": 12,
+            "content": "Period",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 435,
+            "y": 85,
+            "width": 116,
+            "height": 12,
+            "content": "01 Jul – 31 Jul 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t009",
+            "type": "TEXT",
+            "x": 321,
+            "y": 98,
+            "width": 110,
+            "height": 12,
+            "content": "Issued",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 435,
+            "y": 98,
+            "width": 116,
+            "height": 12,
+            "content": "01 August 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l011",
+            "type": "LINE",
+            "x": 44,
+            "y": 121,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 44,
+            "y": 139,
+            "width": 230,
+            "height": 12,
+            "content": "ACCOUNT",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 152,
+            "width": 230,
+            "height": 16,
+            "content": "Halcyon Design Studio",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 169,
+            "width": 230,
+            "height": 46,
+            "content": "22 Residency Road, Bengaluru 560025\nAccount NW-CUST-01184",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "r015",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 217,
+            "width": 507,
+            "height": 30,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 4
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 54,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "OPENING BALANCE",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t017",
+            "type": "TEXT",
+            "x": 54,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "₹86,400.00",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t018",
+            "type": "TEXT",
+            "x": 223,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "PAYMENTS RECEIVED",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t019",
+            "type": "TEXT",
+            "x": 223,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "₹1,41,600.00",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t020",
+            "type": "TEXT",
+            "x": 392,
+            "y": 224,
+            "width": 157,
+            "height": 12,
+            "content": "CLOSING BALANCE",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 392,
+            "y": 234,
+            "width": 157,
+            "height": 12,
+            "content": "₹94,340.00",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "tb022",
+            "type": "TABLE",
+            "x": 44,
+            "y": 265,
+            "width": 507,
+            "height": 158,
+            "columns": [
+              {
+                "header": "Date",
+                "key": "date"
+              },
+              {
+                "header": "Reference",
+                "key": "reference"
+              },
+              {
+                "header": "Description",
+                "key": "description"
+              },
+              {
+                "header": "Debit",
+                "key": "debit"
+              },
+              {
+                "header": "Credit",
+                "key": "credit"
+              },
+              {
+                "header": "Balance",
+                "key": "balance"
+              }
+            ],
+            "columnWidths": [
+              1,
+              1.2,
+              2.4,
+              1,
+              1,
+              1.1
+            ],
+            "dataKey": "transactions",
+            "tablePreviewBodyRows": 6,
+            "tableRowBackgrounds": {
+              "-1": "#f8fafc"
+            },
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#374151"
+            }
+          },
+          {
+            "id": "t023",
+            "type": "TEXT",
+            "x": 309,
+            "y": 441,
+            "width": 145,
+            "height": 14,
+            "content": "Current",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t024",
+            "type": "TEXT",
+            "x": 446,
+            "y": 441,
+            "width": 97,
+            "height": 14,
+            "content": "₹94,340.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t025",
+            "type": "TEXT",
+            "x": 309,
+            "y": 457,
+            "width": 145,
+            "height": 14,
+            "content": "31–60 days",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t026",
+            "type": "TEXT",
+            "x": 446,
+            "y": 457,
+            "width": 97,
+            "height": 14,
+            "content": "₹0.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t027",
+            "type": "TEXT",
+            "x": 309,
+            "y": 473,
+            "width": 145,
+            "height": 14,
+            "content": "61–90 days",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t028",
+            "type": "TEXT",
+            "x": 446,
+            "y": 473,
+            "width": 97,
+            "height": 14,
+            "content": "₹0.00",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": false,
+              "align": "right"
+            }
+          },
+          {
+            "id": "r029",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 301,
+            "y": 485,
+            "width": 250,
+            "height": 22,
+            "style": {
+              "backgroundColor": "#f8fafc",
+              "borderRadius": 3
+            }
+          },
+          {
+            "id": "t030",
+            "type": "TEXT",
+            "x": 309,
+            "y": 489,
+            "width": 145,
+            "height": 14,
+            "content": "Amount due",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t031",
+            "type": "TEXT",
+            "x": 446,
+            "y": 489,
+            "width": 97,
+            "height": 14,
+            "content": "₹94,340.00",
+            "style": {
+              "fontSize": 11,
+              "fontFamily": "JetBrains Mono",
+              "color": "#4338ca",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t032",
+            "type": "TEXT",
+            "x": 44,
+            "y": 531,
+            "width": 250,
+            "height": 12,
+            "content": "REMITTANCE",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t033",
+            "type": "TEXT",
+            "x": 44,
+            "y": 544,
+            "width": 250,
+            "height": 58,
+            "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "l034",
+            "type": "LINE",
+            "x": 311,
+            "y": 565,
+            "width": 240,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#9ca3af"
+            }
+          },
+          {
+            "id": "t035",
+            "type": "TEXT",
+            "x": 311,
+            "y": 571,
+            "width": 240,
+            "height": 14,
+            "content": "Ananya Rao",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t036",
+            "type": "TEXT",
+            "x": 311,
+            "y": 585,
+            "width": 240,
+            "height": 24,
+            "content": "Accounts receivable, Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.35,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l037",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t038",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "Please report any discrepancy within 15 days of the statement date.",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {
+    "transactions": "[{\"date\":\"01 Jul\",\"reference\":\"—\",\"description\":\"Opening balance\",\"debit\":\"\",\"credit\":\"\",\"balance\":\"₹86,400.00\"},{\"date\":\"04 Jul\",\"reference\":\"INV-0177\",\"description\":\"Design retainer — July\",\"debit\":\"₹59,000.00\",\"credit\":\"\",\"balance\":\"₹1,45,400.00\"},{\"date\":\"12 Jul\",\"reference\":\"RCP-0388\",\"description\":\"Payment received — NEFT\",\"debit\":\"\",\"credit\":\"₹86,400.00\",\"balance\":\"₹59,000.00\"},{\"date\":\"18 Jul\",\"reference\":\"INV-0181\",\"description\":\"Print collateral adaptation\",\"debit\":\"₹35,340.00\",\"credit\":\"\",\"balance\":\"₹94,340.00\"},{\"date\":\"26 Jul\",\"reference\":\"CN-0044\",\"description\":\"Credit note — reprint allowance\",\"debit\":\"\",\"credit\":\"₹0.00\",\"balance\":\"₹94,340.00\"},{\"date\":\"31 Jul\",\"reference\":\"—\",\"description\":\"Closing balance\",\"debit\":\"\",\"credit\":\"\",\"balance\":\"₹94,340.00\"}]"
+  },
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}

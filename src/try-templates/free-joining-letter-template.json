@@ -1,0 +1,787 @@
+{
+  "__agreemint_template__": true,
+  "version": 2,
+  "layout": {
+    "page": {
+      "size": "A4",
+      "margin": 44,
+      "margins": {
+        "top": 44,
+        "right": 44,
+        "bottom": 44,
+        "left": 44
+      },
+      "orientation": "portrait"
+    },
+    "layoutSchemaVersion": 2,
+    "globalVariables": [],
+    "elements": [
+      {
+        "id": "r001",
+        "type": "POLYGON",
+        "polygonKind": "rect",
+        "x": 44,
+        "y": 44,
+        "width": 3,
+        "height": 34,
+        "style": {
+          "backgroundColor": "#0f766e"
+        }
+      },
+      {
+        "id": "t002",
+        "type": "TEXT",
+        "x": 56,
+        "y": 44,
+        "width": 250,
+        "height": 20,
+        "content": "Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 16,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t003",
+        "type": "TEXT",
+        "x": 56,
+        "y": 64,
+        "width": 270,
+        "height": 46,
+        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4
+        }
+      },
+      {
+        "id": "t004",
+        "type": "TEXT",
+        "x": 321,
+        "y": 42,
+        "width": 230,
+        "height": 26,
+        "content": "JOINING",
+        "style": {
+          "fontSize": 22,
+          "fontFamily": "Inter",
+          "color": "#0f766e",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t005",
+        "type": "TEXT",
+        "x": 321,
+        "y": 72,
+        "width": 110,
+        "height": 12,
+        "content": "Reference",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t006",
+        "type": "TEXT",
+        "x": 435,
+        "y": 72,
+        "width": 116,
+        "height": 12,
+        "content": "NW/HR/JOIN/2026/0231",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t007",
+        "type": "TEXT",
+        "x": 321,
+        "y": 85,
+        "width": 110,
+        "height": 12,
+        "content": "Date",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "t008",
+        "type": "TEXT",
+        "x": 435,
+        "y": 85,
+        "width": 116,
+        "height": 12,
+        "content": "15 September 2026",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "JetBrains Mono",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "align": "right"
+        }
+      },
+      {
+        "id": "l009",
+        "type": "LINE",
+        "x": 44,
+        "y": 116,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t010",
+        "type": "TEXT",
+        "x": 44,
+        "y": 134,
+        "width": 507,
+        "height": 14,
+        "content": "15 September 2026",
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "t011",
+        "type": "TEXT",
+        "x": 44,
+        "y": 158,
+        "width": 507,
+        "height": 16,
+        "content": "Ms Priya Nair",
+        "style": {
+          "fontSize": 11.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t012",
+        "type": "TEXT",
+        "x": 44,
+        "y": 175,
+        "width": 507,
+        "height": 34,
+        "content": "18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038",
+        "style": {
+          "fontSize": 9,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t013",
+        "type": "TEXT",
+        "x": 44,
+        "y": 218,
+        "width": 507,
+        "height": 16,
+        "content": "Subject: Confirmation of joining — Senior Operations Analyst",
+        "style": {
+          "fontSize": 10.5,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "t014",
+        "type": "TEXT",
+        "x": 44,
+        "y": 242,
+        "width": 507,
+        "height": 16,
+        "content": "Dear Priya,",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "t015",
+        "type": "TEXT",
+        "x": 44,
+        "y": 264,
+        "width": 507,
+        "height": 52,
+        "content": "This letter confirms that you have joined Northwind Traders Pvt Ltd as Senior Operations Analyst in the Supply Chain department with effect from 15 September 2026. Your employee identification number is NW-2291.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t016",
+        "type": "TEXT",
+        "x": 44,
+        "y": 328,
+        "width": 507,
+        "height": 56,
+        "content": "You will report to the Head of Supply Chain and will be based at our Bengaluru office. Your terms of employment are as set out in your offer letter dated 16 August 2026, which forms part of your contract with the company.",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Source Serif 4",
+          "color": "#374151",
+          "lineHeight": 1.6
+        }
+      },
+      {
+        "id": "t017",
+        "type": "TEXT",
+        "x": 44,
+        "y": 396,
+        "width": 507,
+        "height": 12,
+        "content": "PLEASE COMPLETE BEFORE 22 September 2026",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#0f766e",
+          "lineHeight": 1.45,
+          "bold": true
+        }
+      },
+      {
+        "id": "li018",
+        "type": "LIST",
+        "x": 48,
+        "y": 411,
+        "width": 499,
+        "height": 88,
+        "listStyle": "disc",
+        "listItems": [
+          {
+            "text": "Submit original academic and experience certificates for verification."
+          },
+          {
+            "text": "Complete the payroll, provident fund and insurance enrolment forms."
+          },
+          {
+            "text": "Acknowledge the employee handbook and information security policy."
+          },
+          {
+            "text": "Provide two references we have not previously contacted."
+          }
+        ],
+        "listItemSpacing": 7,
+        "listIndent": 20,
+        "style": {
+          "fontSize": 9.5,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.5
+        }
+      },
+      {
+        "id": "t019",
+        "type": "TEXT",
+        "x": 44,
+        "y": 515,
+        "width": 507,
+        "height": 16,
+        "content": "We are glad to have you with us and look forward to working together.\n\nYours sincerely,",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#374151",
+          "lineHeight": 1.45
+        }
+      },
+      {
+        "id": "l020",
+        "type": "LINE",
+        "x": 44,
+        "y": 561,
+        "width": 200,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#9ca3af"
+        }
+      },
+      {
+        "id": "t021",
+        "type": "TEXT",
+        "x": 44,
+        "y": 567,
+        "width": 200,
+        "height": 14,
+        "content": "Devika Menon",
+        "style": {
+          "fontSize": 10,
+          "fontFamily": "Inter",
+          "color": "#111827",
+          "lineHeight": 1.45,
+          "bold": true,
+          "align": "left"
+        }
+      },
+      {
+        "id": "t022",
+        "type": "TEXT",
+        "x": 44,
+        "y": 581,
+        "width": 200,
+        "height": 24,
+        "content": "Head of People, Northwind Traders Pvt Ltd",
+        "style": {
+          "fontSize": 8.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.35,
+          "align": "left"
+        }
+      },
+      {
+        "id": "l023",
+        "type": "LINE",
+        "x": 44,
+        "y": 768,
+        "width": 507,
+        "height": 0,
+        "strokeWidth": 1,
+        "style": {
+          "color": "#e5e7eb"
+        }
+      },
+      {
+        "id": "t024",
+        "type": "TEXT",
+        "x": 44,
+        "y": 776,
+        "width": 507,
+        "height": 22,
+        "content": "Northwind Traders Pvt Ltd · 4th Floor, Prestige Corner, MG Road, Bengaluru 560001 · people@northwind.example · +91 80 4123 7788",
+        "style": {
+          "fontSize": 7.5,
+          "fontFamily": "Inter",
+          "color": "#6b7280",
+          "lineHeight": 1.4,
+          "align": "center"
+        }
+      }
+    ],
+    "pages": [
+      {
+        "id": "page_1",
+        "name": "Page 1",
+        "elements": [
+          {
+            "id": "r001",
+            "type": "POLYGON",
+            "polygonKind": "rect",
+            "x": 44,
+            "y": 44,
+            "width": 3,
+            "height": 34,
+            "style": {
+              "backgroundColor": "#0f766e"
+            }
+          },
+          {
+            "id": "t002",
+            "type": "TEXT",
+            "x": 56,
+            "y": 44,
+            "width": 250,
+            "height": 20,
+            "content": "Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 16,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t003",
+            "type": "TEXT",
+            "x": 56,
+            "y": 64,
+            "width": 270,
+            "height": 46,
+            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4
+            }
+          },
+          {
+            "id": "t004",
+            "type": "TEXT",
+            "x": 321,
+            "y": 42,
+            "width": 230,
+            "height": 26,
+            "content": "JOINING",
+            "style": {
+              "fontSize": 22,
+              "fontFamily": "Inter",
+              "color": "#0f766e",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t005",
+            "type": "TEXT",
+            "x": 321,
+            "y": 72,
+            "width": 110,
+            "height": 12,
+            "content": "Reference",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t006",
+            "type": "TEXT",
+            "x": 435,
+            "y": 72,
+            "width": 116,
+            "height": 12,
+            "content": "NW/HR/JOIN/2026/0231",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t007",
+            "type": "TEXT",
+            "x": 321,
+            "y": 85,
+            "width": 110,
+            "height": 12,
+            "content": "Date",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "t008",
+            "type": "TEXT",
+            "x": 435,
+            "y": 85,
+            "width": 116,
+            "height": 12,
+            "content": "15 September 2026",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "JetBrains Mono",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "align": "right"
+            }
+          },
+          {
+            "id": "l009",
+            "type": "LINE",
+            "x": 44,
+            "y": 116,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t010",
+            "type": "TEXT",
+            "x": 44,
+            "y": 134,
+            "width": 507,
+            "height": 14,
+            "content": "15 September 2026",
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "t011",
+            "type": "TEXT",
+            "x": 44,
+            "y": 158,
+            "width": 507,
+            "height": 16,
+            "content": "Ms Priya Nair",
+            "style": {
+              "fontSize": 11.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t012",
+            "type": "TEXT",
+            "x": 44,
+            "y": 175,
+            "width": 507,
+            "height": 34,
+            "content": "18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038",
+            "style": {
+              "fontSize": 9,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t013",
+            "type": "TEXT",
+            "x": 44,
+            "y": 218,
+            "width": 507,
+            "height": 16,
+            "content": "Subject: Confirmation of joining — Senior Operations Analyst",
+            "style": {
+              "fontSize": 10.5,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "t014",
+            "type": "TEXT",
+            "x": 44,
+            "y": 242,
+            "width": 507,
+            "height": 16,
+            "content": "Dear Priya,",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "t015",
+            "type": "TEXT",
+            "x": 44,
+            "y": 264,
+            "width": 507,
+            "height": 52,
+            "content": "This letter confirms that you have joined Northwind Traders Pvt Ltd as Senior Operations Analyst in the Supply Chain department with effect from 15 September 2026. Your employee identification number is NW-2291.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t016",
+            "type": "TEXT",
+            "x": 44,
+            "y": 328,
+            "width": 507,
+            "height": 56,
+            "content": "You will report to the Head of Supply Chain and will be based at our Bengaluru office. Your terms of employment are as set out in your offer letter dated 16 August 2026, which forms part of your contract with the company.",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Source Serif 4",
+              "color": "#374151",
+              "lineHeight": 1.6
+            }
+          },
+          {
+            "id": "t017",
+            "type": "TEXT",
+            "x": 44,
+            "y": 396,
+            "width": 507,
+            "height": 12,
+            "content": "PLEASE COMPLETE BEFORE 22 September 2026",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#0f766e",
+              "lineHeight": 1.45,
+              "bold": true
+            }
+          },
+          {
+            "id": "li018",
+            "type": "LIST",
+            "x": 48,
+            "y": 411,
+            "width": 499,
+            "height": 88,
+            "listStyle": "disc",
+            "listItems": [
+              {
+                "text": "Submit original academic and experience certificates for verification."
+              },
+              {
+                "text": "Complete the payroll, provident fund and insurance enrolment forms."
+              },
+              {
+                "text": "Acknowledge the employee handbook and information security policy."
+              },
+              {
+                "text": "Provide two references we have not previously contacted."
+              }
+            ],
+            "listItemSpacing": 7,
+            "listIndent": 20,
+            "style": {
+              "fontSize": 9.5,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.5
+            }
+          },
+          {
+            "id": "t019",
+            "type": "TEXT",
+            "x": 44,
+            "y": 515,
+            "width": 507,
+            "height": 16,
+            "content": "We are glad to have you with us and look forward to working together.\n\nYours sincerely,",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#374151",
+              "lineHeight": 1.45
+            }
+          },
+          {
+            "id": "l020",
+            "type": "LINE",
+            "x": 44,
+            "y": 561,
+            "width": 200,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#9ca3af"
+            }
+          },
+          {
+            "id": "t021",
+            "type": "TEXT",
+            "x": 44,
+            "y": 567,
+            "width": 200,
+            "height": 14,
+            "content": "Devika Menon",
+            "style": {
+              "fontSize": 10,
+              "fontFamily": "Inter",
+              "color": "#111827",
+              "lineHeight": 1.45,
+              "bold": true,
+              "align": "left"
+            }
+          },
+          {
+            "id": "t022",
+            "type": "TEXT",
+            "x": 44,
+            "y": 581,
+            "width": 200,
+            "height": 24,
+            "content": "Head of People, Northwind Traders Pvt Ltd",
+            "style": {
+              "fontSize": 8.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.35,
+              "align": "left"
+            }
+          },
+          {
+            "id": "l023",
+            "type": "LINE",
+            "x": 44,
+            "y": 768,
+            "width": 507,
+            "height": 0,
+            "strokeWidth": 1,
+            "style": {
+              "color": "#e5e7eb"
+            }
+          },
+          {
+            "id": "t024",
+            "type": "TEXT",
+            "x": 44,
+            "y": 776,
+            "width": 507,
+            "height": 22,
+            "content": "Northwind Traders Pvt Ltd · 4th Floor, Prestige Corner, MG Road, Bengaluru 560001 · people@northwind.example · +91 80 4123 7788",
+            "style": {
+              "fontSize": 7.5,
+              "fontFamily": "Inter",
+              "color": "#6b7280",
+              "lineHeight": 1.4,
+              "align": "center"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "variableValues": {},
+  "exportedAt": "2026-08-16T00:00:00.000Z"
+}
