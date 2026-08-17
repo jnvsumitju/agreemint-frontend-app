@@ -14,7 +14,56 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.name"
+      },
+      {
+        "key": "employment.designation"
+      },
+      {
+        "key": "employment.from"
+      },
+      {
+        "key": "employment.last_working_day"
+      },
+      {
+        "key": "letter.date"
+      },
+      {
+        "key": "letter.reference"
+      },
+      {
+        "key": "recipient.address"
+      },
+      {
+        "key": "recipient.first_name"
+      },
+      {
+        "key": "recipient.name"
+      },
+      {
+        "key": "resignation.date"
+      },
+      {
+        "key": "settlement.amount"
+      },
+      {
+        "key": "settlement.date"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "signatory.title"
+      }
+    ],
     "elements": [
       {
         "id": "r001",
@@ -35,7 +84,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -51,7 +100,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -99,7 +148,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "NW/HR/REL/2026/0091",
+        "content": "{{letter.reference}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -131,7 +180,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "01 August 2026",
+        "content": "{{letter.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -159,7 +208,7 @@
         "y": 134,
         "width": 507,
         "height": 14,
-        "content": "01 August 2026",
+        "content": "{{letter.date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -174,7 +223,7 @@
         "y": 158,
         "width": 507,
         "height": 16,
-        "content": "Mr Arjun Desai",
+        "content": "{{recipient.name}}",
         "style": {
           "fontSize": 11.5,
           "fontFamily": "Inter",
@@ -190,7 +239,7 @@
         "y": 175,
         "width": 507,
         "height": 34,
-        "content": "7 Brookefield Road, Bengaluru 560037",
+        "content": "{{recipient.address}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -221,7 +270,7 @@
         "y": 242,
         "width": 507,
         "height": 16,
-        "content": "Dear Arjun,",
+        "content": "Dear {{recipient.first_name}},",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -236,7 +285,7 @@
         "y": 264,
         "width": 507,
         "height": 56,
-        "content": "With reference to your resignation dated 30 May 2026, we confirm that you have been relieved from your duties as Logistics Coordinator at Northwind Traders Pvt Ltd at the close of business on 31 July 2026.",
+        "content": "With reference to your resignation dated {{resignation.date}}, we confirm that you have been relieved from your duties as {{employment.designation}} at {{company.name}} at the close of business on {{employment.last_working_day}}.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -251,7 +300,7 @@
         "y": 332,
         "width": 507,
         "height": 56,
-        "content": "You served the organisation from 04 July 2022 to 31 July 2026. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
+        "content": "You served the organisation from {{employment.from}} to {{employment.last_working_day}}. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -266,7 +315,7 @@
         "y": 400,
         "width": 507,
         "height": 52,
-        "content": "Your full and final settlement of ₹2,14,380.00 has been processed and will be credited to your registered bank account by 10 August 2026. Form 16 for the relevant financial year will be issued in the usual cycle.",
+        "content": "Your full and final settlement of {{settlement.amount}} has been processed and will be credited to your registered bank account by {{settlement.date}}. Form 16 for the relevant financial year will be issued in the usual cycle.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -281,7 +330,7 @@
         "y": 464,
         "width": 507,
         "height": 16,
-        "content": "We thank you for your contribution and wish you well in your next role.\n\nFor Northwind Traders Pvt Ltd,",
+        "content": "We thank you for your contribution and wish you well in your next role.\n\nFor {{company.name}},",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -308,7 +357,7 @@
         "y": 516,
         "width": 200,
         "height": 14,
-        "content": "Devika Menon",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -325,7 +374,7 @@
         "y": 530,
         "width": 200,
         "height": 24,
-        "content": "Head of People",
+        "content": "{{signatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -387,7 +436,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -403,7 +452,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -451,7 +500,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "NW/HR/REL/2026/0091",
+            "content": "{{letter.reference}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -483,7 +532,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "01 August 2026",
+            "content": "{{letter.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -511,7 +560,7 @@
             "y": 134,
             "width": 507,
             "height": 14,
-            "content": "01 August 2026",
+            "content": "{{letter.date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -526,7 +575,7 @@
             "y": 158,
             "width": 507,
             "height": 16,
-            "content": "Mr Arjun Desai",
+            "content": "{{recipient.name}}",
             "style": {
               "fontSize": 11.5,
               "fontFamily": "Inter",
@@ -542,7 +591,7 @@
             "y": 175,
             "width": 507,
             "height": 34,
-            "content": "7 Brookefield Road, Bengaluru 560037",
+            "content": "{{recipient.address}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -573,7 +622,7 @@
             "y": 242,
             "width": 507,
             "height": 16,
-            "content": "Dear Arjun,",
+            "content": "Dear {{recipient.first_name}},",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -588,7 +637,7 @@
             "y": 264,
             "width": 507,
             "height": 56,
-            "content": "With reference to your resignation dated 30 May 2026, we confirm that you have been relieved from your duties as Logistics Coordinator at Northwind Traders Pvt Ltd at the close of business on 31 July 2026.",
+            "content": "With reference to your resignation dated {{resignation.date}}, we confirm that you have been relieved from your duties as {{employment.designation}} at {{company.name}} at the close of business on {{employment.last_working_day}}.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -603,7 +652,7 @@
             "y": 332,
             "width": 507,
             "height": 56,
-            "content": "You served the organisation from 04 July 2022 to 31 July 2026. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
+            "content": "You served the organisation from {{employment.from}} to {{employment.last_working_day}}. We confirm that you have completed the agreed notice period, returned all company property, and that no dues remain outstanding on either side.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -618,7 +667,7 @@
             "y": 400,
             "width": 507,
             "height": 52,
-            "content": "Your full and final settlement of ₹2,14,380.00 has been processed and will be credited to your registered bank account by 10 August 2026. Form 16 for the relevant financial year will be issued in the usual cycle.",
+            "content": "Your full and final settlement of {{settlement.amount}} has been processed and will be credited to your registered bank account by {{settlement.date}}. Form 16 for the relevant financial year will be issued in the usual cycle.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -633,7 +682,7 @@
             "y": 464,
             "width": 507,
             "height": 16,
-            "content": "We thank you for your contribution and wish you well in your next role.\n\nFor Northwind Traders Pvt Ltd,",
+            "content": "We thank you for your contribution and wish you well in your next role.\n\nFor {{company.name}},",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -660,7 +709,7 @@
             "y": 516,
             "width": 200,
             "height": 14,
-            "content": "Devika Menon",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -677,7 +726,7 @@
             "y": 530,
             "width": 200,
             "height": 24,
-            "content": "Head of People",
+            "content": "{{signatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -718,6 +767,23 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "company.address": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001",
+    "company.contact": "people@northwind.example · +91 80 4123 7788",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "employment.designation": "Logistics Coordinator",
+    "employment.from": "04 July 2022",
+    "employment.last_working_day": "31 July 2026",
+    "letter.date": "01 August 2026",
+    "letter.reference": "NW/HR/REL/2026/0091",
+    "recipient.address": "7 Brookefield Road, Bengaluru 560037",
+    "recipient.first_name": "Arjun",
+    "recipient.name": "Mr Arjun Desai",
+    "resignation.date": "30 May 2026",
+    "settlement.amount": "₹2,14,380.00",
+    "settlement.date": "10 August 2026",
+    "signatory.name": "Devika Menon",
+    "signatory.title": "Head of People"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

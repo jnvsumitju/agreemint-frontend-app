@@ -16,7 +16,43 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "client.name"
+      },
+      {
+        "key": "company.name"
+      },
+      {
         "key": "phases"
+      },
+      {
+        "key": "proposal.approach_one"
+      },
+      {
+        "key": "proposal.approach_three"
+      },
+      {
+        "key": "proposal.approach_two"
+      },
+      {
+        "key": "proposal.author"
+      },
+      {
+        "key": "proposal.date"
+      },
+      {
+        "key": "proposal.number"
+      },
+      {
+        "key": "proposal.problem"
+      },
+      {
+        "key": "proposal.summary"
+      },
+      {
+        "key": "proposal.title"
+      },
+      {
+        "key": "proposal.valid_until"
       }
     ],
     "elements": [
@@ -39,7 +75,7 @@
         "y": 62,
         "width": 507,
         "height": 30,
-        "content": "Warehouse Automation Programme",
+        "content": "{{proposal.title}}",
         "style": {
           "fontSize": 24,
           "fontFamily": "Inter",
@@ -55,7 +91,7 @@
         "y": 94,
         "width": 507,
         "height": 16,
-        "content": "Prepared for Halcyon Design Studio LLP by Northwind Traders Pvt Ltd",
+        "content": "Prepared for {{client.name}} by {{company.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -99,7 +135,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "PRP-2026-0033",
+        "content": "{{proposal.number}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -131,7 +167,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "16 August 2026",
+        "content": "{{proposal.date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -163,7 +199,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "30 September 2026",
+        "content": "{{proposal.valid_until}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -195,7 +231,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "Vikram Shetty",
+        "content": "{{proposal.author}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -211,7 +247,7 @@
         "y": 204,
         "width": 507,
         "height": 46,
-        "content": "This proposal sets out a phased programme to reduce order-to-dispatch time at the Hosur Road facility from an average of 38 hours to under 12, without expanding headcount.",
+        "content": "{{proposal.summary}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -242,7 +278,7 @@
         "y": 282,
         "width": 507,
         "height": 52,
-        "content": "Order picking is currently paper-driven, with three manual handoffs between receipt and dispatch. Each handoff is a point where orders stall, and none of them is instrumented — so the delay is visible only after the fact, in customer complaints.",
+        "content": "{{proposal.problem}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Source Serif 4",
@@ -276,13 +312,13 @@
         "listStyle": "disc",
         "listItems": [
           {
-            "text": "Instrument the existing process first, so improvements can be measured rather than assumed."
+            "text": "{{proposal.approach_one}}"
           },
           {
-            "text": "Replace the paper pick list with handheld scanning, removing two of the three handoffs."
+            "text": "{{proposal.approach_two}}"
           },
           {
-            "text": "Introduce wave planning so dispatch cut-offs drive picking priority automatically."
+            "text": "{{proposal.approach_three}}"
           }
         ],
         "listItemSpacing": 7,
@@ -371,7 +407,7 @@
         "y": 776,
         "width": 507,
         "height": 22,
-        "content": "This proposal is confidential and prepared solely for Halcyon Design Studio LLP.",
+        "content": "This proposal is confidential and prepared solely for {{client.name}}.",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -405,7 +441,7 @@
             "y": 62,
             "width": 507,
             "height": 30,
-            "content": "Warehouse Automation Programme",
+            "content": "{{proposal.title}}",
             "style": {
               "fontSize": 24,
               "fontFamily": "Inter",
@@ -421,7 +457,7 @@
             "y": 94,
             "width": 507,
             "height": 16,
-            "content": "Prepared for Halcyon Design Studio LLP by Northwind Traders Pvt Ltd",
+            "content": "Prepared for {{client.name}} by {{company.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -465,7 +501,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "PRP-2026-0033",
+            "content": "{{proposal.number}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -497,7 +533,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "16 August 2026",
+            "content": "{{proposal.date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -529,7 +565,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "30 September 2026",
+            "content": "{{proposal.valid_until}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -561,7 +597,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "Vikram Shetty",
+            "content": "{{proposal.author}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -577,7 +613,7 @@
             "y": 204,
             "width": 507,
             "height": 46,
-            "content": "This proposal sets out a phased programme to reduce order-to-dispatch time at the Hosur Road facility from an average of 38 hours to under 12, without expanding headcount.",
+            "content": "{{proposal.summary}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -608,7 +644,7 @@
             "y": 282,
             "width": 507,
             "height": 52,
-            "content": "Order picking is currently paper-driven, with three manual handoffs between receipt and dispatch. Each handoff is a point where orders stall, and none of them is instrumented — so the delay is visible only after the fact, in customer complaints.",
+            "content": "{{proposal.problem}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Source Serif 4",
@@ -642,13 +678,13 @@
             "listStyle": "disc",
             "listItems": [
               {
-                "text": "Instrument the existing process first, so improvements can be measured rather than assumed."
+                "text": "{{proposal.approach_one}}"
               },
               {
-                "text": "Replace the paper pick list with handheld scanning, removing two of the three handoffs."
+                "text": "{{proposal.approach_two}}"
               },
               {
-                "text": "Introduce wave planning so dispatch cut-offs drive picking priority automatically."
+                "text": "{{proposal.approach_three}}"
               }
             ],
             "listItemSpacing": 7,
@@ -737,7 +773,7 @@
             "y": 776,
             "width": 507,
             "height": 22,
-            "content": "This proposal is confidential and prepared solely for Halcyon Design Studio LLP.",
+            "content": "This proposal is confidential and prepared solely for {{client.name}}.",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -751,7 +787,19 @@
     ]
   },
   "variableValues": {
-    "phases": "[{\"phase\":\"Phase 1\",\"deliverable\":\"Baseline instrumentation and reporting\",\"duration\":\"4 weeks\",\"fee\":\"₹4,20,000\"},{\"phase\":\"Phase 2\",\"deliverable\":\"Handheld scanning rollout and training\",\"duration\":\"8 weeks\",\"fee\":\"₹11,60,000\"},{\"phase\":\"Phase 3\",\"deliverable\":\"Wave planning and dispatch integration\",\"duration\":\"6 weeks\",\"fee\":\"₹7,80,000\"}]"
+    "client.name": "Halcyon Design Studio LLP",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "phases": "[{\"phase\":\"Phase 1\",\"deliverable\":\"Baseline instrumentation and reporting\",\"duration\":\"4 weeks\",\"fee\":\"₹4,20,000\"},{\"phase\":\"Phase 2\",\"deliverable\":\"Handheld scanning rollout and training\",\"duration\":\"8 weeks\",\"fee\":\"₹11,60,000\"},{\"phase\":\"Phase 3\",\"deliverable\":\"Wave planning and dispatch integration\",\"duration\":\"6 weeks\",\"fee\":\"₹7,80,000\"}]",
+    "proposal.approach_one": "Instrument the existing process first, so improvements can be measured rather than assumed.",
+    "proposal.approach_three": "Introduce wave planning so dispatch cut-offs drive picking priority automatically.",
+    "proposal.approach_two": "Replace the paper pick list with handheld scanning, removing two of the three handoffs.",
+    "proposal.author": "Vikram Shetty",
+    "proposal.date": "16 August 2026",
+    "proposal.number": "PRP-2026-0033",
+    "proposal.problem": "Order picking is currently paper-driven, with three manual handoffs between receipt and dispatch. Each handoff is a point where orders stall, and none of them is instrumented — so the delay is visible only after the fact, in customer complaints.",
+    "proposal.summary": "This proposal sets out a phased programme to reduce order-to-dispatch time at the Hosur Road facility from an average of 38 hours to under 12, without expanding headcount.",
+    "proposal.title": "Warehouse Automation Programme",
+    "proposal.valid_until": "30 September 2026"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

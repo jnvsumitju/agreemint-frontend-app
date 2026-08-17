@@ -14,7 +14,62 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.name"
+      },
+      {
+        "key": "employee.id"
+      },
+      {
+        "key": "job.department"
+      },
+      {
+        "key": "job.docs_due"
+      },
+      {
+        "key": "job.joining_date"
+      },
+      {
+        "key": "job.location"
+      },
+      {
+        "key": "job.offer_date"
+      },
+      {
+        "key": "job.reporting_to"
+      },
+      {
+        "key": "job.title"
+      },
+      {
+        "key": "letter.date"
+      },
+      {
+        "key": "letter.reference"
+      },
+      {
+        "key": "recipient.address"
+      },
+      {
+        "key": "recipient.first_name"
+      },
+      {
+        "key": "recipient.name"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "signatory.title"
+      }
+    ],
     "elements": [
       {
         "id": "r001",
@@ -35,7 +90,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -51,7 +106,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -99,7 +154,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "NW/HR/JOIN/2026/0231",
+        "content": "{{letter.reference}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -131,7 +186,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "15 September 2026",
+        "content": "{{letter.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -159,7 +214,7 @@
         "y": 134,
         "width": 507,
         "height": 14,
-        "content": "15 September 2026",
+        "content": "{{letter.date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -174,7 +229,7 @@
         "y": 158,
         "width": 507,
         "height": 16,
-        "content": "Ms Priya Nair",
+        "content": "{{recipient.name}}",
         "style": {
           "fontSize": 11.5,
           "fontFamily": "Inter",
@@ -190,7 +245,7 @@
         "y": 175,
         "width": 507,
         "height": 34,
-        "content": "18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038",
+        "content": "{{recipient.address}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -205,7 +260,7 @@
         "y": 218,
         "width": 507,
         "height": 16,
-        "content": "Subject: Confirmation of joining — Senior Operations Analyst",
+        "content": "Subject: Confirmation of joining — {{job.title}}",
         "style": {
           "fontSize": 10.5,
           "fontFamily": "Inter",
@@ -221,7 +276,7 @@
         "y": 242,
         "width": 507,
         "height": 16,
-        "content": "Dear Priya,",
+        "content": "Dear {{recipient.first_name}},",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -236,7 +291,7 @@
         "y": 264,
         "width": 507,
         "height": 52,
-        "content": "This letter confirms that you have joined Northwind Traders Pvt Ltd as Senior Operations Analyst in the Supply Chain department with effect from 15 September 2026. Your employee identification number is NW-2291.",
+        "content": "This letter confirms that you have joined {{company.name}} as {{job.title}} in the {{job.department}} department with effect from {{job.joining_date}}. Your employee identification number is {{employee.id}}.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -251,7 +306,7 @@
         "y": 328,
         "width": 507,
         "height": 56,
-        "content": "You will report to the Head of Supply Chain and will be based at our Bengaluru office. Your terms of employment are as set out in your offer letter dated 16 August 2026, which forms part of your contract with the company.",
+        "content": "You will report to {{job.reporting_to}} and will be based at our {{job.location}} office. Your terms of employment are as set out in your offer letter dated {{job.offer_date}}, which forms part of your contract with the company.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -266,7 +321,7 @@
         "y": 396,
         "width": 507,
         "height": 12,
-        "content": "PLEASE COMPLETE BEFORE 22 September 2026",
+        "content": "PLEASE COMPLETE BEFORE {{job.docs_due}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -340,7 +395,7 @@
         "y": 567,
         "width": 200,
         "height": 14,
-        "content": "Devika Menon",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -357,7 +412,7 @@
         "y": 581,
         "width": 200,
         "height": 24,
-        "content": "Head of People, Northwind Traders Pvt Ltd",
+        "content": "{{signatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -385,7 +440,7 @@
         "y": 776,
         "width": 507,
         "height": 22,
-        "content": "Northwind Traders Pvt Ltd · 4th Floor, Prestige Corner, MG Road, Bengaluru 560001 · people@northwind.example · +91 80 4123 7788",
+        "content": "{{company.name}} · {{company.address}} · {{company.contact}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -419,7 +474,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -435,7 +490,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npeople@northwind.example · +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -483,7 +538,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "NW/HR/JOIN/2026/0231",
+            "content": "{{letter.reference}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -515,7 +570,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "15 September 2026",
+            "content": "{{letter.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -543,7 +598,7 @@
             "y": 134,
             "width": 507,
             "height": 14,
-            "content": "15 September 2026",
+            "content": "{{letter.date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -558,7 +613,7 @@
             "y": 158,
             "width": 507,
             "height": 16,
-            "content": "Ms Priya Nair",
+            "content": "{{recipient.name}}",
             "style": {
               "fontSize": 11.5,
               "fontFamily": "Inter",
@@ -574,7 +629,7 @@
             "y": 175,
             "width": 507,
             "height": 34,
-            "content": "18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038",
+            "content": "{{recipient.address}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -589,7 +644,7 @@
             "y": 218,
             "width": 507,
             "height": 16,
-            "content": "Subject: Confirmation of joining — Senior Operations Analyst",
+            "content": "Subject: Confirmation of joining — {{job.title}}",
             "style": {
               "fontSize": 10.5,
               "fontFamily": "Inter",
@@ -605,7 +660,7 @@
             "y": 242,
             "width": 507,
             "height": 16,
-            "content": "Dear Priya,",
+            "content": "Dear {{recipient.first_name}},",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -620,7 +675,7 @@
             "y": 264,
             "width": 507,
             "height": 52,
-            "content": "This letter confirms that you have joined Northwind Traders Pvt Ltd as Senior Operations Analyst in the Supply Chain department with effect from 15 September 2026. Your employee identification number is NW-2291.",
+            "content": "This letter confirms that you have joined {{company.name}} as {{job.title}} in the {{job.department}} department with effect from {{job.joining_date}}. Your employee identification number is {{employee.id}}.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -635,7 +690,7 @@
             "y": 328,
             "width": 507,
             "height": 56,
-            "content": "You will report to the Head of Supply Chain and will be based at our Bengaluru office. Your terms of employment are as set out in your offer letter dated 16 August 2026, which forms part of your contract with the company.",
+            "content": "You will report to {{job.reporting_to}} and will be based at our {{job.location}} office. Your terms of employment are as set out in your offer letter dated {{job.offer_date}}, which forms part of your contract with the company.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -650,7 +705,7 @@
             "y": 396,
             "width": 507,
             "height": 12,
-            "content": "PLEASE COMPLETE BEFORE 22 September 2026",
+            "content": "PLEASE COMPLETE BEFORE {{job.docs_due}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -724,7 +779,7 @@
             "y": 567,
             "width": 200,
             "height": 14,
-            "content": "Devika Menon",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -741,7 +796,7 @@
             "y": 581,
             "width": 200,
             "height": 24,
-            "content": "Head of People, Northwind Traders Pvt Ltd",
+            "content": "{{signatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -769,7 +824,7 @@
             "y": 776,
             "width": 507,
             "height": 22,
-            "content": "Northwind Traders Pvt Ltd · 4th Floor, Prestige Corner, MG Road, Bengaluru 560001 · people@northwind.example · +91 80 4123 7788",
+            "content": "{{company.name}} · {{company.address}} · {{company.contact}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -782,6 +837,25 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "company.address": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001",
+    "company.contact": "people@northwind.example · +91 80 4123 7788",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "employee.id": "NW-2291",
+    "job.department": "Supply Chain",
+    "job.docs_due": "22 September 2026",
+    "job.joining_date": "15 September 2026",
+    "job.location": "Bengaluru",
+    "job.offer_date": "16 August 2026",
+    "job.reporting_to": "the Head of Supply Chain",
+    "job.title": "Senior Operations Analyst",
+    "letter.date": "15 September 2026",
+    "letter.reference": "NW/HR/JOIN/2026/0231",
+    "recipient.address": "18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038",
+    "recipient.first_name": "Priya",
+    "recipient.name": "Ms Priya Nair",
+    "signatory.name": "Devika Menon",
+    "signatory.title": "Head of People, Northwind Traders Pvt Ltd"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

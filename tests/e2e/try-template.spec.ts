@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
+import fs from 'node:fs'
+import path from 'node:path'
 
 /**
  * End-to-end cover for the anonymous try-a-template sandbox at `/try/:slug`.
@@ -43,6 +45,41 @@ async function openSandbox(page: Page, slug = SLUG) {
   await expect(page.locator(CANVAS)).toContainText('Northwind Traders', { timeout: 15_000 })
 }
 
+/**
+ * Double-click a canvas text element and replace its content.
+ *
+ * <p>The wait is load-bearing, not defensive. `dblclick` only mounts the TipTap
+ * editor; ProseMirror takes focus a tick later. Keystrokes sent before that go
+ * to the document, so `ControlOrMeta+A` selects nothing and the first character
+ * is swallowed — the observed failure was the original heading still in place
+ * with `lackwood Logistics` appended. It reproduces only under load, which is
+ * exactly the flake that gets re-run until green and then ignored.
+ */
+async function replaceCanvasText(page: Page, current: string, next: string) {
+  const el = page.locator(CANVAS).getByText(current).first()
+  // `force` because the absolutely-positioned element wrapper sits over its own
+  // text node and Playwright's actionability check calls that an interception.
+  // The wrapper carries the dblclick handler, so dispatching there is what a
+  // real double-click does anyway.
+  await el.dblclick({ force: true })
+
+  const surface = page.locator(`${CANVAS} .ProseMirror`).first()
+  await expect(surface).toBeFocused()
+
+  await page.keyboard.press('ControlOrMeta+A')
+  // Deliberately character-by-character with a delay. A single fast fill() would
+  // not exercise what this guards: the editor is rebuilt between keystrokes when
+  // the Y.Doc is unstable, so only sustained typing loses characters.
+  await page.keyboard.type(next, { delay: 30 })
+
+  // Exact text on the editing surface itself, not `toContainText` on the canvas.
+  // The old text appears elsewhere in the invoice (bank details, signatory), so
+  // a canvas-wide check can never go clean; and an exact match is what catches
+  // the swallowed-character case, where the surface reads
+  // `Northwind Traders Pvt Ltdlackwood Logistics` and every "contains" passes.
+  await expect(surface).toHaveText(next)
+}
+
 test.describe('anonymous try-a-template sandbox', () => {
   test('loads a prebuilt template with no account and no API calls', async ({ page }) => {
     const apiCalls = trackApiCalls(page)
@@ -75,19 +112,8 @@ test.describe('anonymous try-a-template sandbox', () => {
     const apiCalls = trackApiCalls(page)
     await openSandbox(page)
 
-    // `force` because the absolutely-positioned element wrapper sits over its
-    // own text node and Playwright's actionability check calls that an
-    // interception. The wrapper is the element that carries the dblclick
-    // handler, so dispatching there is what a real double-click does anyway.
-    const heading = page.locator(CANVAS).getByText('Northwind Traders Pvt Ltd').first()
-    await heading.dblclick({ force: true })
-
     const typed = 'Blackwood Logistics'
-    // Deliberately character-by-character with a delay. A single fast fill()
-    // would not exercise the failure this guards: the editor is rebuilt between
-    // keystrokes, so only sustained typing loses characters.
-    await page.keyboard.press('ControlOrMeta+A')
-    await page.keyboard.type(typed, { delay: 30 })
+    await replaceCanvasText(page, 'Northwind Traders Pvt Ltd', typed)
 
     await expect(page.locator(CANVAS)).toContainText(typed)
     expect(apiCalls, 'editing must not trigger a draft or measurement call').toEqual([])
@@ -96,10 +122,7 @@ test.describe('anonymous try-a-template sandbox', () => {
   test('survives a reload, then Start over restores the original', async ({ page }) => {
     await openSandbox(page)
 
-    const heading = page.locator(CANVAS).getByText('Northwind Traders Pvt Ltd').first()
-    await heading.dblclick({ force: true })
-    await page.keyboard.press('ControlOrMeta+A')
-    await page.keyboard.type('Blackwood Logistics', { delay: 30 })
+    await replaceCanvasText(page, 'Northwind Traders Pvt Ltd', 'Blackwood Logistics')
     await page.locator(CANVAS).click({ position: { x: 5, y: 5 } })
     await expect(page.locator(CANVAS)).toContainText('Blackwood Logistics')
 
@@ -182,38 +205,92 @@ test.describe('anonymous try-a-template sandbox', () => {
     expect(errors).toEqual([])
   })
 
-  test('every catalogue template opens and renders content', async ({ page }) => {
+  test('every catalogue template renders values and exposes its variables', async ({ page }) => {
     // Cheap breadth: one bad bundle takes down one landing page, and there are
-    // twenty of them. The unit tests check the JSON; this checks it survives
-    // the parse → store → canvas path in a real browser.
-    const slugs = [
-      'free-invoice-template',
-      'free-receipt-template',
-      'free-quotation-template',
-      'free-purchase-order-template',
-      'free-offer-letter-template',
-      'free-experience-certificate-template',
-      'free-salary-slip-template',
-      'free-joining-letter-template',
-      'free-relieving-letter-template',
-      'free-course-certificate-template',
-      'free-achievement-certificate-template',
-      'free-marksheet-template',
-      'free-id-card-template',
-      'free-admit-card-template',
-      'free-contract-template',
-      'free-nda-template',
-      'free-business-proposal-template',
-      'free-report-template',
-      'free-statement-template',
-    ]
+    // twenty of them. The unit tests check the JSON; this checks it survives the
+    // parse → store → canvas path in a real browser, for every single one.
+    //
+    // Counts are read from the bundles rather than hardcoded, so adding a
+    // template or a field to one cannot silently fall out of coverage.
+    const here = path.dirname(new URL(import.meta.url).pathname)
+    const dir = path.join(here, '..', '..', 'src', 'try-templates')
 
-    for (const slug of slugs) {
+    const bundles = fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
+        const bundle = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))
+        const raw = JSON.stringify(bundle.layout)
+        // What the *document* uses, not what it declares — the two are only the
+        // same when the bundle is correct, and asserting the panel against the
+        // declaration list alone would be tautological: both come from this file.
+        // The bug this guards against (a generator that inlines values and emits
+        // `globalVariables: []`) leaves a canvas that looks perfect and a Vars
+        // tab that is empty, and a declared-vs-declared check passes on it.
+        const referenced = new Set(
+          [...raw.matchAll(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g)].map((m) => m[1]),
+        )
+        // TABLE/LIST elements bind structurally via `dataKey` rather than a token.
+        for (const m of raw.matchAll(/"dataKey"\s*:\s*"([a-zA-Z0-9_.]+)"/g)) referenced.add(m[1])
+        return {
+          slug: f.replace(/\.json$/, ''),
+          declared: ((bundle.layout.globalVariables ?? []) as { key: string }[]).map((d) => d.key),
+          referenced: [...referenced],
+        }
+      })
+
+    expect(bundles.length, 'expected the full catalogue').toBe(20)
+
+    for (const { slug, declared, referenced } of bundles) {
       await page.goto(`/try/${slug}`)
       const canvas = page.locator(CANVAS)
       await canvas.waitFor({ state: 'visible' })
       await expect(canvas, `${slug} rendered no text`).not.toBeEmpty()
-      await expect(canvas, `${slug} shows an unresolved placeholder`).not.toContainText('{{')
+
+      // With the Values toggle on by default the canvas must read as the
+      // finished document: no raw tokens, and no `Global.Field Name` chips.
+      // Either would mean a visitor's first sight of the product is a wireframe.
+      // (A field whose preview value is blank shows up here too — the chip is
+      // what the canvas falls back to.)
+      await expect(canvas, `${slug} shows an unresolved token`).not.toContainText('{{')
+      await expect(canvas, `${slug} shows a merge-field chip`).not.toContainText('Global.')
+
+      // And the same template, opened in a workspace, has to be a usable
+      // *template* rather than a flattened document. Anchored on the row ids
+      // rather than label text, so a copy change cannot quietly match nothing
+      // and read as a pass.
+      await page.getByRole('tab', { name: 'Vars' }).click()
+      const rows = await page.evaluate(() => {
+        const keyInputs = [
+          ...document.querySelectorAll('input[id^="ag-var-global-"][id$="-key"]'),
+        ] as HTMLInputElement[]
+        return keyInputs.map((keyEl) => {
+          const row = keyEl.closest('li')
+          // Scalar rows render a `-scalar` input; TABLE/LIST-bound rows render a
+          // JSON textarea instead. Both count as carrying a value.
+          const valueEl = row?.querySelector(
+            'input[id$="-scalar"], textarea[id$="-table-json"], textarea[id$="-list-json"]',
+          ) as HTMLInputElement | HTMLTextAreaElement | null
+          return { key: keyEl.value, value: valueEl?.value ?? null }
+        })
+      })
+
+      const shown = rows.map((r) => r.key)
+      expect(referenced.length, `${slug} references no variables at all`).toBeGreaterThan(0)
+
+      // The load-bearing one: every field the document uses is offered for editing.
+      expect(
+        referenced.filter((k) => !shown.includes(k)).sort(),
+        `${slug} uses fields the Vars panel does not list`,
+      ).toEqual([])
+
+      // And the panel survives the parse → store → panel round-trip intact.
+      expect(shown.slice().sort(), `${slug} variable list`).toEqual([...declared].sort())
+
+      expect(
+        rows.filter((r) => r.value === null || r.value.trim() === '').map((r) => r.key),
+        `${slug} has fields with no preview value`,
+      ).toEqual([])
     }
   })
 })

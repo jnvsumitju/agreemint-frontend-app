@@ -2040,59 +2040,37 @@ const TEMPLATES = [
 // ── Emit ─────────────────────────────────────────────────────────────────────
 
 /**
- * Replace every scalar `{{placeholder}}` with its sample value, in place.
+ * Every `{{name}}` the layout references, plus each table's `dataKey`.
  *
- * <p>The archetypes above are written with placeholders because that keeps the
- * layout code readable and keeps one obvious place to change wording. But these
- * twenty templates ship as *landing pages*, and the editor canvas deliberately
- * renders a merge field as a chip carrying the field's name — `Global.Company
- * Name` — rather than its value (`variableMergeFieldSurfaceLabel`,
- * layout-behaviour-resolve). That is the right affordance for an author wiring
- * a template to an API: it shows what is bound. It is the wrong first
- * impression for someone who searched "free GST invoice template" and expects
- * to see an invoice they can type over.
+ * <p>The placeholders stay in the content. An earlier version flattened them to
+ * literal text, because the editor canvas used to render a merge field as its
+ * field-name chip and a page full of `Global.Company Name` reads as a wireframe
+ * rather than a certificate — which is fatal on a public landing page.
  *
- * <p>So scalars are flattened to real text here, and the visitor edits the
- * document directly. Table bodies keep their `dataKey` binding — those already
- * render real sample rows on the canvas, so they demonstrate the data-driven
- * half of the product without any of it looking unfinished.
+ * <p>That is now fixed at the source: the canvas has a Values toggle, on by
+ * default, which renders the preview value instead. So these can be real
+ * templates — a forked invoice has `{{customer.name}}` wired to a field you can
+ * change once — while still looking like finished documents everywhere they are
+ * shown. Flattening them was solving the symptom.
  */
-function inlineScalarValues(elements, values) {
-  const missing = new Set()
-  const substitute = (s) =>
-    s.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*}}/g, (whole, key) => {
-      if (!(key in values)) {
-        missing.add(key)
-        return whole
-      }
-      return values[key]
-    })
-
-  const walk = (node) => {
-    if (Array.isArray(node)) {
-      node.forEach(walk)
-      return
-    }
-    if (!node || typeof node !== 'object') return
-    for (const [k, v] of Object.entries(node)) {
-      // `dataKey` names the table's variable; it is not display text.
-      if (k === 'dataKey') continue
-      if (typeof v === 'string') node[k] = substitute(v)
-      else walk(v)
+function collectVariables(elements) {
+  const found = new Set()
+  const scan = (value) => {
+    if (typeof value === 'string') {
+      for (const m of value.matchAll(/\{\{\s*([a-zA-Z0-9_.]+)\s*}}/g)) found.add(m[1])
+    } else if (Array.isArray(value)) {
+      value.forEach(scan)
+    } else if (value && typeof value === 'object') {
+      Object.values(value).forEach(scan)
     }
   }
-  walk(elements)
-  return missing
-}
-
-/** Variables that survive inlining — the table data keys the layout still binds. */
-function boundVariables(elements) {
-  const found = new Set()
+  scan(elements)
   for (const el of elements) {
     if (el.type === 'TABLE' && el.dataKey) found.add(el.dataKey)
   }
   return [...found].sort()
 }
+
 
 mkdirSync(OUT_DIR, { recursive: true })
 for (const stale of readdirSync(OUT_DIR).filter((f) => f.endsWith('.json'))) {
@@ -2105,17 +2083,20 @@ for (const tpl of TEMPLATES) {
   seq = 0
   const elements = tpl.build()
 
-  const missing = inlineScalarValues(elements, tpl.values)
-  if (missing.size > 0) {
-    // A placeholder with no sample value would render as raw `{{braces}}` on a
-    // public page. Fail loudly rather than shipping it.
-    console.error(`  ✗ ${tpl.slug}: no value for ${[...missing].join(', ')}`)
+  const referenced = collectVariables(elements)
+
+  // Every referenced field must have a preview value. Without one the canvas
+  // falls back to the field-name chip, and the landing page is a wireframe
+  // again — so this is the check that keeps the templates presentable.
+  const missing = referenced.filter((key) => tpl.values[key] === undefined)
+  if (missing.length > 0) {
+    console.error(`  ✗ ${tpl.slug}: no preview value for ${missing.join(', ')}`)
     failed = true
   }
 
-  const bound = boundVariables(elements)
-  const globalVariables = bound.map((key) => ({ key }))
-  const variableValues = Object.fromEntries(bound.map((key) => [key, tpl.values[key]]))
+  const globalVariables = referenced.map((key) => ({ key }))
+  const variableValues = Object.fromEntries(
+    referenced.filter((key) => tpl.values[key] !== undefined).map((key) => [key, tpl.values[key]]))
 
   const layout = {
     page: {
@@ -2139,9 +2120,7 @@ for (const tpl of TEMPLATES) {
   }
 
   writeFileSync(join(OUT_DIR, `${tpl.slug}.json`), `${JSON.stringify(payload, null, 2)}\n`)
-  console.log(
-    `  ${tpl.slug}  ${elements.length} elements, ${globalVariables.length} bound variable(s)`
-  )
+  console.log(`  ${tpl.slug}  ${elements.length} elements, ${globalVariables.length} variables`)
 }
 
 if (failed) {

@@ -52,7 +52,7 @@ import { pmDocToRuns } from '../../lib/tipTapRichBridge'
 import {
   availableVariableMentionsForMentionSuggest,
   resolveVariableChipInfo,
-  variableMergeFieldSurfaceLabel,
+  variableCanvasLabel,
 } from '../../lib/layoutBehaviourResolve'
 import { TipTapRichEditor } from './TipTapRichEditor'
 import { richTextDebugLog } from '../../lib/richTextDebugLog'
@@ -230,10 +230,14 @@ function CanvasElement({
     [globalVariableDefinitions, pages, activePageIndex, variableValues]
   )
 
+  const showVariableValues = useEditorStore((s) => s.showVariableValues)
   const resolveVariableSurfaceLabel = useCallback(
     (name: string) =>
-      variableMergeFieldSurfaceLabel(name, globalVariableDefinitions, pages[activePageIndex]),
-    [globalVariableDefinitions, pages, activePageIndex]
+      variableCanvasLabel(
+        name, globalVariableDefinitions, pages[activePageIndex],
+        variableValues, showVariableValues
+      ),
+    [globalVariableDefinitions, pages, activePageIndex, variableValues, showVariableValues]
   )
 
   /** Raw layout content from the store — not `resolveLayoutElement` output (ellipsis etc. can differ). */
@@ -1523,12 +1527,14 @@ function ShapeSilhouetteOverlay({ el }: { el: LayoutElement }) {
 
 function ElementPreview({ el }: { el: LayoutElement }) {
   const variableValues = useEditorStore((s) => s.variableValues)
+  const showVariableValues = useEditorStore((s) => s.showVariableValues)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const variableSurfaceLabelResolver = useCallback(
-    (n: string) => variableMergeFieldSurfaceLabel(n, globalVariableDefinitions, pages[activePageIndex]),
-    [globalVariableDefinitions, pages, activePageIndex]
+    (n: string) => variableCanvasLabel(
+      n, globalVariableDefinitions, pages[activePageIndex], variableValues, showVariableValues),
+    [globalVariableDefinitions, pages, activePageIndex, variableValues, showVariableValues]
   )
   const fs = el.style?.fontSize ?? 12
   const align = (el.style?.align ?? 'left') as React.CSSProperties['textAlign']

@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { useEditorStore } from '../../stores/editorStore'
 import { Fragment } from 'react'
 import {
   normalizeVariableIdentifier,
@@ -25,6 +26,23 @@ function renderTextWithBreaks(text: string): ReactNode {
 // bold / italic / underline / strikethrough apply to vars too.
 const varChipClass =
   'inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
+
+/**
+ * How a merge field should be decorated.
+ *
+ * <p>With the Values toggle on, the span carries the document's own text, so
+ * the violet pill is actively wrong — twenty of them across a certificate read
+ * as clutter rather than as information, and it is the first thing a visitor
+ * sees on a landing page. Off, the pill is the whole point: it is what tells
+ * you which words are fields.
+ *
+ * <p>So the toggle switches mode rather than just wording. Values on: read the
+ * document. Values off: see the wiring.
+ */
+function useVarChipClass(): string {
+  const showValues = useEditorStore((s) => s.showVariableValues)
+  return showValues ? 'inline' : varChipClass
+}
 
 /** Read-only rich text for canvas / table cells (variables as chips; preview in title). */
 export function RichTextBlockPreview({
@@ -58,6 +76,7 @@ export function RichTextBlockPreview({
   /** Line-height multiplier (e.g. 1.4). */
   lineHeight?: number
 }) {
+  const chipClass = useVarChipClass()
   const runs = parseContentToRuns(content)
   return (
     <div
@@ -109,7 +128,7 @@ export function RichTextBlockPreview({
             backgroundColor: r.highlightColor?.trim() || undefined,
           }
           const chip = (
-            <span className={varChipClass} data-am-var={k} style={chipStyle}>
+            <span className={chipClass} data-am-var={k} style={chipStyle}>
               {label}
             </span>
           )

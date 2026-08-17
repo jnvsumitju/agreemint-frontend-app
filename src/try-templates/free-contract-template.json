@@ -14,7 +14,53 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "agreement.effective_date"
+      },
+      {
+        "key": "agreement.fees"
+      },
+      {
+        "key": "agreement.governing_law"
+      },
+      {
+        "key": "agreement.notice"
+      },
+      {
+        "key": "agreement.number"
+      },
+      {
+        "key": "agreement.scope"
+      },
+      {
+        "key": "agreement.term"
+      },
+      {
+        "key": "party_one.address"
+      },
+      {
+        "key": "party_one.name"
+      },
+      {
+        "key": "party_one.registration"
+      },
+      {
+        "key": "party_one.signatory"
+      },
+      {
+        "key": "party_two.address"
+      },
+      {
+        "key": "party_two.name"
+      },
+      {
+        "key": "party_two.registration"
+      },
+      {
+        "key": "party_two.signatory"
+      }
+    ],
     "elements": [
       {
         "id": "r001",
@@ -95,7 +141,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "AGR-2026-0057",
+        "content": "{{agreement.number}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -127,7 +173,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "01 September 2026",
+        "content": "{{agreement.effective_date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -159,7 +205,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "24 months",
+        "content": "{{agreement.term}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -191,7 +237,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "India",
+        "content": "{{agreement.governing_law}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -223,7 +269,7 @@
         "y": 217,
         "width": 235,
         "height": 16,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{party_one.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -239,7 +285,7 @@
         "y": 234,
         "width": 235,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\nCIN U51909KA2016PTC091822",
+        "content": "{{party_one.address}}\n{{party_one.registration}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -270,7 +316,7 @@
         "y": 217,
         "width": 235,
         "height": 16,
-        "content": "Halcyon Design Studio LLP",
+        "content": "{{party_two.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -286,7 +332,7 @@
         "y": 234,
         "width": 235,
         "height": 46,
-        "content": "22 Residency Road, Bengaluru 560025\nLLPIN AAF-2291",
+        "content": "{{party_two.address}}\n{{party_two.registration}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -317,7 +363,7 @@
         "y": 312,
         "width": 507,
         "height": 46,
-        "content": "The Supplier shall provide warehousing, pick-and-pack fulfilment and last-mile dispatch services for the Customer across the Bengaluru metropolitan area, in accordance with the service levels set out in Schedule A.",
+        "content": "{{agreement.scope}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Source Serif 4",
@@ -348,7 +394,7 @@
         "y": 390,
         "width": 507,
         "height": 40,
-        "content": "Fees are payable monthly in arrears within 30 days of a valid invoice, calculated at the rates set out in Schedule B.",
+        "content": "{{agreement.fees}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Source Serif 4",
@@ -423,7 +469,7 @@
         "y": 559,
         "width": 507,
         "height": 40,
-        "content": "Either party may terminate this agreement on 60 days written notice. Termination does not affect accrued rights or obligations that by their nature survive.",
+        "content": "Either party may terminate this agreement on {{agreement.notice}} written notice. Termination does not affect accrued rights or obligations that by their nature survive.",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Source Serif 4",
@@ -462,7 +508,7 @@
         "y": 698,
         "width": 210,
         "height": 14,
-        "content": "Ananya Rao",
+        "content": "{{party_one.signatory}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -479,7 +525,7 @@
         "y": 712,
         "width": 210,
         "height": 24,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{party_one.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -507,7 +553,7 @@
         "y": 698,
         "width": 210,
         "height": 14,
-        "content": "Meera Krishnan",
+        "content": "{{party_two.signatory}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -524,7 +570,7 @@
         "y": 712,
         "width": 210,
         "height": 24,
-        "content": "Halcyon Design Studio LLP",
+        "content": "{{party_two.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -646,7 +692,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "AGR-2026-0057",
+            "content": "{{agreement.number}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -678,7 +724,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "01 September 2026",
+            "content": "{{agreement.effective_date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -710,7 +756,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "24 months",
+            "content": "{{agreement.term}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -742,7 +788,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "India",
+            "content": "{{agreement.governing_law}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -774,7 +820,7 @@
             "y": 217,
             "width": 235,
             "height": 16,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{party_one.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -790,7 +836,7 @@
             "y": 234,
             "width": 235,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\nCIN U51909KA2016PTC091822",
+            "content": "{{party_one.address}}\n{{party_one.registration}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -821,7 +867,7 @@
             "y": 217,
             "width": 235,
             "height": 16,
-            "content": "Halcyon Design Studio LLP",
+            "content": "{{party_two.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -837,7 +883,7 @@
             "y": 234,
             "width": 235,
             "height": 46,
-            "content": "22 Residency Road, Bengaluru 560025\nLLPIN AAF-2291",
+            "content": "{{party_two.address}}\n{{party_two.registration}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -868,7 +914,7 @@
             "y": 312,
             "width": 507,
             "height": 46,
-            "content": "The Supplier shall provide warehousing, pick-and-pack fulfilment and last-mile dispatch services for the Customer across the Bengaluru metropolitan area, in accordance with the service levels set out in Schedule A.",
+            "content": "{{agreement.scope}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Source Serif 4",
@@ -899,7 +945,7 @@
             "y": 390,
             "width": 507,
             "height": 40,
-            "content": "Fees are payable monthly in arrears within 30 days of a valid invoice, calculated at the rates set out in Schedule B.",
+            "content": "{{agreement.fees}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Source Serif 4",
@@ -974,7 +1020,7 @@
             "y": 559,
             "width": 507,
             "height": 40,
-            "content": "Either party may terminate this agreement on 60 days written notice. Termination does not affect accrued rights or obligations that by their nature survive.",
+            "content": "Either party may terminate this agreement on {{agreement.notice}} written notice. Termination does not affect accrued rights or obligations that by their nature survive.",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Source Serif 4",
@@ -1013,7 +1059,7 @@
             "y": 698,
             "width": 210,
             "height": 14,
-            "content": "Ananya Rao",
+            "content": "{{party_one.signatory}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1030,7 +1076,7 @@
             "y": 712,
             "width": 210,
             "height": 24,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{party_one.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1058,7 +1104,7 @@
             "y": 698,
             "width": 210,
             "height": 14,
-            "content": "Meera Krishnan",
+            "content": "{{party_two.signatory}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1075,7 +1121,7 @@
             "y": 712,
             "width": 210,
             "height": 24,
-            "content": "Halcyon Design Studio LLP",
+            "content": "{{party_two.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1116,6 +1162,22 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "agreement.effective_date": "01 September 2026",
+    "agreement.fees": "Fees are payable monthly in arrears within 30 days of a valid invoice, calculated at the rates set out in Schedule B.",
+    "agreement.governing_law": "India",
+    "agreement.notice": "60 days",
+    "agreement.number": "AGR-2026-0057",
+    "agreement.scope": "The Supplier shall provide warehousing, pick-and-pack fulfilment and last-mile dispatch services for the Customer across the Bengaluru metropolitan area, in accordance with the service levels set out in Schedule A.",
+    "agreement.term": "24 months",
+    "party_one.address": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001",
+    "party_one.name": "Northwind Traders Pvt Ltd",
+    "party_one.registration": "CIN U51909KA2016PTC091822",
+    "party_one.signatory": "Ananya Rao",
+    "party_two.address": "22 Residency Road, Bengaluru 560025",
+    "party_two.name": "Halcyon Design Studio LLP",
+    "party_two.registration": "LLPIN AAF-2291",
+    "party_two.signatory": "Meera Krishnan"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

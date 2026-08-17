@@ -14,7 +14,44 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "card.academic_year"
+      },
+      {
+        "key": "card.number"
+      },
+      {
+        "key": "card.valid_until"
+      },
+      {
+        "key": "emergency.name"
+      },
+      {
+        "key": "emergency.phone"
+      },
+      {
+        "key": "emergency.relation"
+      },
+      {
+        "key": "institution.address"
+      },
+      {
+        "key": "institution.name"
+      },
+      {
+        "key": "student.blood_group"
+      },
+      {
+        "key": "student.name"
+      },
+      {
+        "key": "student.programme"
+      },
+      {
+        "key": "student.roll_number"
+      }
+    ],
     "elements": [
       {
         "id": "t001",
@@ -182,7 +219,7 @@
         "y": 140,
         "width": 312,
         "height": 14,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -198,7 +235,7 @@
         "y": 156,
         "width": 312,
         "height": 12,
-        "content": "Student Identity Card · 2025–26",
+        "content": "Student Identity Card · {{card.academic_year}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -245,7 +282,7 @@
         "y": 192,
         "width": 218,
         "height": 18,
-        "content": "Kavya Ramesh",
+        "content": "{{student.name}}",
         "style": {
           "fontSize": 13,
           "fontFamily": "Inter",
@@ -277,7 +314,7 @@
         "y": 214,
         "width": 142,
         "height": 12,
-        "content": "21CS0447",
+        "content": "{{student.roll_number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -308,7 +345,7 @@
         "y": 228,
         "width": 142,
         "height": 12,
-        "content": "B.Tech Computer Science",
+        "content": "{{student.programme}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -339,7 +376,7 @@
         "y": 242,
         "width": 142,
         "height": 12,
-        "content": "30 June 2027",
+        "content": "{{card.valid_until}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -370,7 +407,7 @@
         "y": 256,
         "width": 142,
         "height": 12,
-        "content": "O+",
+        "content": "{{student.blood_group}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -397,7 +434,7 @@
         "y": 320,
         "width": 308,
         "height": 14,
-        "content": "Card no. MIT-ID-44120 · Property of Meridian Institute of Technology",
+        "content": "Card no. {{card.number}} · Property of {{institution.name}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -540,7 +577,7 @@
         "y": 428,
         "width": 312,
         "height": 14,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -603,7 +640,7 @@
         "y": 502,
         "width": 232,
         "height": 12,
-        "content": "Sunita Ramesh",
+        "content": "{{emergency.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -634,7 +671,7 @@
         "y": 516,
         "width": 232,
         "height": 12,
-        "content": "Mother",
+        "content": "{{emergency.relation}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -665,7 +702,7 @@
         "y": 530,
         "width": 232,
         "height": 12,
-        "content": "+91 98450 22118",
+        "content": "{{emergency.phone}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -696,7 +733,7 @@
         "y": 544,
         "width": 232,
         "height": 12,
-        "content": "Bannerghatta Road, Bengaluru 560076",
+        "content": "{{institution.address}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -903,7 +940,7 @@
             "y": 140,
             "width": 312,
             "height": 14,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -919,7 +956,7 @@
             "y": 156,
             "width": 312,
             "height": 12,
-            "content": "Student Identity Card · 2025–26",
+            "content": "Student Identity Card · {{card.academic_year}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -966,7 +1003,7 @@
             "y": 192,
             "width": 218,
             "height": 18,
-            "content": "Kavya Ramesh",
+            "content": "{{student.name}}",
             "style": {
               "fontSize": 13,
               "fontFamily": "Inter",
@@ -998,7 +1035,7 @@
             "y": 214,
             "width": 142,
             "height": 12,
-            "content": "21CS0447",
+            "content": "{{student.roll_number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1029,7 +1066,7 @@
             "y": 228,
             "width": 142,
             "height": 12,
-            "content": "B.Tech Computer Science",
+            "content": "{{student.programme}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1060,7 +1097,7 @@
             "y": 242,
             "width": 142,
             "height": 12,
-            "content": "30 June 2027",
+            "content": "{{card.valid_until}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1091,7 +1128,7 @@
             "y": 256,
             "width": 142,
             "height": 12,
-            "content": "O+",
+            "content": "{{student.blood_group}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1118,7 +1155,7 @@
             "y": 320,
             "width": 308,
             "height": 14,
-            "content": "Card no. MIT-ID-44120 · Property of Meridian Institute of Technology",
+            "content": "Card no. {{card.number}} · Property of {{institution.name}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -1261,7 +1298,7 @@
             "y": 428,
             "width": 312,
             "height": 14,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -1324,7 +1361,7 @@
             "y": 502,
             "width": 232,
             "height": 12,
-            "content": "Sunita Ramesh",
+            "content": "{{emergency.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1355,7 +1392,7 @@
             "y": 516,
             "width": 232,
             "height": 12,
-            "content": "Mother",
+            "content": "{{emergency.relation}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1386,7 +1423,7 @@
             "y": 530,
             "width": 232,
             "height": 12,
-            "content": "+91 98450 22118",
+            "content": "{{emergency.phone}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1417,7 +1454,7 @@
             "y": 544,
             "width": 232,
             "height": 12,
-            "content": "Bannerghatta Road, Bengaluru 560076",
+            "content": "{{institution.address}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1456,6 +1493,19 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "card.academic_year": "2025–26",
+    "card.number": "MIT-ID-44120",
+    "card.valid_until": "30 June 2027",
+    "emergency.name": "Sunita Ramesh",
+    "emergency.phone": "+91 98450 22118",
+    "emergency.relation": "Mother",
+    "institution.address": "Bannerghatta Road, Bengaluru 560076",
+    "institution.name": "Meridian Institute of Technology",
+    "student.blood_group": "O+",
+    "student.name": "Kavya Ramesh",
+    "student.programme": "B.Tech Computer Science",
+    "student.roll_number": "21CS0447"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

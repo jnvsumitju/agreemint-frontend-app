@@ -16,6 +16,57 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "ageing.current"
+      },
+      {
+        "key": "ageing.sixty"
+      },
+      {
+        "key": "ageing.thirty"
+      },
+      {
+        "key": "balances.closing"
+      },
+      {
+        "key": "balances.opening"
+      },
+      {
+        "key": "balances.payments"
+      },
+      {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.name"
+      },
+      {
+        "key": "customer.account_number"
+      },
+      {
+        "key": "customer.address"
+      },
+      {
+        "key": "customer.name"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "statement.date"
+      },
+      {
+        "key": "statement.number"
+      },
+      {
+        "key": "statement.period"
+      },
+      {
+        "key": "statement.remittance"
+      },
+      {
         "key": "transactions"
       }
     ],
@@ -39,7 +90,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -55,7 +106,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -103,7 +154,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "STM-2026-08-0184",
+        "content": "{{statement.number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -135,7 +186,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "01 Jul – 31 Jul 2026",
+        "content": "{{statement.period}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -167,7 +218,7 @@
         "y": 98,
         "width": 116,
         "height": 12,
-        "content": "01 August 2026",
+        "content": "{{statement.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -211,7 +262,7 @@
         "y": 152,
         "width": 230,
         "height": 16,
-        "content": "Halcyon Design Studio",
+        "content": "{{customer.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -227,7 +278,7 @@
         "y": 169,
         "width": 230,
         "height": 46,
-        "content": "22 Residency Road, Bengaluru 560025\nAccount NW-CUST-01184",
+        "content": "{{customer.address}}\nAccount {{customer.account_number}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -271,7 +322,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "₹86,400.00",
+        "content": "{{balances.opening}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -303,7 +354,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "₹1,41,600.00",
+        "content": "{{balances.payments}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -335,7 +386,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "₹94,340.00",
+        "content": "{{balances.closing}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -420,7 +471,7 @@
         "y": 441,
         "width": 97,
         "height": 14,
-        "content": "₹94,340.00",
+        "content": "{{ageing.current}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -454,7 +505,7 @@
         "y": 457,
         "width": 97,
         "height": 14,
-        "content": "₹0.00",
+        "content": "{{ageing.thirty}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -488,7 +539,7 @@
         "y": 473,
         "width": 97,
         "height": 14,
-        "content": "₹0.00",
+        "content": "{{ageing.sixty}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -535,7 +586,7 @@
         "y": 489,
         "width": 97,
         "height": 14,
-        "content": "₹94,340.00",
+        "content": "{{balances.closing}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "JetBrains Mono",
@@ -568,7 +619,7 @@
         "y": 544,
         "width": 250,
         "height": 58,
-        "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.",
+        "content": "{{statement.remittance}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -595,7 +646,7 @@
         "y": 571,
         "width": 240,
         "height": 14,
-        "content": "Ananya Rao",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -612,7 +663,7 @@
         "y": 585,
         "width": 240,
         "height": 24,
-        "content": "Accounts receivable, Northwind Traders Pvt Ltd",
+        "content": "Accounts receivable, {{company.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -674,7 +725,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -690,7 +741,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -738,7 +789,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "STM-2026-08-0184",
+            "content": "{{statement.number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -770,7 +821,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "01 Jul – 31 Jul 2026",
+            "content": "{{statement.period}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -802,7 +853,7 @@
             "y": 98,
             "width": 116,
             "height": 12,
-            "content": "01 August 2026",
+            "content": "{{statement.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -846,7 +897,7 @@
             "y": 152,
             "width": 230,
             "height": 16,
-            "content": "Halcyon Design Studio",
+            "content": "{{customer.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -862,7 +913,7 @@
             "y": 169,
             "width": 230,
             "height": 46,
-            "content": "22 Residency Road, Bengaluru 560025\nAccount NW-CUST-01184",
+            "content": "{{customer.address}}\nAccount {{customer.account_number}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -906,7 +957,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "₹86,400.00",
+            "content": "{{balances.opening}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -938,7 +989,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "₹1,41,600.00",
+            "content": "{{balances.payments}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -970,7 +1021,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "₹94,340.00",
+            "content": "{{balances.closing}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1055,7 +1106,7 @@
             "y": 441,
             "width": 97,
             "height": 14,
-            "content": "₹94,340.00",
+            "content": "{{ageing.current}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1089,7 +1140,7 @@
             "y": 457,
             "width": 97,
             "height": 14,
-            "content": "₹0.00",
+            "content": "{{ageing.thirty}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1123,7 +1174,7 @@
             "y": 473,
             "width": 97,
             "height": 14,
-            "content": "₹0.00",
+            "content": "{{ageing.sixty}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1170,7 +1221,7 @@
             "y": 489,
             "width": 97,
             "height": 14,
-            "content": "₹94,340.00",
+            "content": "{{balances.closing}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "JetBrains Mono",
@@ -1203,7 +1254,7 @@
             "y": 544,
             "width": 250,
             "height": 58,
-            "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.",
+            "content": "{{statement.remittance}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1230,7 +1281,7 @@
             "y": 571,
             "width": 240,
             "height": 14,
-            "content": "Ananya Rao",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1247,7 +1298,7 @@
             "y": 585,
             "width": 240,
             "height": 24,
-            "content": "Accounts receivable, Northwind Traders Pvt Ltd",
+            "content": "Accounts receivable, {{company.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1289,6 +1340,23 @@
     ]
   },
   "variableValues": {
+    "ageing.current": "₹94,340.00",
+    "ageing.sixty": "₹0.00",
+    "ageing.thirty": "₹0.00",
+    "balances.closing": "₹94,340.00",
+    "balances.opening": "₹86,400.00",
+    "balances.payments": "₹1,41,600.00",
+    "company.address": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001",
+    "company.contact": "accounts@northwind.example  ·  +91 80 4123 7788",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "customer.account_number": "NW-CUST-01184",
+    "customer.address": "22 Residency Road, Bengaluru 560025",
+    "customer.name": "Halcyon Design Studio",
+    "signatory.name": "Ananya Rao",
+    "statement.date": "01 August 2026",
+    "statement.number": "STM-2026-08-0184",
+    "statement.period": "01 Jul – 31 Jul 2026",
+    "statement.remittance": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.",
     "transactions": "[{\"date\":\"01 Jul\",\"reference\":\"—\",\"description\":\"Opening balance\",\"debit\":\"\",\"credit\":\"\",\"balance\":\"₹86,400.00\"},{\"date\":\"04 Jul\",\"reference\":\"INV-0177\",\"description\":\"Design retainer — July\",\"debit\":\"₹59,000.00\",\"credit\":\"\",\"balance\":\"₹1,45,400.00\"},{\"date\":\"12 Jul\",\"reference\":\"RCP-0388\",\"description\":\"Payment received — NEFT\",\"debit\":\"\",\"credit\":\"₹86,400.00\",\"balance\":\"₹59,000.00\"},{\"date\":\"18 Jul\",\"reference\":\"INV-0181\",\"description\":\"Print collateral adaptation\",\"debit\":\"₹35,340.00\",\"credit\":\"\",\"balance\":\"₹94,340.00\"},{\"date\":\"26 Jul\",\"reference\":\"CN-0044\",\"description\":\"Credit note — reprint allowance\",\"debit\":\"\",\"credit\":\"₹0.00\",\"balance\":\"₹94,340.00\"},{\"date\":\"31 Jul\",\"reference\":\"—\",\"description\":\"Closing balance\",\"debit\":\"\",\"credit\":\"\",\"balance\":\"₹94,340.00\"}]"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"

@@ -626,6 +626,39 @@ export function variableMergeFieldSurfaceLabel(
   return `{{${name}}}`
 }
 
+/**
+ * What a merge field should read as on the canvas.
+ *
+ * <p>Two different questions get asked of a merge field, and they want opposite
+ * answers. Wiring a template up asks "which field is this?" — the chip. Looking
+ * at the document asks "what does it say?" — the value. This resolves the
+ * second when the editor is in value mode, falling back to the chip whenever
+ * there is nothing to show.
+ *
+ * <p>The fallback matters more than the happy path. A field with no preview
+ * value must not render as blank space: an empty canvas region is
+ * indistinguishable from a layout mistake, whereas a chip tells you a field
+ * lives there and simply has no sample data yet.
+ *
+ * <p>Deliberately not folded into {@link variableMergeFieldSurfaceLabel} — the
+ * merge-field picker in the properties panel calls that, and a picker listing
+ * values instead of field names would be useless.
+ */
+export function variableCanvasLabel(
+  rawName: string,
+  globalDefs: VariableDefinition[],
+  activePage: LayoutDocumentPage | undefined,
+  variableValues: Record<string, string>,
+  showValues: boolean
+): string {
+  if (showValues) {
+    const name = (rawName ?? '').trim()
+    const value = name ? variableValues[name] : undefined
+    if (value != null && value.trim() !== '') return value
+  }
+  return variableMergeFieldSurfaceLabel(rawName, globalDefs, activePage)
+}
+
 export function resolveVariableChipInfo(
   rawName: string,
   globalDefs: VariableDefinition[],

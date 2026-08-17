@@ -14,7 +14,53 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "certificate.date"
+      },
+      {
+        "key": "certificate.number"
+      },
+      {
+        "key": "cosignatory.name"
+      },
+      {
+        "key": "cosignatory.title"
+      },
+      {
+        "key": "course.credits"
+      },
+      {
+        "key": "course.end_date"
+      },
+      {
+        "key": "course.grade"
+      },
+      {
+        "key": "course.hours"
+      },
+      {
+        "key": "course.name"
+      },
+      {
+        "key": "course.start_date"
+      },
+      {
+        "key": "institution.name"
+      },
+      {
+        "key": "institution.tagline"
+      },
+      {
+        "key": "recipient.name"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "signatory.title"
+      }
+    ],
     "elements": [
       {
         "id": "r001",
@@ -51,7 +97,7 @@
         "y": 118,
         "width": 467,
         "height": 22,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 13,
           "fontFamily": "Inter",
@@ -68,7 +114,7 @@
         "y": 140,
         "width": 467,
         "height": 14,
-        "content": "Continuing Professional Education",
+        "content": "{{institution.tagline}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -117,7 +163,7 @@
         "y": 278,
         "width": 467,
         "height": 40,
-        "content": "Kavya Ramesh",
+        "content": "{{recipient.name}}",
         "style": {
           "fontSize": 26,
           "fontFamily": "Source Serif 4",
@@ -146,7 +192,7 @@
         "y": 346,
         "width": 427,
         "height": 74,
-        "content": "has successfully completed the course Applied Data Analysis with Python, comprising 48 hours of instruction and assessment, held from 05 May 2026 to 31 July 2026.",
+        "content": "has successfully completed the course {{course.name}}, comprising {{course.hours}} of instruction and assessment, held from {{course.start_date}} to {{course.end_date}}.",
         "style": {
           "fontSize": 11,
           "fontFamily": "Source Serif 4",
@@ -192,7 +238,7 @@
         "y": 462,
         "width": 129,
         "height": 13,
-        "content": "A",
+        "content": "{{course.grade}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -226,7 +272,7 @@
         "y": 462,
         "width": 129,
         "height": 13,
-        "content": "4",
+        "content": "{{course.credits}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -260,7 +306,7 @@
         "y": 462,
         "width": 129,
         "height": 13,
-        "content": "08 August 2026",
+        "content": "{{certificate.date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -289,7 +335,7 @@
         "y": 680,
         "width": 170,
         "height": 14,
-        "content": "Dr S. Venkataraman",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -306,7 +352,7 @@
         "y": 694,
         "width": 170,
         "height": 24,
-        "content": "Course Director",
+        "content": "{{signatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -334,7 +380,7 @@
         "y": 680,
         "width": 170,
         "height": 14,
-        "content": "Prof. Leela Iyer",
+        "content": "{{cosignatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -351,7 +397,7 @@
         "y": 694,
         "width": 170,
         "height": 24,
-        "content": "Dean, Continuing Education",
+        "content": "{{cosignatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -367,7 +413,7 @@
         "y": 750,
         "width": 507,
         "height": 14,
-        "content": "Certificate no. MIT/CPE/2026/1174",
+        "content": "Certificate no. {{certificate.number}}",
         "style": {
           "fontSize": 8,
           "fontFamily": "JetBrains Mono",
@@ -417,7 +463,7 @@
             "y": 118,
             "width": 467,
             "height": 22,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 13,
               "fontFamily": "Inter",
@@ -434,7 +480,7 @@
             "y": 140,
             "width": 467,
             "height": 14,
-            "content": "Continuing Professional Education",
+            "content": "{{institution.tagline}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -483,7 +529,7 @@
             "y": 278,
             "width": 467,
             "height": 40,
-            "content": "Kavya Ramesh",
+            "content": "{{recipient.name}}",
             "style": {
               "fontSize": 26,
               "fontFamily": "Source Serif 4",
@@ -512,7 +558,7 @@
             "y": 346,
             "width": 427,
             "height": 74,
-            "content": "has successfully completed the course Applied Data Analysis with Python, comprising 48 hours of instruction and assessment, held from 05 May 2026 to 31 July 2026.",
+            "content": "has successfully completed the course {{course.name}}, comprising {{course.hours}} of instruction and assessment, held from {{course.start_date}} to {{course.end_date}}.",
             "style": {
               "fontSize": 11,
               "fontFamily": "Source Serif 4",
@@ -558,7 +604,7 @@
             "y": 462,
             "width": 129,
             "height": 13,
-            "content": "A",
+            "content": "{{course.grade}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -592,7 +638,7 @@
             "y": 462,
             "width": 129,
             "height": 13,
-            "content": "4",
+            "content": "{{course.credits}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -626,7 +672,7 @@
             "y": 462,
             "width": 129,
             "height": 13,
-            "content": "08 August 2026",
+            "content": "{{certificate.date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -655,7 +701,7 @@
             "y": 680,
             "width": 170,
             "height": 14,
-            "content": "Dr S. Venkataraman",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -672,7 +718,7 @@
             "y": 694,
             "width": 170,
             "height": 24,
-            "content": "Course Director",
+            "content": "{{signatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -700,7 +746,7 @@
             "y": 680,
             "width": 170,
             "height": 14,
-            "content": "Prof. Leela Iyer",
+            "content": "{{cosignatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -717,7 +763,7 @@
             "y": 694,
             "width": 170,
             "height": 24,
-            "content": "Dean, Continuing Education",
+            "content": "{{cosignatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -733,7 +779,7 @@
             "y": 750,
             "width": 507,
             "height": 14,
-            "content": "Certificate no. MIT/CPE/2026/1174",
+            "content": "Certificate no. {{certificate.number}}",
             "style": {
               "fontSize": 8,
               "fontFamily": "JetBrains Mono",
@@ -746,6 +792,22 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "certificate.date": "08 August 2026",
+    "certificate.number": "MIT/CPE/2026/1174",
+    "cosignatory.name": "Prof. Leela Iyer",
+    "cosignatory.title": "Dean, Continuing Education",
+    "course.credits": "4",
+    "course.end_date": "31 July 2026",
+    "course.grade": "A",
+    "course.hours": "48 hours",
+    "course.name": "Applied Data Analysis with Python",
+    "course.start_date": "05 May 2026",
+    "institution.name": "Meridian Institute of Technology",
+    "institution.tagline": "Continuing Professional Education",
+    "recipient.name": "Kavya Ramesh",
+    "signatory.name": "Dr S. Venkataraman",
+    "signatory.title": "Course Director"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

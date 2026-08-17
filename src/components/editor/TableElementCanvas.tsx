@@ -24,7 +24,7 @@ import {
 } from '../../lib/tablePreview'
 import {
   tableCellBehaviourStyle,
-  variableMergeFieldSurfaceLabel,
+  variableCanvasLabel,
   variableValuesToDataTree,
 } from '../../lib/layoutBehaviourResolve'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
@@ -116,14 +116,16 @@ export function TableElementCanvas({ el, locked = false }: { el: LayoutTableElem
   const endHistoryBatch = useEditorStore((s) => s.endHistoryBatch)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
   const variableValues = useEditorStore((s) => s.variableValues)
+  const showVariableValues = useEditorStore((s) => s.showVariableValues)
   const setInlineTipTapEditor = useEditorStore((s) => s.setInlineTipTapEditor)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
 
   const variableSurfaceLabelResolver = useMemo(
-    () => (n: string) => variableMergeFieldSurfaceLabel(n, globalVariableDefinitions, pages[activePageIndex]),
-    [globalVariableDefinitions, pages, activePageIndex]
+    () => (n: string) => variableCanvasLabel(
+      n, globalVariableDefinitions, pages[activePageIndex], variableValues, showVariableValues),
+    [globalVariableDefinitions, pages, activePageIndex, variableValues, showVariableValues]
   )
 
   const variableMentions: VariableMentionItem[] = useMemo(

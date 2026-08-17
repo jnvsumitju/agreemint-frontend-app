@@ -3,7 +3,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import type { LayoutElement, ListStyle } from '../../types/layout'
 import { buildListTree, flattenListTree } from '../../types/layout'
 import { RichTextBlockPreview } from './RichTextBlockPreview'
-import { variableMergeFieldSurfaceLabel } from '../../lib/layoutBehaviourResolve'
+import { variableCanvasLabel } from '../../lib/layoutBehaviourResolve'
 import { substituteVariables } from '../../lib/variables'
 import { gradientToCss, isValidGradient } from '../../lib/gradientUtils'
 import { coerceToSupportedFamily } from '../../lib/fontLoader'
@@ -268,14 +268,16 @@ interface ListElementCanvasProps {
 
 export function ListElementCanvas({ el, isEditing, onCommit: _onCommit, onEscape }: ListElementCanvasProps) {
   const variableValues = useEditorStore((s) => s.variableValues)
+  const showVariableValues = useEditorStore((s) => s.showVariableValues)
   const setVariableValue = useEditorStore((s) => s.setVariableValue)
   const globalVariableDefinitions = useEditorStore((s) => s.globalVariableDefinitions)
   const pages = useEditorStore((s) => s.pages)
   const activePageIndex = useEditorStore((s) => s.activePageIndex)
   const updateElement = useEditorStore((s) => s.updateElement)
   const variableSurfaceLabelResolver = useCallback(
-    (n: string) => variableMergeFieldSurfaceLabel(n, globalVariableDefinitions, pages[activePageIndex]),
-    [globalVariableDefinitions, pages, activePageIndex]
+    (n: string) => variableCanvasLabel(
+      n, globalVariableDefinitions, pages[activePageIndex], variableValues, showVariableValues),
+    [globalVariableDefinitions, pages, activePageIndex, variableValues, showVariableValues]
   )
 
   const listStyle = el.listStyle ?? 'disc'

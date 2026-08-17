@@ -14,7 +14,38 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "candidate.name"
+      },
+      {
+        "key": "candidate.roll_number"
+      },
+      {
+        "key": "exam.admit_number"
+      },
+      {
+        "key": "exam.centre"
+      },
+      {
+        "key": "exam.date"
+      },
+      {
+        "key": "exam.name"
+      },
+      {
+        "key": "exam.reporting_time"
+      },
+      {
+        "key": "exam.session"
+      },
+      {
+        "key": "institution.contact"
+      },
+      {
+        "key": "institution.name"
+      }
+    ],
     "elements": [
       {
         "id": "t001",
@@ -182,7 +213,7 @@
         "y": 140,
         "width": 312,
         "height": 14,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -198,7 +229,7 @@
         "y": 156,
         "width": 312,
         "height": 12,
-        "content": "End Semester Examination · June 2026",
+        "content": "{{exam.name}} · {{exam.session}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -245,7 +276,7 @@
         "y": 192,
         "width": 218,
         "height": 18,
-        "content": "Rohan Bhatt",
+        "content": "{{candidate.name}}",
         "style": {
           "fontSize": 13,
           "fontFamily": "Inter",
@@ -277,7 +308,7 @@
         "y": 214,
         "width": 142,
         "height": 12,
-        "content": "21EC0189",
+        "content": "{{candidate.roll_number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -308,7 +339,7 @@
         "y": 228,
         "width": 142,
         "height": 12,
-        "content": "Block C, Hall 4",
+        "content": "{{exam.centre}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -339,7 +370,7 @@
         "y": 242,
         "width": 142,
         "height": 12,
-        "content": "12 June 2026",
+        "content": "{{exam.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -370,7 +401,7 @@
         "y": 256,
         "width": 142,
         "height": 12,
-        "content": "09:15",
+        "content": "{{exam.reporting_time}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -397,7 +428,7 @@
         "y": 320,
         "width": 308,
         "height": 14,
-        "content": "Admit card no. MIT/AC/2026/18842 · Not valid without invigilator signature",
+        "content": "Admit card no. {{exam.admit_number}} · Not valid without invigilator signature",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -540,7 +571,7 @@
         "y": 428,
         "width": 312,
         "height": 14,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -634,7 +665,7 @@
         "y": 516,
         "width": 232,
         "height": 12,
-        "content": "09:15, gates close 15 min prior",
+        "content": "{{exam.reporting_time}}, gates close 15 min prior",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -696,7 +727,7 @@
         "y": 544,
         "width": 232,
         "height": 12,
-        "content": "exams@meridian.example",
+        "content": "{{institution.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -903,7 +934,7 @@
             "y": 140,
             "width": 312,
             "height": 14,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -919,7 +950,7 @@
             "y": 156,
             "width": 312,
             "height": 12,
-            "content": "End Semester Examination · June 2026",
+            "content": "{{exam.name}} · {{exam.session}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -966,7 +997,7 @@
             "y": 192,
             "width": 218,
             "height": 18,
-            "content": "Rohan Bhatt",
+            "content": "{{candidate.name}}",
             "style": {
               "fontSize": 13,
               "fontFamily": "Inter",
@@ -998,7 +1029,7 @@
             "y": 214,
             "width": 142,
             "height": 12,
-            "content": "21EC0189",
+            "content": "{{candidate.roll_number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1029,7 +1060,7 @@
             "y": 228,
             "width": 142,
             "height": 12,
-            "content": "Block C, Hall 4",
+            "content": "{{exam.centre}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1060,7 +1091,7 @@
             "y": 242,
             "width": 142,
             "height": 12,
-            "content": "12 June 2026",
+            "content": "{{exam.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1091,7 +1122,7 @@
             "y": 256,
             "width": 142,
             "height": 12,
-            "content": "09:15",
+            "content": "{{exam.reporting_time}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1118,7 +1149,7 @@
             "y": 320,
             "width": 308,
             "height": 14,
-            "content": "Admit card no. MIT/AC/2026/18842 · Not valid without invigilator signature",
+            "content": "Admit card no. {{exam.admit_number}} · Not valid without invigilator signature",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -1261,7 +1292,7 @@
             "y": 428,
             "width": 312,
             "height": 14,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -1355,7 +1386,7 @@
             "y": 516,
             "width": 232,
             "height": 12,
-            "content": "09:15, gates close 15 min prior",
+            "content": "{{exam.reporting_time}}, gates close 15 min prior",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1417,7 +1448,7 @@
             "y": 544,
             "width": 232,
             "height": 12,
-            "content": "exams@meridian.example",
+            "content": "{{institution.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1456,6 +1487,17 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "candidate.name": "Rohan Bhatt",
+    "candidate.roll_number": "21EC0189",
+    "exam.admit_number": "MIT/AC/2026/18842",
+    "exam.centre": "Block C, Hall 4",
+    "exam.date": "12 June 2026",
+    "exam.name": "End Semester Examination",
+    "exam.reporting_time": "09:15",
+    "exam.session": "June 2026",
+    "institution.contact": "exams@meridian.example",
+    "institution.name": "Meridian Institute of Technology"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

@@ -657,6 +657,13 @@ export interface EditorState {
    *  editors; TemplateEditor flips it to false for VIEWER/REVIEWER on load. */
   showRulers: boolean
   /**
+   * Canvas renders each merge field's preview value instead of its field-name
+   * chip. On by default: the canvas should read as the document reads, and the
+   * Vars tab already calls the field "Preview value". Turn it off to see which
+   * field sits where while wiring a template up.
+   */
+  showVariableValues: boolean
+  /**
    * Show the small "Double-click to edit · … · ⌘/Ctrl+Enter to finish" label
    * above a selected element AND the equivalent hover-tooltip on every
    * element. Useful for first-time users; noisy once people know the app.
@@ -806,6 +813,7 @@ export interface EditorState {
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
   setShowRulers: (v: boolean) => void
+  setShowVariableValues: (v: boolean) => void
   setShowEditorHints: (v: boolean) => void
   setGridSize: (v: number) => void
   setSmartGuidesEnabled: (v: boolean) => void
@@ -1193,6 +1201,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // fresh canvas. Users can flip it back on from the status bar.
   showGrid: false,
   showRulers: true,
+  showVariableValues: true,
   // Editor hints (the floating "Double-click to edit · …" hint strip on a
   // selected element and the equivalent hover-tooltip on every element)
   // are OFF by default — they teach but also crowd the canvas. Users can
@@ -1423,6 +1432,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         // they get on first load.
         showGrid: false,
         showRulers: true,
+        showVariableValues: true,
         showEditorHints: false,
         gridSize: 10,
         smartGuidesEnabled: true,
@@ -2780,6 +2790,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setSnapToGrid: (v) => set({ snapToGrid: v }),
   setShowGrid: (v) => set({ showGrid: v }),
   setShowRulers: (v) => set({ showRulers: v }),
+  setShowVariableValues: (v) => set({ showVariableValues: v }),
   setShowEditorHints: (v) => set({ showEditorHints: v }),
   setGridSize: (v) => set({ gridSize: Math.max(2, Math.round(v)) }),
   setSmartGuidesEnabled: (v) => set({ smartGuidesEnabled: v }),
