@@ -801,6 +801,8 @@ export interface EditorState {
    * old background and the toggle would silently appear broken).
    */
   setApplyBackgroundToAllPages: (v: boolean) => void
+  /** Print a verification code + QR on every generated page. See PageSpec. */
+  setVerificationMark: (v: boolean) => void
   setSnapToGrid: (v: boolean) => void
   setShowGrid: (v: boolean) => void
   setShowRulers: (v: boolean) => void
@@ -2743,6 +2745,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const pages = sticky ? s.pages.map(writeOne) : s.pages.map((p, i) => (i === idx ? writeOne(p) : p))
       return { ...takeUndoBarrier(s), pages }
     }),
+
+  setVerificationMark: (v) =>
+    set((s) => ({
+      ...takeUndoBarrier(s),
+      pageSpec: { ...s.pageSpec, verificationMark: v },
+    })),
 
   setApplyBackgroundToAllPages: (v) =>
     set((s) => {

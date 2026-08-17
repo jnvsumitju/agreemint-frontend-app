@@ -14,6 +14,7 @@ export function DocumentPageSection() {
   const setPageSize = useEditorStore((s) => s.setPageSize)
   const setActivePageBackground = useEditorStore((s) => s.setActivePageBackground)
   const setApplyBackgroundToAllPages = useEditorStore((s) => s.setApplyBackgroundToAllPages)
+  const setVerificationMark = useEditorStore((s) => s.setVerificationMark)
   // Read the active page's background — DocumentPageSection always shows
   // the current page's bg, even when the "apply to all" toggle is off.
   const activePageBackground = useEditorStore((s) => s.pages[s.activePageIndex]?.background)
@@ -23,6 +24,8 @@ export function DocumentPageSection() {
   // Default ON for new templates, but respect an explicit `false` from
   // older or migrated layouts.
   const applyToAll = pageSpec.applyBackgroundToAllPages !== false
+  // Off unless explicitly enabled — most documents do not want the furniture.
+  const verificationMark = pageSpec.verificationMark === true
 
   // Mutating helpers that drop empty fields rather than persisting them.
   const setBgColor = (next: string) => {
@@ -169,6 +172,36 @@ export function DocumentPageSection() {
             />
           </button>
         </label>
+
+        {/* Verification mark. Separated by a rule because it is a property of
+            the issued document rather than of the page's appearance — it
+            changes what generated PDFs carry, not how the canvas looks. */}
+        <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+          <label className="flex cursor-pointer items-center justify-between gap-2 text-[10px] lg:text-[11px] text-zinc-600 dark:text-zinc-300">
+            <span>Verification mark</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={verificationMark}
+              aria-label="Print a verification code and QR on generated documents"
+              onClick={() => setVerificationMark(!verificationMark)}
+              className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 ${
+                verificationMark ? 'bg-violet-600' : 'bg-zinc-300 dark:bg-zinc-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                  verificationMark ? 'translate-x-3' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </label>
+          <p className="mt-1 text-[9px] leading-snug text-zinc-500 lg:text-[10px] dark:text-zinc-400">
+            Prints a code and QR in the footer of generated documents so a
+            recipient can check them from a printout. Does not appear on the
+            canvas or in previews.
+          </p>
+        </div>
       </div>
     </div>
   )

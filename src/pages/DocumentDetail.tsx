@@ -279,6 +279,27 @@ export function DocumentDetail() {
                     ) : null}
                   </dd>
                 </div>
+                {/* Only for documents issued after receipts existed. Absent is
+                    the honest rendering for older ones — we cannot claim a
+                    digest for bytes that were never fingerprinted. */}
+                {currentDocument?.sha256 && (
+                  <div className="col-span-2">
+                    <dt className="text-zinc-500 dark:text-zinc-400">
+                      Checksum (SHA-256)
+                    </dt>
+                    <dd className="mt-1 flex items-start gap-2">
+                      <code className="min-w-0 flex-1 font-mono text-[11px] leading-relaxed break-all text-zinc-700 dark:text-zinc-300">
+                        {currentDocument.sha256}
+                      </code>
+                      <CopyChecksumButton value={currentDocument.sha256} />
+                    </dd>
+                    <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      Anyone can confirm this file is unaltered at{' '}
+                      <span className="font-medium">crixaa.com/verify</span> — the document is
+                      never uploaded, only checked against this value.
+                    </p>
+                  </div>
+                )}
               </dl>
             </CardContent>
           </Card>
@@ -389,3 +410,36 @@ export function DocumentDetail() {
 }
 
 export default DocumentDetail
+
+/**
+ * Copies the checksum, with a short confirmation.
+ *
+ * <p>Worth a button rather than leaving it to selection: the value is 64
+ * characters of hex with no word boundaries, and a partial copy produces a
+ * checksum that fails to verify — which looks exactly like a tampered document
+ * to whoever the issuer sends it to.
+ */
+function CopyChecksumButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard access can be refused (insecure context, permissions).
+      // The value is on screen and selectable, so this is not worth an error.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium text-violet-600 transition-colors hover:bg-violet-50 dark:text-violet-400 dark:hover:bg-violet-950/40"
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  )
+}
