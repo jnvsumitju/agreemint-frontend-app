@@ -678,6 +678,12 @@ export interface DocumentDetailDto {
   document: DocumentLifecycleDto
   timeline: TimelineEventDto[]
   workflow: ApprovalWorkflowDto | null
+  /**
+   * SHA-256 of the issued PDF. Null for documents generated before receipts
+   * existed, and for any whose render failed — so this must be treated as
+   * genuinely optional rather than assumed present on a COMPLETED document.
+   */
+  sha256: string | null
 }
 
 export interface LifecycleStatsDto {

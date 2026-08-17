@@ -381,6 +381,18 @@ export interface PageSpec {
    * default" feel.
    */
   applyBackgroundToAllPages?: boolean
+  /**
+   * Print a verification code and QR in the footer of every generated page.
+   *
+   * <p>Off by default and per-template on purpose. A certificate or an invoice
+   * benefits from being checkable off a printout; an internal report does not
+   * need the extra furniture. It lives in the layout rather than on the
+   * template row so it is committed with the version — regenerating an old
+   * version must not start stamping a mark that version never carried.
+   *
+   * <p>The backend reads `page.verificationMark` from the committed layout.
+   */
+  verificationMark?: boolean
 }
 
 /** Solid colour or gradient that fills a page beneath any element. */
@@ -442,6 +454,8 @@ export interface LayoutJson {
     orientation?: 'portrait' | 'landscape'
     /** Sticky toggle (see {@link PageSpec.applyBackgroundToAllPages}). */
     applyBackgroundToAllPages?: boolean
+    /** See {@link PageSpec.verificationMark}. */
+    verificationMark?: boolean
   }
   /** Optional template / layout DSL version for migrations. */
   layoutSchemaVersion?: number
@@ -503,6 +517,8 @@ export function normalizePageSpec(raw: unknown): PageSpec {
       typeof o.applyBackgroundToAllPages === 'boolean'
         ? o.applyBackgroundToAllPages
         : d.applyBackgroundToAllPages,
+    verificationMark:
+      typeof o.verificationMark === 'boolean' ? o.verificationMark : d.verificationMark,
   }
 }
 
@@ -1198,6 +1214,11 @@ export function buildLayoutJson(
       ...(page.orientation ? { orientation: page.orientation } : {}),
       // Persist `applyBackgroundToAllPages` only when explicitly set so
       // existing layouts without the field keep round-tripping unchanged.
+      // Written only when explicitly set, so templates that never touched it
+      // keep round-tripping byte-identically.
+      ...(typeof page.verificationMark === 'boolean'
+        ? { verificationMark: page.verificationMark }
+        : {}),
       ...(typeof page.applyBackgroundToAllPages === 'boolean'
         ? { applyBackgroundToAllPages: page.applyBackgroundToAllPages }
         : {}),
