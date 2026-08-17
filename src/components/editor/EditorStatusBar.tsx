@@ -147,6 +147,8 @@ export function EditorStatusBar() {
   const smartGuidesEnabled = useEditorStore((s) => s.smartGuidesEnabled)
   const setShowGrid = useEditorStore((s) => s.setShowGrid)
   const setShowRulers = useEditorStore((s) => s.setShowRulers)
+  const showVariableValues = useEditorStore((s) => s.showVariableValues)
+  const setShowVariableValues = useEditorStore((s) => s.setShowVariableValues)
   const setShowEditorHints = useEditorStore((s) => s.setShowEditorHints)
   const setGridSize = useEditorStore((s) => s.setGridSize)
   const setSmartGuidesEnabled = useEditorStore((s) => s.setSmartGuidesEnabled)
@@ -211,6 +213,14 @@ export function EditorStatusBar() {
 
         {/* Grid + Guides toggles */}
         <div className="flex items-center gap-3" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          {/* Off shows each merge field as its name (Global.Customer Name);
+              on shows the value from the Vars tab, so the canvas reads as the
+              finished document. */}
+          <ToggleSwitch
+            checked={showVariableValues}
+            onChange={setShowVariableValues}
+            label="Values"
+          />
           <ToggleSwitch checked={showRulers} onChange={setShowRulers} label="Rulers" />
           <ToggleSwitch checked={showGrid} onChange={setShowGrid} label="Grid" />
           {showGrid && (

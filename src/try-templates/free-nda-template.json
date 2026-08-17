@@ -14,7 +14,47 @@
       "orientation": "portrait"
     },
     "layoutSchemaVersion": 2,
-    "globalVariables": [],
+    "globalVariables": [
+      {
+        "key": "agreement.confidentiality_period"
+      },
+      {
+        "key": "agreement.effective_date"
+      },
+      {
+        "key": "agreement.governing_law"
+      },
+      {
+        "key": "agreement.number"
+      },
+      {
+        "key": "agreement.purpose"
+      },
+      {
+        "key": "party_one.address"
+      },
+      {
+        "key": "party_one.name"
+      },
+      {
+        "key": "party_one.registration"
+      },
+      {
+        "key": "party_one.signatory"
+      },
+      {
+        "key": "party_two.address"
+      },
+      {
+        "key": "party_two.name"
+      },
+      {
+        "key": "party_two.registration"
+      },
+      {
+        "key": "party_two.signatory"
+      }
+    ],
     "elements": [
       {
         "id": "r001",
@@ -95,7 +135,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "NDA-2026-0219",
+        "content": "{{agreement.number}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -127,7 +167,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "16 August 2026",
+        "content": "{{agreement.effective_date}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -159,7 +199,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "3 years",
+        "content": "{{agreement.confidentiality_period}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -191,7 +231,7 @@
         "y": 152,
         "width": 109.75,
         "height": 16,
-        "content": "India",
+        "content": "{{agreement.governing_law}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -223,7 +263,7 @@
         "y": 217,
         "width": 235,
         "height": 16,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{party_one.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -239,7 +279,7 @@
         "y": 234,
         "width": 235,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\nCIN U51909KA2016PTC091822",
+        "content": "{{party_one.address}}\n{{party_one.registration}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -270,7 +310,7 @@
         "y": 217,
         "width": 235,
         "height": 16,
-        "content": "Sterling Components Pvt Ltd",
+        "content": "{{party_two.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -286,7 +326,7 @@
         "y": 234,
         "width": 235,
         "height": 46,
-        "content": "Plot 14, Peenya Industrial Area, Bengaluru 560058\nCIN U29253KA2011PTC058117",
+        "content": "{{party_two.address}}\n{{party_two.registration}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -301,7 +341,7 @@
         "y": 292,
         "width": 507,
         "height": 46,
-        "content": "The parties wish to explore a potential logistics partnership and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
+        "content": "The parties wish to explore {{agreement.purpose}} and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
         "style": {
           "fontSize": 10,
           "fontFamily": "Source Serif 4",
@@ -449,7 +489,7 @@
         "y": 698,
         "width": 210,
         "height": 14,
-        "content": "Ananya Rao",
+        "content": "{{party_one.signatory}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -466,7 +506,7 @@
         "y": 712,
         "width": 210,
         "height": 24,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{party_one.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -494,7 +534,7 @@
         "y": 698,
         "width": 210,
         "height": 14,
-        "content": "K. Balasubramanian",
+        "content": "{{party_two.signatory}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -511,7 +551,7 @@
         "y": 712,
         "width": 210,
         "height": 24,
-        "content": "Sterling Components Pvt Ltd",
+        "content": "{{party_two.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -633,7 +673,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "NDA-2026-0219",
+            "content": "{{agreement.number}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -665,7 +705,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "16 August 2026",
+            "content": "{{agreement.effective_date}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -697,7 +737,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "3 years",
+            "content": "{{agreement.confidentiality_period}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -729,7 +769,7 @@
             "y": 152,
             "width": 109.75,
             "height": 16,
-            "content": "India",
+            "content": "{{agreement.governing_law}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -761,7 +801,7 @@
             "y": 217,
             "width": 235,
             "height": 16,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{party_one.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -777,7 +817,7 @@
             "y": 234,
             "width": 235,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\nCIN U51909KA2016PTC091822",
+            "content": "{{party_one.address}}\n{{party_one.registration}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -808,7 +848,7 @@
             "y": 217,
             "width": 235,
             "height": 16,
-            "content": "Sterling Components Pvt Ltd",
+            "content": "{{party_two.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -824,7 +864,7 @@
             "y": 234,
             "width": 235,
             "height": 46,
-            "content": "Plot 14, Peenya Industrial Area, Bengaluru 560058\nCIN U29253KA2011PTC058117",
+            "content": "{{party_two.address}}\n{{party_two.registration}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -839,7 +879,7 @@
             "y": 292,
             "width": 507,
             "height": 46,
-            "content": "The parties wish to explore a potential logistics partnership and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
+            "content": "The parties wish to explore {{agreement.purpose}} and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
             "style": {
               "fontSize": 10,
               "fontFamily": "Source Serif 4",
@@ -987,7 +1027,7 @@
             "y": 698,
             "width": 210,
             "height": 14,
-            "content": "Ananya Rao",
+            "content": "{{party_one.signatory}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1004,7 +1044,7 @@
             "y": 712,
             "width": 210,
             "height": 24,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{party_one.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1032,7 +1072,7 @@
             "y": 698,
             "width": 210,
             "height": 14,
-            "content": "K. Balasubramanian",
+            "content": "{{party_two.signatory}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1049,7 +1089,7 @@
             "y": 712,
             "width": 210,
             "height": 24,
-            "content": "Sterling Components Pvt Ltd",
+            "content": "{{party_two.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1090,6 +1130,20 @@
       }
     ]
   },
-  "variableValues": {},
+  "variableValues": {
+    "agreement.confidentiality_period": "3 years",
+    "agreement.effective_date": "16 August 2026",
+    "agreement.governing_law": "India",
+    "agreement.number": "NDA-2026-0219",
+    "agreement.purpose": "a potential logistics partnership",
+    "party_one.address": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001",
+    "party_one.name": "Northwind Traders Pvt Ltd",
+    "party_one.registration": "CIN U51909KA2016PTC091822",
+    "party_one.signatory": "Ananya Rao",
+    "party_two.address": "Plot 14, Peenya Industrial Area, Bengaluru 560058",
+    "party_two.name": "Sterling Components Pvt Ltd",
+    "party_two.registration": "CIN U29253KA2011PTC058117",
+    "party_two.signatory": "K. Balasubramanian"
+  },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

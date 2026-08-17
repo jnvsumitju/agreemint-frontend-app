@@ -16,6 +16,57 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "exam.academic_year"
+      },
+      {
+        "key": "exam.name"
+      },
+      {
+        "key": "exam.sheet_number"
+      },
+      {
+        "key": "institution.address"
+      },
+      {
+        "key": "institution.contact"
+      },
+      {
+        "key": "institution.name"
+      },
+      {
+        "key": "result.percentage"
+      },
+      {
+        "key": "result.status"
+      },
+      {
+        "key": "result.total"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "signatory.title"
+      },
+      {
+        "key": "student.dob"
+      },
+      {
+        "key": "student.enrolment_number"
+      },
+      {
+        "key": "student.name"
+      },
+      {
+        "key": "student.programme"
+      },
+      {
+        "key": "student.roll_number"
+      },
+      {
+        "key": "student.semester"
+      },
+      {
         "key": "subjects"
       }
     ],
@@ -39,7 +90,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Meridian Institute of Technology",
+        "content": "{{institution.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -55,7 +106,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "Bannerghatta Road, Bengaluru, Karnataka 560076\nexams@meridian.example · +91 80 2233 4455",
+        "content": "{{institution.address}}\n{{institution.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -103,7 +154,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "2025–26",
+        "content": "{{exam.academic_year}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -135,7 +186,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "End Semester Examination",
+        "content": "{{exam.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -167,7 +218,7 @@
         "y": 98,
         "width": 116,
         "height": 12,
-        "content": "MIT/EX/2026/44120",
+        "content": "{{exam.sheet_number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -224,7 +275,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "Kavya Ramesh",
+        "content": "{{student.name}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -256,7 +307,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "21CS0447",
+        "content": "{{student.roll_number}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -288,7 +339,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "MIT21CS0447",
+        "content": "{{student.enrolment_number}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -320,7 +371,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "B.Tech Computer Science",
+        "content": "{{student.programme}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -352,7 +403,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "Semester VI",
+        "content": "{{student.semester}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -384,7 +435,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "14 March 2004",
+        "content": "{{student.dob}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -480,7 +531,7 @@
         "y": 416,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "512 / 600",
+        "content": "{{result.total}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -514,7 +565,7 @@
         "y": 432,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "85.33%",
+        "content": "{{result.percentage}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -561,7 +612,7 @@
         "y": 448,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "PASS — First Class with Distinction",
+        "content": "{{result.status}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "JetBrains Mono",
@@ -590,7 +641,7 @@
         "y": 698,
         "width": 240,
         "height": 14,
-        "content": "Dr M. Raghavan",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -607,7 +658,7 @@
         "y": 712,
         "width": 240,
         "height": 24,
-        "content": "Controller of Examinations",
+        "content": "{{signatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -669,7 +720,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Meridian Institute of Technology",
+            "content": "{{institution.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -685,7 +736,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "Bannerghatta Road, Bengaluru, Karnataka 560076\nexams@meridian.example · +91 80 2233 4455",
+            "content": "{{institution.address}}\n{{institution.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -733,7 +784,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "2025–26",
+            "content": "{{exam.academic_year}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -765,7 +816,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "End Semester Examination",
+            "content": "{{exam.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -797,7 +848,7 @@
             "y": 98,
             "width": 116,
             "height": 12,
-            "content": "MIT/EX/2026/44120",
+            "content": "{{exam.sheet_number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -854,7 +905,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "Kavya Ramesh",
+            "content": "{{student.name}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -886,7 +937,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "21CS0447",
+            "content": "{{student.roll_number}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -918,7 +969,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "MIT21CS0447",
+            "content": "{{student.enrolment_number}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -950,7 +1001,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "B.Tech Computer Science",
+            "content": "{{student.programme}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -982,7 +1033,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "Semester VI",
+            "content": "{{student.semester}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1014,7 +1065,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "14 March 2004",
+            "content": "{{student.dob}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1110,7 +1161,7 @@
             "y": 416,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "512 / 600",
+            "content": "{{result.total}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1144,7 +1195,7 @@
             "y": 432,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "85.33%",
+            "content": "{{result.percentage}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1191,7 +1242,7 @@
             "y": 448,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "PASS — First Class with Distinction",
+            "content": "{{result.status}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "JetBrains Mono",
@@ -1220,7 +1271,7 @@
             "y": 698,
             "width": 240,
             "height": 14,
-            "content": "Dr M. Raghavan",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1237,7 +1288,7 @@
             "y": 712,
             "width": 240,
             "height": 24,
-            "content": "Controller of Examinations",
+            "content": "{{signatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1279,6 +1330,23 @@
     ]
   },
   "variableValues": {
+    "exam.academic_year": "2025–26",
+    "exam.name": "End Semester Examination",
+    "exam.sheet_number": "MIT/EX/2026/44120",
+    "institution.address": "Bannerghatta Road, Bengaluru, Karnataka 560076",
+    "institution.contact": "exams@meridian.example · +91 80 2233 4455",
+    "institution.name": "Meridian Institute of Technology",
+    "result.percentage": "85.33%",
+    "result.status": "PASS — First Class with Distinction",
+    "result.total": "512 / 600",
+    "signatory.name": "Dr M. Raghavan",
+    "signatory.title": "Controller of Examinations",
+    "student.dob": "14 March 2004",
+    "student.enrolment_number": "MIT21CS0447",
+    "student.name": "Kavya Ramesh",
+    "student.programme": "B.Tech Computer Science",
+    "student.roll_number": "21CS0447",
+    "student.semester": "Semester VI",
     "subjects": "[{\"code\":\"CS601\",\"subject\":\"Design and Analysis of Algorithms\",\"max\":\"100\",\"obtained\":\"88\",\"grade\":\"A\"},{\"code\":\"CS602\",\"subject\":\"Database Management Systems\",\"max\":\"100\",\"obtained\":\"91\",\"grade\":\"A+\"},{\"code\":\"CS603\",\"subject\":\"Computer Networks\",\"max\":\"100\",\"obtained\":\"79\",\"grade\":\"B+\"},{\"code\":\"CS604\",\"subject\":\"Operating Systems\",\"max\":\"100\",\"obtained\":\"86\",\"grade\":\"A\"},{\"code\":\"CS605\",\"subject\":\"Software Engineering\",\"max\":\"100\",\"obtained\":\"84\",\"grade\":\"A\"},{\"code\":\"CS691\",\"subject\":\"Mini Project\",\"max\":\"100\",\"obtained\":\"84\",\"grade\":\"A\"}]"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"

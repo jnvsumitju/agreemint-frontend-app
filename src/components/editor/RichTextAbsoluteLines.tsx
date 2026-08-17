@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { useEditorStore } from '../../stores/editorStore'
 
 import type { ElementMeasurement } from '../../lib/api'
 import {
@@ -13,6 +14,23 @@ import { RichTextBlockPreview } from './RichTextBlockPreview'
 // element-level bold/italic/underline/strike apply to vars automatically.
 const varChipClass =
   'inline rounded bg-violet-100 px-1 py-px text-[0.92em] text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-950/70 dark:text-violet-100 dark:ring-violet-700/80'
+
+/**
+ * How a merge field should be decorated.
+ *
+ * <p>With the Values toggle on, the span carries the document's own text, so
+ * the violet pill is actively wrong — twenty of them across a certificate read
+ * as clutter rather than as information, and it is the first thing a visitor
+ * sees on a landing page. Off, the pill is the whole point: it is what tells
+ * you which words are fields.
+ *
+ * <p>So the toggle switches mode rather than just wording. Values on: read the
+ * document. Values off: see the wiring.
+ */
+function useVarChipClass(): string {
+  const showValues = useEditorStore((s) => s.showVariableValues)
+  return showValues ? 'inline' : varChipClass
+}
 
 /**
  * Phase 1.5 renderer that replays iText's per-line layout by absolute-positioning
@@ -187,6 +205,7 @@ function AbsoluteVarChip({
   elementUnderline?: boolean
   elementStrikethrough?: boolean
 }) {
+  const chipClass = useVarChipClass()
   const baseKey = stripPipesFromKey(authored.name)
   const k = normalizeVariableIdentifier(baseKey)
   const surface = variableSurfaceLabelResolver?.(k)?.trim()
@@ -225,7 +244,7 @@ function AbsoluteVarChip({
   }
   return (
     <span style={wrapStyle} title={titleParts.join('\n')} data-am-var={k}>
-      <span className={varChipClass} style={chipStyle}>{label}</span>
+      <span className={chipClass} style={chipStyle}>{label}</span>
     </span>
   )
 }

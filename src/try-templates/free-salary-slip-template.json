@@ -16,10 +16,64 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.name"
+      },
+      {
         "key": "deductions"
       },
       {
         "key": "earnings"
+      },
+      {
+        "key": "employee.bank_account"
+      },
+      {
+        "key": "employee.department"
+      },
+      {
+        "key": "employee.designation"
+      },
+      {
+        "key": "employee.id"
+      },
+      {
+        "key": "employee.name"
+      },
+      {
+        "key": "employee.pan"
+      },
+      {
+        "key": "payslip.number"
+      },
+      {
+        "key": "payslip.pay_date"
+      },
+      {
+        "key": "payslip.period"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "signatory.title"
+      },
+      {
+        "key": "totals.deductions"
+      },
+      {
+        "key": "totals.gross"
+      },
+      {
+        "key": "totals.in_words"
+      },
+      {
+        "key": "totals.net"
       }
     ],
     "elements": [
@@ -42,7 +96,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -58,7 +112,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npayroll@northwind.example · +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -106,7 +160,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "July 2026",
+        "content": "{{payslip.period}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -138,7 +192,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "31 July 2026",
+        "content": "{{payslip.pay_date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -170,7 +224,7 @@
         "y": 98,
         "width": 116,
         "height": 12,
-        "content": "PS/2026/07/0442",
+        "content": "{{payslip.number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -227,7 +281,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "Priya Nair",
+        "content": "{{employee.name}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -259,7 +313,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "NW-2291",
+        "content": "{{employee.id}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -291,7 +345,7 @@
         "y": 162,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "Senior Operations Analyst",
+        "content": "{{employee.designation}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -323,7 +377,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "Supply Chain",
+        "content": "{{employee.department}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -355,7 +409,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "AFZPN4471K",
+        "content": "{{employee.pan}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -387,7 +441,7 @@
         "y": 192,
         "width": 149.66666666666666,
         "height": 14,
-        "content": "XXXX XXXX 8842",
+        "content": "{{employee.bank_account}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "Inter",
@@ -516,7 +570,7 @@
         "y": 519,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "₹1,54,167.00",
+        "content": "{{totals.gross}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -550,7 +604,7 @@
         "y": 535,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "₹24,910.00",
+        "content": "{{totals.deductions}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -597,7 +651,7 @@
         "y": 551,
         "width": 101.20000000000002,
         "height": 14,
-        "content": "₹1,29,257.00",
+        "content": "{{totals.net}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "JetBrains Mono",
@@ -630,7 +684,7 @@
         "y": 551,
         "width": 230,
         "height": 40,
-        "content": "One lakh twenty-nine thousand two hundred fifty-seven rupees only",
+        "content": "{{totals.in_words}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -658,7 +712,7 @@
         "y": 698,
         "width": 240,
         "height": 14,
-        "content": "Devika Menon",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -675,7 +729,7 @@
         "y": 712,
         "width": 240,
         "height": 24,
-        "content": "Head of People",
+        "content": "{{signatory.title}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -737,7 +791,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -753,7 +807,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001\npayroll@northwind.example · +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -801,7 +855,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "July 2026",
+            "content": "{{payslip.period}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -833,7 +887,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "31 July 2026",
+            "content": "{{payslip.pay_date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -865,7 +919,7 @@
             "y": 98,
             "width": 116,
             "height": 12,
-            "content": "PS/2026/07/0442",
+            "content": "{{payslip.number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -922,7 +976,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "Priya Nair",
+            "content": "{{employee.name}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -954,7 +1008,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "NW-2291",
+            "content": "{{employee.id}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -986,7 +1040,7 @@
             "y": 162,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "Senior Operations Analyst",
+            "content": "{{employee.designation}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1018,7 +1072,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "Supply Chain",
+            "content": "{{employee.department}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1050,7 +1104,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "AFZPN4471K",
+            "content": "{{employee.pan}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1082,7 +1136,7 @@
             "y": 192,
             "width": 149.66666666666666,
             "height": 14,
-            "content": "XXXX XXXX 8842",
+            "content": "{{employee.bank_account}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "Inter",
@@ -1211,7 +1265,7 @@
             "y": 519,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "₹1,54,167.00",
+            "content": "{{totals.gross}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1245,7 +1299,7 @@
             "y": 535,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "₹24,910.00",
+            "content": "{{totals.deductions}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1292,7 +1346,7 @@
             "y": 551,
             "width": 101.20000000000002,
             "height": 14,
-            "content": "₹1,29,257.00",
+            "content": "{{totals.net}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "JetBrains Mono",
@@ -1325,7 +1379,7 @@
             "y": 551,
             "width": 230,
             "height": 40,
-            "content": "One lakh twenty-nine thousand two hundred fifty-seven rupees only",
+            "content": "{{totals.in_words}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1353,7 +1407,7 @@
             "y": 698,
             "width": 240,
             "height": 14,
-            "content": "Devika Menon",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1370,7 +1424,7 @@
             "y": 712,
             "width": 240,
             "height": 24,
-            "content": "Head of People",
+            "content": "{{signatory.title}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1412,8 +1466,26 @@
     ]
   },
   "variableValues": {
+    "company.address": "4th Floor, Prestige Corner, MG Road, Bengaluru 560001",
+    "company.contact": "payroll@northwind.example · +91 80 4123 7788",
+    "company.name": "Northwind Traders Pvt Ltd",
     "deductions": "[{\"component\":\"Provident fund\",\"amount\":\"₹9,250.00\"},{\"component\":\"Professional tax\",\"amount\":\"₹200.00\"},{\"component\":\"Income tax (TDS)\",\"amount\":\"₹14,960.00\"},{\"component\":\"Insurance premium\",\"amount\":\"₹500.00\"}]",
-    "earnings": "[{\"component\":\"Basic salary\",\"amount\":\"₹77,083.00\"},{\"component\":\"House rent allowance\",\"amount\":\"₹38,542.00\"},{\"component\":\"Special allowance\",\"amount\":\"₹27,042.00\"},{\"component\":\"Conveyance\",\"amount\":\"₹6,000.00\"},{\"component\":\"Meal allowance\",\"amount\":\"₹5,500.00\"}]"
+    "earnings": "[{\"component\":\"Basic salary\",\"amount\":\"₹77,083.00\"},{\"component\":\"House rent allowance\",\"amount\":\"₹38,542.00\"},{\"component\":\"Special allowance\",\"amount\":\"₹27,042.00\"},{\"component\":\"Conveyance\",\"amount\":\"₹6,000.00\"},{\"component\":\"Meal allowance\",\"amount\":\"₹5,500.00\"}]",
+    "employee.bank_account": "XXXX XXXX 8842",
+    "employee.department": "Supply Chain",
+    "employee.designation": "Senior Operations Analyst",
+    "employee.id": "NW-2291",
+    "employee.name": "Priya Nair",
+    "employee.pan": "AFZPN4471K",
+    "payslip.number": "PS/2026/07/0442",
+    "payslip.pay_date": "31 July 2026",
+    "payslip.period": "July 2026",
+    "signatory.name": "Devika Menon",
+    "signatory.title": "Head of People",
+    "totals.deductions": "₹24,910.00",
+    "totals.gross": "₹1,54,167.00",
+    "totals.in_words": "One lakh twenty-nine thousand two hundred fifty-seven rupees only",
+    "totals.net": "₹1,29,257.00"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

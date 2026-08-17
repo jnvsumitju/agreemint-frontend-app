@@ -16,7 +16,58 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.name"
+      },
+      {
+        "key": "customer.address"
+      },
+      {
+        "key": "customer.name"
+      },
+      {
+        "key": "invoice.date"
+      },
+      {
+        "key": "invoice.due_date"
+      },
+      {
+        "key": "invoice.number"
+      },
+      {
         "key": "line_items"
+      },
+      {
+        "key": "payment.instructions"
+      },
+      {
+        "key": "shipping.address"
+      },
+      {
+        "key": "shipping.name"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "totals.discount"
+      },
+      {
+        "key": "totals.grand_total"
+      },
+      {
+        "key": "totals.in_words"
+      },
+      {
+        "key": "totals.subtotal"
+      },
+      {
+        "key": "totals.tax"
       }
     ],
     "elements": [
@@ -39,7 +90,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -55,7 +106,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -103,7 +154,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "INV-2026-0184",
+        "content": "{{invoice.number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -135,7 +186,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "16 Aug 2026",
+        "content": "{{invoice.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -167,7 +218,7 @@
         "y": 98,
         "width": 116,
         "height": 12,
-        "content": "30 Aug 2026",
+        "content": "{{invoice.due_date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -211,7 +262,7 @@
         "y": 152,
         "width": 230,
         "height": 16,
-        "content": "Halcyon Design Studio",
+        "content": "{{customer.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -227,7 +278,7 @@
         "y": 169,
         "width": 230,
         "height": 46,
-        "content": "22 Residency Road, Bengaluru 560025",
+        "content": "{{customer.address}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -258,7 +309,7 @@
         "y": 152,
         "width": 239,
         "height": 16,
-        "content": "Halcyon Design Studio",
+        "content": "{{shipping.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -274,7 +325,7 @@
         "y": 169,
         "width": 239,
         "height": 46,
-        "content": "Warehouse 3, Hosur Road, Bengaluru 560068",
+        "content": "{{shipping.address}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -348,7 +399,7 @@
         "y": 359,
         "width": 97,
         "height": 14,
-        "content": "₹1,24,000.00",
+        "content": "{{totals.subtotal}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -382,7 +433,7 @@
         "y": 375,
         "width": 97,
         "height": 14,
-        "content": "−₹4,000.00",
+        "content": "{{totals.discount}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -416,7 +467,7 @@
         "y": 391,
         "width": 97,
         "height": 14,
-        "content": "₹21,600.00",
+        "content": "{{totals.tax}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -463,7 +514,7 @@
         "y": 407,
         "width": 97,
         "height": 14,
-        "content": "₹1,41,600.00",
+        "content": "{{totals.grand_total}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "JetBrains Mono",
@@ -496,7 +547,7 @@
         "y": 371,
         "width": 240,
         "height": 40,
-        "content": "One lakh forty-one thousand six hundred rupees only",
+        "content": "{{totals.in_words}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -528,7 +579,7 @@
         "y": 462,
         "width": 250,
         "height": 58,
-        "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nPlease quote the invoice number.",
+        "content": "{{payment.instructions}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -555,7 +606,7 @@
         "y": 489,
         "width": 240,
         "height": 14,
-        "content": "Ananya Rao",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -572,7 +623,7 @@
         "y": 503,
         "width": 240,
         "height": 24,
-        "content": "For Northwind Traders Pvt Ltd",
+        "content": "For {{company.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -600,7 +651,7 @@
         "y": 776,
         "width": 507,
         "height": 22,
-        "content": "Thank you for your business. Queries about this invoice? Reply to accounts@northwind.example  ·  +91 80 4123 7788",
+        "content": "Thank you for your business. Queries about this invoice? Reply to {{company.contact}}",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -634,7 +685,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -650,7 +701,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -698,7 +749,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "INV-2026-0184",
+            "content": "{{invoice.number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -730,7 +781,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "16 Aug 2026",
+            "content": "{{invoice.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -762,7 +813,7 @@
             "y": 98,
             "width": 116,
             "height": 12,
-            "content": "30 Aug 2026",
+            "content": "{{invoice.due_date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -806,7 +857,7 @@
             "y": 152,
             "width": 230,
             "height": 16,
-            "content": "Halcyon Design Studio",
+            "content": "{{customer.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -822,7 +873,7 @@
             "y": 169,
             "width": 230,
             "height": 46,
-            "content": "22 Residency Road, Bengaluru 560025",
+            "content": "{{customer.address}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -853,7 +904,7 @@
             "y": 152,
             "width": 239,
             "height": 16,
-            "content": "Halcyon Design Studio",
+            "content": "{{shipping.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -869,7 +920,7 @@
             "y": 169,
             "width": 239,
             "height": 46,
-            "content": "Warehouse 3, Hosur Road, Bengaluru 560068",
+            "content": "{{shipping.address}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -943,7 +994,7 @@
             "y": 359,
             "width": 97,
             "height": 14,
-            "content": "₹1,24,000.00",
+            "content": "{{totals.subtotal}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -977,7 +1028,7 @@
             "y": 375,
             "width": 97,
             "height": 14,
-            "content": "−₹4,000.00",
+            "content": "{{totals.discount}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1011,7 +1062,7 @@
             "y": 391,
             "width": 97,
             "height": 14,
-            "content": "₹21,600.00",
+            "content": "{{totals.tax}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1058,7 +1109,7 @@
             "y": 407,
             "width": 97,
             "height": 14,
-            "content": "₹1,41,600.00",
+            "content": "{{totals.grand_total}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "JetBrains Mono",
@@ -1091,7 +1142,7 @@
             "y": 371,
             "width": 240,
             "height": 40,
-            "content": "One lakh forty-one thousand six hundred rupees only",
+            "content": "{{totals.in_words}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1123,7 +1174,7 @@
             "y": 462,
             "width": 250,
             "height": 58,
-            "content": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nPlease quote the invoice number.",
+            "content": "{{payment.instructions}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1150,7 +1201,7 @@
             "y": 489,
             "width": 240,
             "height": 14,
-            "content": "Ananya Rao",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1167,7 +1218,7 @@
             "y": 503,
             "width": 240,
             "height": 24,
-            "content": "For Northwind Traders Pvt Ltd",
+            "content": "For {{company.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1195,7 +1246,7 @@
             "y": 776,
             "width": 507,
             "height": 22,
-            "content": "Thank you for your business. Queries about this invoice? Reply to accounts@northwind.example  ·  +91 80 4123 7788",
+            "content": "Thank you for your business. Queries about this invoice? Reply to {{company.contact}}",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -1209,7 +1260,24 @@
     ]
   },
   "variableValues": {
-    "line_items": "[{\"description\":\"Brand identity design — full system\",\"qty\":\"1\",\"rate\":\"₹68,000.00\",\"amount\":\"₹68,000.00\"},{\"description\":\"Website UI design (12 screens)\",\"qty\":\"12\",\"rate\":\"₹3,500.00\",\"amount\":\"₹42,000.00\"},{\"description\":\"Print collateral adaptation\",\"qty\":\"4\",\"rate\":\"₹2,500.00\",\"amount\":\"₹10,000.00\"},{\"description\":\"Photography licence — 1 year\",\"qty\":\"1\",\"rate\":\"₹4,000.00\",\"amount\":\"₹4,000.00\"}]"
+    "company.address": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001",
+    "company.contact": "accounts@northwind.example  ·  +91 80 4123 7788",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "customer.address": "22 Residency Road, Bengaluru 560025",
+    "customer.name": "Halcyon Design Studio",
+    "invoice.date": "16 Aug 2026",
+    "invoice.due_date": "30 Aug 2026",
+    "invoice.number": "INV-2026-0184",
+    "line_items": "[{\"description\":\"Brand identity design — full system\",\"qty\":\"1\",\"rate\":\"₹68,000.00\",\"amount\":\"₹68,000.00\"},{\"description\":\"Website UI design (12 screens)\",\"qty\":\"12\",\"rate\":\"₹3,500.00\",\"amount\":\"₹42,000.00\"},{\"description\":\"Print collateral adaptation\",\"qty\":\"4\",\"rate\":\"₹2,500.00\",\"amount\":\"₹10,000.00\"},{\"description\":\"Photography licence — 1 year\",\"qty\":\"1\",\"rate\":\"₹4,000.00\",\"amount\":\"₹4,000.00\"}]",
+    "payment.instructions": "Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nPlease quote the invoice number.",
+    "shipping.address": "Warehouse 3, Hosur Road, Bengaluru 560068",
+    "shipping.name": "Halcyon Design Studio",
+    "signatory.name": "Ananya Rao",
+    "totals.discount": "−₹4,000.00",
+    "totals.grand_total": "₹1,41,600.00",
+    "totals.in_words": "One lakh forty-one thousand six hundred rupees only",
+    "totals.subtotal": "₹1,24,000.00",
+    "totals.tax": "₹21,600.00"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }

@@ -16,7 +16,73 @@
     "layoutSchemaVersion": 2,
     "globalVariables": [
       {
+        "key": "company.address"
+      },
+      {
+        "key": "company.contact"
+      },
+      {
+        "key": "company.gstin"
+      },
+      {
+        "key": "company.jurisdiction"
+      },
+      {
+        "key": "company.name"
+      },
+      {
+        "key": "customer.address"
+      },
+      {
+        "key": "customer.gstin"
+      },
+      {
+        "key": "customer.name"
+      },
+      {
+        "key": "invoice.date"
+      },
+      {
+        "key": "invoice.declaration"
+      },
+      {
+        "key": "invoice.eway_bill"
+      },
+      {
+        "key": "invoice.number"
+      },
+      {
+        "key": "invoice.place_of_supply"
+      },
+      {
+        "key": "invoice.reverse_charge"
+      },
+      {
+        "key": "invoice.transport"
+      },
+      {
         "key": "line_items"
+      },
+      {
+        "key": "signatory.name"
+      },
+      {
+        "key": "totals.cgst"
+      },
+      {
+        "key": "totals.grand_total"
+      },
+      {
+        "key": "totals.igst"
+      },
+      {
+        "key": "totals.in_words"
+      },
+      {
+        "key": "totals.sgst"
+      },
+      {
+        "key": "totals.taxable"
       }
     ],
     "elements": [
@@ -39,7 +105,7 @@
         "y": 44,
         "width": 250,
         "height": 20,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 16,
           "fontFamily": "Inter",
@@ -55,7 +121,7 @@
         "y": 64,
         "width": 270,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+        "content": "{{company.address}}\n{{company.contact}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -103,7 +169,7 @@
         "y": 72,
         "width": 116,
         "height": 12,
-        "content": "GST/2026-27/0411",
+        "content": "{{invoice.number}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -135,7 +201,7 @@
         "y": 85,
         "width": 116,
         "height": 12,
-        "content": "16 Aug 2026",
+        "content": "{{invoice.date}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -167,7 +233,7 @@
         "y": 98,
         "width": 116,
         "height": 12,
-        "content": "Karnataka (29)",
+        "content": "{{invoice.place_of_supply}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "JetBrains Mono",
@@ -211,7 +277,7 @@
         "y": 152,
         "width": 230,
         "height": 16,
-        "content": "Halcyon Design Studio",
+        "content": "{{customer.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -227,7 +293,7 @@
         "y": 169,
         "width": 230,
         "height": 46,
-        "content": "22 Residency Road, Bengaluru 560025\nGSTIN 29AACCH1234R1Z8",
+        "content": "{{customer.address}}\nGSTIN {{customer.gstin}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -258,7 +324,7 @@
         "y": 152,
         "width": 239,
         "height": 16,
-        "content": "Northwind Traders Pvt Ltd",
+        "content": "{{company.name}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "Inter",
@@ -274,7 +340,7 @@
         "y": 169,
         "width": 239,
         "height": 46,
-        "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\nGSTIN 29AABCN2233K1ZP",
+        "content": "{{company.address}}\nGSTIN {{company.gstin}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -318,7 +384,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "No",
+        "content": "{{invoice.reverse_charge}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -350,7 +416,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "Blue Dart · BD8841203",
+        "content": "{{invoice.transport}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -382,7 +448,7 @@
         "y": 234,
         "width": 157,
         "height": 12,
-        "content": "3319 4477 8120",
+        "content": "{{invoice.eway_bill}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -472,7 +538,7 @@
         "y": 401,
         "width": 97,
         "height": 14,
-        "content": "₹1,20,000.00",
+        "content": "{{totals.taxable}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -506,7 +572,7 @@
         "y": 417,
         "width": 97,
         "height": 14,
-        "content": "₹10,800.00",
+        "content": "{{totals.cgst}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -540,7 +606,7 @@
         "y": 433,
         "width": 97,
         "height": 14,
-        "content": "₹10,800.00",
+        "content": "{{totals.sgst}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -574,7 +640,7 @@
         "y": 449,
         "width": 97,
         "height": 14,
-        "content": "₹0.00",
+        "content": "{{totals.igst}}",
         "style": {
           "fontSize": 9.5,
           "fontFamily": "JetBrains Mono",
@@ -621,7 +687,7 @@
         "y": 465,
         "width": 97,
         "height": 14,
-        "content": "₹1,41,600.00",
+        "content": "{{totals.grand_total}}",
         "style": {
           "fontSize": 11,
           "fontFamily": "JetBrains Mono",
@@ -654,7 +720,7 @@
         "y": 413,
         "width": 240,
         "height": 40,
-        "content": "One lakh forty-one thousand six hundred rupees only",
+        "content": "{{totals.in_words}}",
         "style": {
           "fontSize": 9,
           "fontFamily": "Inter",
@@ -686,7 +752,7 @@
         "y": 520,
         "width": 250,
         "height": 58,
-        "content": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+        "content": "{{invoice.declaration}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -713,7 +779,7 @@
         "y": 547,
         "width": 240,
         "height": 14,
-        "content": "Ananya Rao",
+        "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
           "fontFamily": "Inter",
@@ -730,7 +796,7 @@
         "y": 561,
         "width": 240,
         "height": 24,
-        "content": "Authorised signatory, Northwind Traders Pvt Ltd",
+        "content": "Authorised signatory, {{company.name}}",
         "style": {
           "fontSize": 8.5,
           "fontFamily": "Inter",
@@ -758,7 +824,7 @@
         "y": 776,
         "width": 507,
         "height": 22,
-        "content": "This is a computer-generated tax invoice. Subject to Bengaluru jurisdiction.",
+        "content": "This is a computer-generated tax invoice. Subject to {{company.jurisdiction}} jurisdiction.",
         "style": {
           "fontSize": 7.5,
           "fontFamily": "Inter",
@@ -792,7 +858,7 @@
             "y": 44,
             "width": 250,
             "height": 20,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 16,
               "fontFamily": "Inter",
@@ -808,7 +874,7 @@
             "y": 64,
             "width": 270,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\naccounts@northwind.example  ·  +91 80 4123 7788",
+            "content": "{{company.address}}\n{{company.contact}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -856,7 +922,7 @@
             "y": 72,
             "width": 116,
             "height": 12,
-            "content": "GST/2026-27/0411",
+            "content": "{{invoice.number}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -888,7 +954,7 @@
             "y": 85,
             "width": 116,
             "height": 12,
-            "content": "16 Aug 2026",
+            "content": "{{invoice.date}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -920,7 +986,7 @@
             "y": 98,
             "width": 116,
             "height": 12,
-            "content": "Karnataka (29)",
+            "content": "{{invoice.place_of_supply}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "JetBrains Mono",
@@ -964,7 +1030,7 @@
             "y": 152,
             "width": 230,
             "height": 16,
-            "content": "Halcyon Design Studio",
+            "content": "{{customer.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -980,7 +1046,7 @@
             "y": 169,
             "width": 230,
             "height": 46,
-            "content": "22 Residency Road, Bengaluru 560025\nGSTIN 29AACCH1234R1Z8",
+            "content": "{{customer.address}}\nGSTIN {{customer.gstin}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1011,7 +1077,7 @@
             "y": 152,
             "width": 239,
             "height": 16,
-            "content": "Northwind Traders Pvt Ltd",
+            "content": "{{company.name}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "Inter",
@@ -1027,7 +1093,7 @@
             "y": 169,
             "width": 239,
             "height": 46,
-            "content": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001\nGSTIN 29AABCN2233K1ZP",
+            "content": "{{company.address}}\nGSTIN {{company.gstin}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1071,7 +1137,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "No",
+            "content": "{{invoice.reverse_charge}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1103,7 +1169,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "Blue Dart · BD8841203",
+            "content": "{{invoice.transport}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1135,7 +1201,7 @@
             "y": 234,
             "width": 157,
             "height": 12,
-            "content": "3319 4477 8120",
+            "content": "{{invoice.eway_bill}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1225,7 +1291,7 @@
             "y": 401,
             "width": 97,
             "height": 14,
-            "content": "₹1,20,000.00",
+            "content": "{{totals.taxable}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1259,7 +1325,7 @@
             "y": 417,
             "width": 97,
             "height": 14,
-            "content": "₹10,800.00",
+            "content": "{{totals.cgst}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1293,7 +1359,7 @@
             "y": 433,
             "width": 97,
             "height": 14,
-            "content": "₹10,800.00",
+            "content": "{{totals.sgst}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1327,7 +1393,7 @@
             "y": 449,
             "width": 97,
             "height": 14,
-            "content": "₹0.00",
+            "content": "{{totals.igst}}",
             "style": {
               "fontSize": 9.5,
               "fontFamily": "JetBrains Mono",
@@ -1374,7 +1440,7 @@
             "y": 465,
             "width": 97,
             "height": 14,
-            "content": "₹1,41,600.00",
+            "content": "{{totals.grand_total}}",
             "style": {
               "fontSize": 11,
               "fontFamily": "JetBrains Mono",
@@ -1407,7 +1473,7 @@
             "y": 413,
             "width": 240,
             "height": 40,
-            "content": "One lakh forty-one thousand six hundred rupees only",
+            "content": "{{totals.in_words}}",
             "style": {
               "fontSize": 9,
               "fontFamily": "Inter",
@@ -1439,7 +1505,7 @@
             "y": 520,
             "width": 250,
             "height": 58,
-            "content": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+            "content": "{{invoice.declaration}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1466,7 +1532,7 @@
             "y": 547,
             "width": 240,
             "height": 14,
-            "content": "Ananya Rao",
+            "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
               "fontFamily": "Inter",
@@ -1483,7 +1549,7 @@
             "y": 561,
             "width": 240,
             "height": 24,
-            "content": "Authorised signatory, Northwind Traders Pvt Ltd",
+            "content": "Authorised signatory, {{company.name}}",
             "style": {
               "fontSize": 8.5,
               "fontFamily": "Inter",
@@ -1511,7 +1577,7 @@
             "y": 776,
             "width": 507,
             "height": 22,
-            "content": "This is a computer-generated tax invoice. Subject to Bengaluru jurisdiction.",
+            "content": "This is a computer-generated tax invoice. Subject to {{company.jurisdiction}} jurisdiction.",
             "style": {
               "fontSize": 7.5,
               "fontFamily": "Inter",
@@ -1525,7 +1591,29 @@
     ]
   },
   "variableValues": {
-    "line_items": "[{\"description\":\"Steel shelving unit — 5 tier\",\"hsn\":\"9403\",\"qty\":\"10\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹60,000.00\",\"gst\":\"18%\",\"amount\":\"₹70,800.00\"},{\"description\":\"Workbench 1800mm\",\"hsn\":\"9403\",\"qty\":\"4\",\"rate\":\"₹9,000.00\",\"taxable\":\"₹36,000.00\",\"gst\":\"18%\",\"amount\":\"₹42,480.00\"},{\"description\":\"Installation service\",\"hsn\":\"9954\",\"qty\":\"1\",\"rate\":\"₹18,000.00\",\"taxable\":\"₹18,000.00\",\"gst\":\"18%\",\"amount\":\"₹21,240.00\"},{\"description\":\"Freight and handling\",\"hsn\":\"9965\",\"qty\":\"1\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹6,000.00\",\"gst\":\"18%\",\"amount\":\"₹7,080.00\"}]"
+    "company.address": "4th Floor, Prestige Corner, MG Road\nBengaluru, Karnataka 560001",
+    "company.contact": "accounts@northwind.example  ·  +91 80 4123 7788",
+    "company.gstin": "29AABCN2233K1ZP",
+    "company.jurisdiction": "Bengaluru",
+    "company.name": "Northwind Traders Pvt Ltd",
+    "customer.address": "22 Residency Road, Bengaluru 560025",
+    "customer.gstin": "29AACCH1234R1Z8",
+    "customer.name": "Halcyon Design Studio",
+    "invoice.date": "16 Aug 2026",
+    "invoice.declaration": "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.",
+    "invoice.eway_bill": "3319 4477 8120",
+    "invoice.number": "GST/2026-27/0411",
+    "invoice.place_of_supply": "Karnataka (29)",
+    "invoice.reverse_charge": "No",
+    "invoice.transport": "Blue Dart · BD8841203",
+    "line_items": "[{\"description\":\"Steel shelving unit — 5 tier\",\"hsn\":\"9403\",\"qty\":\"10\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹60,000.00\",\"gst\":\"18%\",\"amount\":\"₹70,800.00\"},{\"description\":\"Workbench 1800mm\",\"hsn\":\"9403\",\"qty\":\"4\",\"rate\":\"₹9,000.00\",\"taxable\":\"₹36,000.00\",\"gst\":\"18%\",\"amount\":\"₹42,480.00\"},{\"description\":\"Installation service\",\"hsn\":\"9954\",\"qty\":\"1\",\"rate\":\"₹18,000.00\",\"taxable\":\"₹18,000.00\",\"gst\":\"18%\",\"amount\":\"₹21,240.00\"},{\"description\":\"Freight and handling\",\"hsn\":\"9965\",\"qty\":\"1\",\"rate\":\"₹6,000.00\",\"taxable\":\"₹6,000.00\",\"gst\":\"18%\",\"amount\":\"₹7,080.00\"}]",
+    "signatory.name": "Ananya Rao",
+    "totals.cgst": "₹10,800.00",
+    "totals.grand_total": "₹1,41,600.00",
+    "totals.igst": "₹0.00",
+    "totals.in_words": "One lakh forty-one thousand six hundred rupees only",
+    "totals.sgst": "₹10,800.00",
+    "totals.taxable": "₹1,20,000.00"
   },
   "exportedAt": "2026-08-16T00:00:00.000Z"
 }
