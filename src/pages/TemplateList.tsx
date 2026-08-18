@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
+import { templateStatus } from '../lib/templateStatus'
 import { usePlan } from '../hooks/usePlan'
 import { PublishTemplateModal } from '../components/marketplace/PublishTemplateModal'
 import { useEntitlements } from '../hooks/useEntitlements'
@@ -156,11 +157,15 @@ function TemplateCard({
   const { canEdit, canCreateTemplates } = usePermissions()
   const { isFree } = usePlan()
   const canUseMarketplace = canCreateTemplates && !isFree
+  const status = templateStatus(template)
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600">
-      {/* Status badge */}
+      {/* Derived from committed versions and draft state — see templateStatus.
+          This was a hardcoded "Draft" on every card, committed or not. */}
       <div className="absolute left-2 top-2 z-10">
-        <Badge variant="warning" size="sm" dot>Draft</Badge>
+        <Badge variant={status.tone} size="sm" dot title={status.title}>
+          {status.label}
+        </Badge>
       </div>
 
       {/* Thumbnail */}
@@ -273,6 +278,7 @@ function TemplateRow({
   duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
+  const status = templateStatus(template)
   return (
     <li className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
@@ -288,7 +294,9 @@ function TemplateRow({
           </span>
         )}
       </Link>
-      <Badge variant="warning" size="sm" className="hidden sm:inline-flex">Draft</Badge>
+      <Badge variant={status.tone} size="sm" className="hidden sm:inline-flex" title={status.title}>
+        {status.label}
+      </Badge>
       <div className="hidden shrink-0 md:block">
         {canEdit ? (
           <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
