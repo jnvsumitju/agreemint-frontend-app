@@ -14,13 +14,13 @@ import { exportElementAsImage } from '../../lib/canvasExport'
 import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
 import { useCollabConnectionStore, type CollabConnectionStatus } from '../../stores/collabConnectionStore'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
+import { usePreviewStore } from '../../stores/previewStore'
 import { useTrySignUpStore } from '../../stores/trySignUpStore'
 import { TEMPLATE_GALLERY_URL } from '../../lib/tryTemplates'
 import {
   IconUndo, IconRedo, IconEye, IconSave, IconMoreVertical,
 } from './ToolbarIcons'
 import { PresenceAvatars } from './PresenceAvatars'
-import { PreviewModal } from './PreviewModal'
 import { VersionDiffModal } from './VersionDiffModal'
 import { usePlan } from '../../hooks/usePlan'
 import { ShareModal } from './ShareModal'
@@ -397,12 +397,14 @@ export function Toolbar() {
   // this cannot be inferred from viewOnly/canEdit — a sandbox visitor is an
   // editor, which is exactly what those two describe.
   const sandbox = useEditorStore((s) => s.sandbox)
+  const previewActive = usePreviewStore((s) => s.active)
+  const enterPreview = usePreviewStore((s) => s.enter)
+  const exitPreview = usePreviewStore((s) => s.exit)
   const promptSignUp = useTrySignUpStore((s) => s.promptSignUp)
 
   const [saving, setSaving] = useState(false)
   const [generatingVersionPdf, setGeneratingVersionPdf] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionDiffOpen, setVersionDiffOpen] = useState(false)
@@ -798,10 +800,16 @@ export function Toolbar() {
             // rather than a hidden button — it is the moment the visitor most
             // wants an account, and hiding it would just look like a missing
             // feature.
-            onClick={() => (sandbox ? promptSignUp('preview') : setPreviewOpen(true))}
+            onClick={() => {
+              if (sandbox) {
+                promptSignUp('preview')
+                return
+              }
+              previewActive ? exitPreview() : enterPreview()
+            }}
           >
             <IconEye size={15} />
-            <span className="hidden lg:inline">Preview</span>
+            <span className="hidden lg:inline">{previewActive ? 'Back to editing' : 'Preview'}</span>
           </button>
           {!viewOnly && (
             <button
@@ -1050,13 +1058,6 @@ export function Toolbar() {
           triggers are already hidden or redirected above — this is the second
           line, so a future edit that re-exposes a trigger cannot quietly start
           issuing authenticated requests from an anonymous page. */}
-      {templateId && !sandbox && (
-        <PreviewModal
-          open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          templateId={templateId}
-        />
-      )}
       {templateId && !sandbox && (
         <VersionDiffModal
           open={versionDiffOpen}

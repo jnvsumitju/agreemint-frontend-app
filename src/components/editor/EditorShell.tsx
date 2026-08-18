@@ -5,6 +5,9 @@ import { useEditorStore } from '../../stores/editorStore'
 import { LeftPalette } from './LeftPalette'
 import { EditorCanvas } from './EditorCanvas'
 import { PropertiesPanel } from './PropertiesPanel'
+import { PreviewPane } from './PreviewPane'
+import { PreviewIssuesPanel } from './PreviewIssuesPanel'
+import { usePreviewStore } from '../../stores/previewStore'
 import { Toolbar } from './Toolbar'
 import { FormatBar } from './FormatBar'
 import { EditorStatusBar } from './EditorStatusBar'
@@ -53,6 +56,7 @@ function EditorChrome({
   // sorter-style). Reading the flag here keeps the rest of the chrome
   // unchanged when we're back in normal edit mode.
   const rearrangeMode = useEditorStore((s) => s.rearrangeMode)
+  const previewActive = usePreviewStore((s) => s.active)
   return (
     <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
       <Toolbar />
@@ -60,9 +64,16 @@ function EditorChrome({
         <FormatBar contextToolbarExemptRef={exemptFromInlineCommitRef} />
       )}
       <div className="flex min-h-0 min-w-0 flex-1">
-        {!rearrangeMode && <LeftPalette />}
+        {/* Previewing swaps the two working surfaces: the left palette's insert
+            tools cannot act on a rendered PDF, so that space goes to the list of
+            what the renderer clipped, and the centre shows the document itself.
+            The properties panel stays — its Values tab is how you change what
+            the preview renders. */}
+        {!rearrangeMode && (previewActive ? <PreviewIssuesPanel /> : <LeftPalette />)}
         {rearrangeMode ? (
           <RearrangePagesView />
+        ) : previewActive ? (
+          <PreviewPane />
         ) : (
           <EditorCanvas exemptFromInlineCommitRef={exemptFromInlineCommitRef} />
         )}

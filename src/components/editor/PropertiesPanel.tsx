@@ -30,6 +30,8 @@ import {
 } from '../../lib/tableDataFormat'
 import { tablePreviewBodyRowCount } from '../../lib/tablePreview'
 import { VariablesSection } from './VariablesSection'
+import { PreviewValuesTab } from './PreviewValuesTab'
+import { usePreviewStore } from '../../stores/previewStore'
 import { LayersSection } from './LayersSection'
 import { HistoryPanel } from './HistoryPanel'
 import { CommentsPanel } from './CommentsPanel'
@@ -1216,6 +1218,7 @@ export function PropertiesPanel() {
   const setTab = useEditorStore((s) => s.setEditorSidebarTab)
   const viewOnly = useEditorStore((s) => s.viewOnly)
   const sandbox = useEditorStore((s) => s.sandbox)
+  const previewActive = usePreviewStore((s) => s.active)
 
   // Persisted collapsed-to-rail state — a hard snap to w-10 with only icons
   // stacked vertically. Separate from the drag width so the rail click can
@@ -1287,6 +1290,10 @@ export function PropertiesPanel() {
     // selection can't render a panel whose own tab button is gone.
     : sandbox && (tab === 'activity' || tab === 'reviews')
     ? 'properties'
+    // Leaving preview removes the Values tab. Without this the panel would
+    // keep a selection whose own button no longer exists and render blank.
+    : tab === 'preview' && !previewActive
+    ? 'variables'
     : tab
 
   const sidebarTabs = useMemo(() => {
@@ -1295,14 +1302,19 @@ export function PropertiesPanel() {
       { key: 'behaviour', label: 'Rules', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg> },
       { key: 'layers', label: 'Layers', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3" /></svg> },
       { key: 'variables', label: 'Vars', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.745 3A23.933 23.933 0 003 12c0 3.183.62 6.22 1.745 9M19.5 3c.967 2.78 1.5 5.817 1.5 9s-.533 6.22-1.5 9M8.25 8.885l1.444-.89a.75.75 0 011.105.402l2.402 7.206a.75.75 0 001.104.401l1.445-.889" /></svg> },
+      { key: 'preview', label: 'Values', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
       { key: 'history', label: 'History', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
       { key: 'comments', label: 'Comments', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg> },
       { key: 'activity', label: 'Activity', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" /></svg> },
       { key: 'reviews', label: 'Reviews', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> },
     ]
+    // The Values tab exists to support the preview pane. Outside preview the
+    // Vars tab is where values are edited, and offering two tabs onto the same
+    // data at once would just be noise.
+    const withPreview = previewActive ? tabs : tabs.filter((t) => t.key !== 'preview')
     // In view-only mode: show only History, Comments, Activity, Reviews
     if (viewOnly) {
-      return tabs.filter((t) => ['history', 'comments', 'activity', 'reviews'].includes(t.key))
+      return withPreview.filter((t) => ['history', 'comments', 'activity', 'reviews'].includes(t.key))
     }
     // Anonymous sandbox: drop the two server-backed tabs. Activity reads the
     // org's activity feed and, with no org, returns early without ever
@@ -1310,10 +1322,10 @@ export function PropertiesPanel() {
     // Reviews fetches on mount. History (local undo stack) and Comments (held
     // entirely in the store) both work offline and stay.
     if (sandbox) {
-      return tabs.filter((t) => !['activity', 'reviews'].includes(t.key))
+      return withPreview.filter((t) => !['activity', 'reviews'].includes(t.key))
     }
-    return tabs
-  }, [viewOnly, sandbox])
+    return withPreview
+  }, [viewOnly, sandbox, previewActive])
 
   // Collapsed — icon rail only. Clicking any icon sets the tab AND expands.
   if (collapsed) {
@@ -1424,6 +1436,8 @@ export function PropertiesPanel() {
           <ActivityTab />
         ) : effectiveTab === 'reviews' ? (
           <ReviewsPanel />
+        ) : effectiveTab === 'preview' ? (
+          <PreviewValuesTab />
         ) : (
           <VariablesSection />
         )}

@@ -14,7 +14,7 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl
  * One worker for the whole app, created on first use.
  *
  * <p>Every `getDocument` call without an explicit `worker` spawns its own Worker
- * (`pdf.mjs:11409`), and `PreviewModal` calls it again on every regenerate — so
+ * (`pdf.mjs:11409`), and the preview pane calls it again on every refresh — so
  * a user iterating on a template was starting a fresh worker thread per preview.
  *
  * <p>It is deliberately never destroyed. `loadingTask.destroy()` does not

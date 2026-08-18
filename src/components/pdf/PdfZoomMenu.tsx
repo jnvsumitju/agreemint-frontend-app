@@ -118,7 +118,7 @@ export function PdfZoomMenu({
               ref={menuRef}
               role="menu"
               // z-[80] clears the fullscreen overlay's z-[70], which in turn
-              // clears PreviewModal's z-50.
+              // clears the shared Modal's z-50.
               className="fixed z-[80] w-44 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900 animate-in fade-in zoom-in-95 duration-150"
               style={{ top: rect.top, right: rect.right }}
               onClick={(e) => e.stopPropagation()}
