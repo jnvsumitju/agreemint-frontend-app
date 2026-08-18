@@ -136,7 +136,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 72,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Statement no.",
         "style": {
@@ -150,9 +150,9 @@
       {
         "id": "t006",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 72,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{statement.number}}",
         "style": {
@@ -168,7 +168,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 85.33,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Period",
         "style": {
@@ -182,9 +182,9 @@
       {
         "id": "t008",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 85.33,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{statement.period}}",
         "style": {
@@ -200,7 +200,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 98.66,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Issued",
         "style": {
@@ -214,9 +214,9 @@
       {
         "id": "t010",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 98.66,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{statement.date}}",
         "style": {
@@ -585,7 +585,7 @@
         "x": 446,
         "y": 491.2,
         "width": 97,
-        "height": 15.95,
+        "height": 31.9,
         "content": "{{balances.closing}}",
         "style": {
           "fontSize": 11,
@@ -771,7 +771,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 72,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Statement no.",
             "style": {
@@ -785,9 +785,9 @@
           {
             "id": "t006",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 72,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{statement.number}}",
             "style": {
@@ -803,7 +803,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 85.33,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Period",
             "style": {
@@ -817,9 +817,9 @@
           {
             "id": "t008",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 85.33,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{statement.period}}",
             "style": {
@@ -835,7 +835,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 98.66,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Issued",
             "style": {
@@ -849,9 +849,9 @@
           {
             "id": "t010",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 98.66,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{statement.date}}",
             "style": {
@@ -1220,7 +1220,7 @@
             "x": 446,
             "y": 491.2,
             "width": 97,
-            "height": 15.95,
+            "height": 31.9,
             "content": "{{balances.closing}}",
             "style": {
               "fontSize": 11,

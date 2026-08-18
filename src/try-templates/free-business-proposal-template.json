@@ -198,7 +198,7 @@
         "x": 297.5,
         "y": 152,
         "width": 109.75,
-        "height": 16,
+        "height": 27.55,
         "content": "{{proposal.valid_until}}",
         "style": {
           "fontSize": 9.5,
@@ -564,7 +564,7 @@
             "x": 297.5,
             "y": 152,
             "width": 109.75,
-            "height": 16,
+            "height": 27.55,
             "content": "{{proposal.valid_until}}",
             "style": {
               "fontSize": 9.5,

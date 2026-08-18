@@ -166,7 +166,7 @@
         "x": 177.75,
         "y": 152,
         "width": 109.75,
-        "height": 16,
+        "height": 27.55,
         "content": "{{agreement.effective_date}}",
         "style": {
           "fontSize": 9.5,
@@ -198,7 +198,7 @@
         "x": 297.5,
         "y": 152,
         "width": 109.75,
-        "height": 16,
+        "height": 27.55,
         "content": "{{agreement.confidentiality_period}}",
         "style": {
           "fontSize": 9.5,
@@ -230,7 +230,7 @@
         "x": 417.25,
         "y": 152,
         "width": 109.75,
-        "height": 16,
+        "height": 27.55,
         "content": "{{agreement.governing_law}}",
         "style": {
           "fontSize": 9.5,
@@ -704,7 +704,7 @@
             "x": 177.75,
             "y": 152,
             "width": 109.75,
-            "height": 16,
+            "height": 27.55,
             "content": "{{agreement.effective_date}}",
             "style": {
               "fontSize": 9.5,
@@ -736,7 +736,7 @@
             "x": 297.5,
             "y": 152,
             "width": 109.75,
-            "height": 16,
+            "height": 27.55,
             "content": "{{agreement.confidentiality_period}}",
             "style": {
               "fontSize": 9.5,
@@ -768,7 +768,7 @@
             "x": 417.25,
             "y": 152,
             "width": 109.75,
-            "height": 16,
+            "height": 27.55,
             "content": "{{agreement.governing_law}}",
             "style": {
               "fontSize": 9.5,

@@ -17,16 +17,63 @@ function measurements(map: Record<string, number>): MeasureLayoutResponse['measu
 }
 
 describe('findOverflowingElements', () => {
+  // These four cases are the ones rendered and inspected pixel by pixel: a
+  // 16pt heading at lineHeight 1.45 measures 23.2pt, and the descenders of
+  // "gypj" survive intact in a 20pt box but are visibly cut in a 16pt one.
+  // The badge has to draw its line in the same place the renderer does.
+  it('does not flag a box that clips only the bottom half-leading', () => {
+    const layout: LayoutJson = {
+      page: { size: 'A4', margin: 36 },
+      elements: [textEl('a', 20, { style: { fontSize: 16, lineHeight: 1.45 } })],
+    }
+    // 23.2 measured vs a 20pt box: 3.2pt of "overflow", all of it whitespace.
+    const overflows = findOverflowingElements(layout, measurements({ a: 23.2 }))
+    expect(overflows, 'renders clean, so it must not warn').toEqual([])
+  })
+
+  it('flags the same content once the glyphs are actually cut', () => {
+    const layout: LayoutJson = {
+      page: { size: 'A4', margin: 36 },
+      elements: [textEl('a', 16, { style: { fontSize: 16, lineHeight: 1.45 } })],
+    }
+    const overflows = findOverflowingElements(layout, measurements({ a: 23.2 }))
+    expect(overflows).toHaveLength(1)
+    // Ink bottom is 23.2 - 3.6 = 19.6, so 3.6pt of glyph is lost.
+    expect(overflows[0]?.delta).toBeCloseTo(3.6, 1)
+  })
+
+  it('reports the ink lost, not the line-box difference', () => {
+    const layout: LayoutJson = {
+      page: { size: 'A4', margin: 36 },
+      elements: [textEl('a', 12, { style: { fontSize: 16, lineHeight: 1.45 } })],
+    }
+    const overflows = findOverflowingElements(layout, measurements({ a: 23.2 }))
+    // Line-box difference would be 11.2; the glyphs only lose 7.6.
+    expect(overflows[0]?.delta).toBeCloseTo(7.6, 1)
+    expect(overflows[0]?.measuredHeight, 'grow-to-fit still uses the full line box').toBe(23.2)
+  })
+
+  it('treats a missing lineHeight as the 1.4 canvas default', () => {
+    const layout: LayoutJson = {
+      page: { size: 'A4', margin: 36 },
+      elements: [textEl('a', 14, { style: { fontSize: 10 } })],
+    }
+    // 10 x 1.4 = 14 measured, half-leading 2 -> ink bottom 12, inside a 14pt box.
+    expect(findOverflowingElements(layout, measurements({ a: 14 }))).toEqual([])
+  })
+
   it('flags text elements whose measured height exceeds the box', () => {
     const layout: LayoutJson = {
       page: { size: 'A4', margin: 36 },
       elements: [textEl('a', 20), textEl('b', 50)],
     }
-    const ms = measurements({ a: 30, b: 40 })  // a overflows by 10pt; b fits
+    const ms = measurements({ a: 30, b: 40 })  // a overflows; b fits
     const overflows = findOverflowingElements(layout, ms)
     expect(overflows).toHaveLength(1)
     expect(overflows[0]?.elementId).toBe('a')
-    expect(overflows[0]?.delta).toBeCloseTo(10)
+    // 30 measured - 2.4 half-leading (the 12pt/1.4 default) - 20 box = 7.6pt of
+    // glyph actually lost. The raw line-box difference would read 10.
+    expect(overflows[0]?.delta).toBeCloseTo(7.6, 1)
     expect(overflows[0]?.boxHeight).toBe(20)
     expect(overflows[0]?.measuredHeight).toBe(30)
   })
@@ -72,7 +119,11 @@ describe('findOverflowingElements', () => {
         { id: 'p2', elements: [textEl('p2-a', 10), textEl('p2-b', 50)] },
       ],
     }
-    const ms = measurements({ 'p1-a': 30, 'p2-a': 12, 'p2-b': 80 })
+    // All three clip for real: with the 12pt/1.4 default the half-leading is
+    // 2.4pt, so `p2-a` needs to measure past 12.4 to lose any glyph. Picking a
+    // number that only overflowed the line box would have made this test pass
+    // for the wrong reason once the check moved to measuring ink.
+    const ms = measurements({ 'p1-a': 30, 'p2-a': 20, 'p2-b': 80 })
     const overflows = findOverflowingElements(layout, ms).map((o) => o.elementId).sort()
     expect(overflows).toEqual(['p1-a', 'p2-a', 'p2-b'])
   })

@@ -136,7 +136,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 72,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Academic year",
         "style": {
@@ -150,9 +150,9 @@
       {
         "id": "t006",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 72,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{exam.academic_year}}",
         "style": {
@@ -168,7 +168,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 85.33,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Examination",
         "style": {
@@ -182,10 +182,10 @@
       {
         "id": "t008",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 85.33,
-        "width": 116,
-        "height": 24.65,
+        "width": 146,
+        "height": 12.33,
         "content": "{{exam.name}}",
         "style": {
           "fontSize": 8.5,
@@ -199,8 +199,8 @@
         "id": "t009",
         "type": "TEXT",
         "x": 321,
-        "y": 110.97999999999999,
-        "width": 110,
+        "y": 98.66,
+        "width": 82,
         "height": 12.33,
         "content": "Sheet no.",
         "style": {
@@ -214,9 +214,9 @@
       {
         "id": "t010",
         "type": "TEXT",
-        "x": 435,
-        "y": 110.97999999999999,
-        "width": 116,
+        "x": 405,
+        "y": 98.66,
+        "width": 146,
         "height": 12.33,
         "content": "{{exam.sheet_number}}",
         "style": {
@@ -766,7 +766,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 72,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Academic year",
             "style": {
@@ -780,9 +780,9 @@
           {
             "id": "t006",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 72,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{exam.academic_year}}",
             "style": {
@@ -798,7 +798,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 85.33,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Examination",
             "style": {
@@ -812,10 +812,10 @@
           {
             "id": "t008",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 85.33,
-            "width": 116,
-            "height": 24.65,
+            "width": 146,
+            "height": 12.33,
             "content": "{{exam.name}}",
             "style": {
               "fontSize": 8.5,
@@ -829,8 +829,8 @@
             "id": "t009",
             "type": "TEXT",
             "x": 321,
-            "y": 110.97999999999999,
-            "width": 110,
+            "y": 98.66,
+            "width": 82,
             "height": 12.33,
             "content": "Sheet no.",
             "style": {
@@ -844,9 +844,9 @@
           {
             "id": "t010",
             "type": "TEXT",
-            "x": 435,
-            "y": 110.97999999999999,
-            "width": 116,
+            "x": 405,
+            "y": 98.66,
+            "width": 146,
             "height": 12.33,
             "content": "{{exam.sheet_number}}",
             "style": {
