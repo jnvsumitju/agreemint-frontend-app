@@ -1290,10 +1290,13 @@ export function PropertiesPanel() {
     // selection can't render a panel whose own tab button is gone.
     : sandbox && (tab === 'activity' || tab === 'reviews')
     ? 'properties'
-    // Leaving preview removes the Values tab. Without this the panel would
-    // keep a selection whose own button no longer exists and render blank.
+    // Leaving preview removes the Values tab; entering it removes the four
+    // layout tabs. Either way a stale selection would leave the panel rendering
+    // a body whose own tab button is gone.
     : tab === 'preview' && !previewActive
     ? 'variables'
+    : previewActive && ['properties', 'behaviour', 'layers', 'variables'].includes(tab)
+    ? 'preview'
     : tab
 
   const sidebarTabs = useMemo(() => {
@@ -1308,10 +1311,16 @@ export function PropertiesPanel() {
       { key: 'activity', label: 'Activity', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" /></svg> },
       { key: 'reviews', label: 'Reviews', icon: <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg> },
     ]
-    // The Values tab exists to support the preview pane. Outside preview the
-    // Vars tab is where values are edited, and offering two tabs onto the same
-    // data at once would just be noise.
-    const withPreview = previewActive ? tabs : tabs.filter((t) => t.key !== 'preview')
+    // Preview shows the rendered PDF, so the tabs that manipulate the layout —
+    // Props, Rules, Layers and Vars — have nothing to act on and are hidden.
+    // What remains is what still makes sense against a finished document:
+    // Values (what it renders with), plus History, Comments, Activity, Reviews.
+    // Outside preview the Values tab goes, because Vars is where values are
+    // edited and two tabs onto the same data would just be noise.
+    const LAYOUT_TABS = ['properties', 'behaviour', 'layers', 'variables']
+    const withPreview = previewActive
+      ? tabs.filter((t) => !LAYOUT_TABS.includes(t.key))
+      : tabs.filter((t) => t.key !== 'preview')
     // In view-only mode: show only History, Comments, Activity, Reviews
     if (viewOnly) {
       return withPreview.filter((t) => ['history', 'comments', 'activity', 'reviews'].includes(t.key))

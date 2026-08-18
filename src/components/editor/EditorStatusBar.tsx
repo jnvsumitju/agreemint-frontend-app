@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import { pageDimensionsPt } from '../../types/layout'
 import { Badge } from '../ui/Badge'
 import { ToggleSwitch } from './ui/ToggleSwitch'
+import { FixLayoutBadge } from './FixLayoutBadge'
 import { Tooltip } from './ui/Tooltip'
 
 const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3] as const
@@ -210,6 +211,12 @@ export function EditorStatusBar() {
 
         {/* Separator */}
         <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
+
+        {/* Layout auto-fix. Lives here rather than floating over the canvas so
+            it stops covering the properties panel's tabs. Renders its own
+            leading separator, because it hides itself in several states and a
+            separator with nothing after it is just a stray rule. */}
+        <FixLayoutBadge />
 
         {/* Grid + Guides toggles */}
         <div className="flex items-center gap-3" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>

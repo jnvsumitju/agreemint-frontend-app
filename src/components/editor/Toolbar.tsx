@@ -721,8 +721,12 @@ export function Toolbar() {
           )}
           <ReviewerLiveToggle templateId={templateId} />
         </div>
-        {!viewOnly && <EditorSurfaceSwitcher />}
-        {!viewOnly && (
+        {/* Page / Header / Footer picks which band the canvas edits, and the
+            canvas is not on screen while previewing. */}
+        {!viewOnly && !previewActive && <EditorSurfaceSwitcher />}
+        {/* Undo/redo walk the layout's edit history; there is nothing to undo
+            about a rendered document. */}
+        {!viewOnly && !previewActive && (
         <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-l border-zinc-200 pl-1.5 lg:pl-3 dark:border-zinc-600">
           <button
             type="button"
@@ -832,7 +836,9 @@ export function Toolbar() {
               mode. ADMIN/DESIGNER can therefore flip back to edit mode
               after switching to view-only. REVIEWER/VIEWER never see
               the toggle since canEdit is false for them. */}
-          {canEdit && (
+          {/* Editing vs View-only are both ways of showing the CANVAS. Offering
+              the choice over a PDF would suggest the preview itself is editable. */}
+          {canEdit && !previewActive && (
             <button
               type="button"
               className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
