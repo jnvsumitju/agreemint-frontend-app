@@ -10,6 +10,12 @@ export interface UserDto {
   avatarUrl: string | null
   provider: string
   createdAt: string
+  /**
+   * Internal Crixaa staff. Already served by `/api/auth/me`; the console simply
+   * never declared it. Used only to surface staff-only affordances — never as
+   * an authorization decision, which stays server-side.
+   */
+  isStaff?: boolean
 }
 
 export interface OrgDto {
