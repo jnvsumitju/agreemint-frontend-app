@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { authFetch } from '../lib/api'
 import { usePermissions } from '../hooks/usePermissions'
 import { useAuthStore } from '../stores/authStore'
@@ -17,6 +18,10 @@ interface MarketplaceListing {
   installCount: number
   /** Only meaningful on /mine — the browse list returns published rows only. */
   published?: boolean
+  /** First-party listing from Crixaa: free on every plan, badged, and sorted first. */
+  official?: boolean
+  /** Present on official listings so staff can open the source template directly. */
+  sourceTemplateId?: string | null
   createdAt: string
 }
 
@@ -30,10 +35,13 @@ function ListingCard({
   listing,
   onClone,
   cloning,
+  onEdit,
 }: {
   listing: MarketplaceListing
   onClone: () => void
   cloning: boolean
+  /** Staff-only, and only for first-party listings. Undefined hides the control. */
+  onEdit?: () => void
 }) {
   const { canCreateTemplates } = usePermissions()
   const excerpt =
@@ -67,7 +75,17 @@ function ListingCard({
 
       {/* Content */}
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{listing.title}</h3>
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{listing.title}</h3>
+          {listing.official && (
+            <span
+              className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
+              title="A free template published by Crixaa"
+            >
+              Free · Crixaa
+            </span>
+          )}
+        </div>
         {excerpt && (
           <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">{excerpt}</p>
         )}
@@ -105,6 +123,21 @@ function ListingCard({
             {cloning ? 'Cloning...' : 'Use Template'}
           </button>
         )}
+
+        {/* Staff maintain the first-party catalogue in place: this opens the
+            Crixaa-owned source template rather than cloning a copy. It is an
+            affordance only — the write is authorized server-side by ordinary
+            org membership, so a non-staff user who forged this navigation
+            would simply be refused by the editor's own access check. */}
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="mt-2 w-full rounded-lg border border-violet-300 px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10"
+          >
+            Edit as Crixaa
+          </button>
+        )}
       </div>
     </div>
   )
@@ -114,6 +147,11 @@ function ListingCard({
 
 export function Marketplace() {
   const { canCreateTemplates } = usePermissions()
+  const navigate = useNavigate()
+  // Affordance only. The Edit button opens the Crixaa-owned source template;
+  // whether the caller may actually write to it is decided server-side by org
+  // membership, so a forged flag here buys nothing but a 403.
+  const isStaff = useAuthStore((s) => s.user?.isStaff ?? false)
   const orgId = useAuthStore((st) => st.org?.id ?? null)
   const [listings, setListings] = useState<MarketplaceListing[]>([])
   const [loading, setLoading] = useState(true)
@@ -184,7 +222,13 @@ export function Marketplace() {
       )
     }
 
-    return result
+    // First-party listings lead. They are free on every plan and are the ones a
+    // new workspace is most likely to want, so burying them under whatever a
+    // third party published most recently would waste the whole point. Ordering
+    // within each group is left as the server sent it (newest first).
+    return [...result].sort(
+      (a, b) => Number(b.official ?? false) - Number(a.official ?? false)
+    )
   }, [listings, activeCategory, search])
 
   async function handleClone(listingId: string) {
@@ -442,6 +486,11 @@ export function Marketplace() {
                   listing={listing}
                   cloning={cloningId === listing.id}
                   onClone={() => void handleClone(listing.id)}
+                  onEdit={
+                    isStaff && listing.official && listing.sourceTemplateId
+                      ? () => navigate(`/editor/${listing.sourceTemplateId}`)
+                      : undefined
+                  }
                 />
               ))}
             </div>

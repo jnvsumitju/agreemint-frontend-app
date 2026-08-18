@@ -26,12 +26,30 @@
  *     with each column mapped by `columns[].key`.
  */
 
-import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readdirSync, unlinkSync, existsSync } from 'node:fs'
 import { findCollisions } from './check-template-collisions.mjs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'try-templates')
+
+/**
+ * Second output: the backend's classpath, so the same twenty bundles can be
+ * seeded as first-party marketplace listings.
+ *
+ * <p>Generated rather than copied by hand, and generated from this one script,
+ * because the alternative is the same layout maintained in two repositories —
+ * and the failure mode there is silent: the marketplace would keep serving a
+ * template the sandbox had already fixed, and nothing would flag the drift.
+ *
+ * <p>Skipped without complaint when the backend repo is not checked out
+ * alongside this one, so the console can still be built on its own. Override
+ * with SEED_OUT_DIR.
+ */
+const SEED_OUT_DIR =
+  process.env.SEED_OUT_DIR ??
+  join(dirname(fileURLToPath(import.meta.url)), '..', '..',
+       'agreemint-backend-app', 'src', 'main', 'resources', 'seed-templates')
 
 /**
  * Fixed so re-running the generator produces no diff. A real timestamp would
@@ -2273,12 +2291,25 @@ if (failed) {
   process.exit(1)
 }
 
-mkdirSync(OUT_DIR, { recursive: true })
-for (const stale of readdirSync(OUT_DIR).filter((f) => f.endsWith('.json'))) {
-  unlinkSync(join(OUT_DIR, stale))
-}
-for (const { slug, payload } of outputs) {
-  writeFileSync(join(OUT_DIR, `${slug}.json`), `${JSON.stringify(payload, null, 2)}\n`)
+function commit(dir) {
+  mkdirSync(dir, { recursive: true })
+  for (const stale of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
+    unlinkSync(join(dir, stale))
+  }
+  for (const { slug, payload } of outputs) {
+    writeFileSync(join(dir, `${slug}.json`), `${JSON.stringify(payload, null, 2)}\n`)
+  }
 }
 
+commit(OUT_DIR)
 console.log(`\n${outputs.length} templates written to src/try-templates/`)
+
+// The backend copy is best-effort: its absence means someone is building the
+// console alone, which is legitimate. A write that FAILS, though, is not — that
+// would leave the marketplace seeded from a stale catalogue.
+if (existsSync(dirname(SEED_OUT_DIR))) {
+  commit(SEED_OUT_DIR)
+  console.log(`${outputs.length} templates written to the backend seed resources`)
+} else {
+  console.log('backend repo not found alongside — skipped the marketplace seed copy')
+}
