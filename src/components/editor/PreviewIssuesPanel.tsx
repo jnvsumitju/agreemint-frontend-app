@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/shallow'
 import { usePreviewStore } from '../../stores/previewStore'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 
@@ -19,7 +20,12 @@ export function PreviewIssuesPanel() {
   const pdfUrl = usePreviewStore((s) => s.pdfUrl)
   const loading = usePreviewStore((s) => s.loading)
   const select = useEditorStore((s) => s.select)
-  const elements = useEditorStore(selectAllTemplateElements)
+  // `useShallow` is mandatory here, not stylistic: selectAllTemplateElements
+  // does `pages.flatMap(...)` and so returns a NEW array every call. Zustand
+  // compares snapshots by reference, so an unwrapped selector reports a change
+  // on every render and React tears the tree down with "maximum update depth
+  // exceeded" (#185) — which is what clicking Preview did.
+  const elements = useEditorStore(useShallow(selectAllTemplateElements))
 
   /** The element's own text, so a row reads as content rather than as an id. */
   const labelFor = (id: string): string => {

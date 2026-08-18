@@ -12,7 +12,11 @@ import { PdfViewer } from '../pdf/PdfViewer'
  * honest rather than merely cheap.
  */
 export function PreviewPane() {
-  const { loading, error, pdfUrl, stale, generate } = usePreviewStore()
+  const loading = usePreviewStore((s) => s.loading)
+  const error = usePreviewStore((s) => s.error)
+  const pdfUrl = usePreviewStore((s) => s.pdfUrl)
+  const stale = usePreviewStore((s) => s.stale)
+  const generate = usePreviewStore((s) => s.generate)
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-zinc-100 dark:bg-zinc-950">
