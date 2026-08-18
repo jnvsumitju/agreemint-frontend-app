@@ -41,7 +41,7 @@ export function PdfViewerHarness() {
   if (!url) return null
 
   // Two boxes: the framed one matches DocumentDetail's fixed-height card, the
-  // full-bleed one matches PreviewModal's flex pane. Both shapes have broken
+  // full-bleed one matches the inline preview pane. Both shapes have broken
   // differently in the past, so both are on screen at once.
   return (
     <div className="min-h-screen bg-zinc-50 p-6 dark:bg-zinc-950">
@@ -68,7 +68,7 @@ export function PdfViewerHarness() {
 
         <section data-harness="bleed" className="flex h-[70vh] min-h-0 flex-col">
           <h2 className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Flex pane (as in PreviewModal)
+            Flex pane (as in the preview pane)
           </h2>
           <div className="flex min-h-0 flex-1 flex-col">
             <PdfViewer

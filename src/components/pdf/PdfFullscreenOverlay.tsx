@@ -19,14 +19,17 @@ export interface PdfFullscreenOverlayProps {
  * the browser's own exit affordance on top of ours. A portalled fixed overlay is
  * already this codebase's idiom for every other layer.
  *
- * <p>Three things here exist purely to coexist with `PreviewModal`, which is one
+ * <p>Some of this exists to coexist with whatever the viewer is mounted inside. The
  * of the two call sites and is itself a hand-rolled `fixed inset-0 z-50` layer:
  *
  * <ol>
  *   <li><b>Click containment.</b> A React portal renders into `document.body`
  *       but its events still propagate through the <i>React</i> tree, so a click
- *       anywhere in here would reach `PreviewModal`'s root `onClick={handleClose}`
- *       (`PreviewModal.tsx:145`) and close the entire modal. The overlay stops
+ *       anywhere in here used to reach the preview modal's root
+ *       `onClick={handleClose}` and close it outright. That modal is gone —
+ *       preview is now an inline mode — so this is defensive rather than
+ *       load-bearing today, and stays because the viewer is still mounted
+ *       inside dialogs elsewhere. The overlay stops
  *       propagation at its root.</li>
  *   <li><b>Escape arbitration.</b> The shared `Modal` binds Escape on `window`
  *       (`Modal.tsx:35`). With the properties dialog open, one press would
@@ -77,7 +80,8 @@ export function PdfFullscreenOverlay({
   return createPortal(
     <div
       ref={rootRef}
-      // z-[70] clears PreviewModal's z-50 and the shared Modal's z-50.
+      // z-[70] clears the shared Modal's z-50 — the viewer's own properties
+      // dialog opens over the fullscreen overlay and must not be buried.
       className="fixed inset-0 z-[70] flex flex-col bg-zinc-100 dark:bg-zinc-950"
       role="dialog"
       aria-modal="true"

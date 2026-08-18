@@ -1,0 +1,159 @@
+import { create } from 'zustand'
+import { generatePreviewPdf, measureLayout } from '../lib/api'
+import { buildLayoutJson, type LayoutJson } from '../types/layout'
+import { variableValuesToDataTree } from '../lib/layoutBehaviourResolve'
+import { findOverflowingElements, type Overflow } from '../lib/overflowCheck'
+import { pixelParityEnabled } from '../lib/features'
+import { selectAllTemplateElements, useEditorStore } from './editorStore'
+import { getTableColumnsForDataKey, parseTableRowsFromJson, tableRowsToPayload } from '../lib/previewFormData'
+import { defaultSampleTableRowsJson, uniqueTableDataKeys } from '../lib/variables'
+
+/**
+ * State for the inline PDF preview.
+ *
+ * <p>Preview used to be a modal that owned its own copy of the variable values,
+ * seeded from the editor store and never written back — two surfaces editing
+ * the same data with no way to reconcile them. Inline, the values live in the
+ * editor store and this holds only what is genuinely about the *render*: the
+ * resulting PDF, what the renderer clipped, and whether that output still
+ * reflects the current layout.
+ *
+ * <p>Regeneration is explicit. Each run costs two API round-trips (render, then
+ * measure), so refreshing on every keystroke would be slow and would flicker
+ * the document under the cursor. Instead {@link PreviewState.stale} tracks
+ * whether anything has changed since the last render, so the pane can say so
+ * rather than quietly showing output that no longer matches the editor.
+ */
+export interface PreviewState {
+  /** Preview mode is active: the shell shows the PDF instead of the canvas. */
+  active: boolean
+  loading: boolean
+  error: string | null
+  /** Object URL for the rendered PDF, or null before the first render. */
+  pdfUrl: string | null
+  /** Elements the renderer clipped, listed in full — the left panel shows them. */
+  overflows: Overflow[]
+  /** True when the layout or values changed after the PDF on screen was made. */
+  stale: boolean
+
+  enter: () => void
+  exit: () => void
+  generate: () => Promise<void>
+  markStale: () => void
+}
+
+/** Unsubscribes the editor-store watcher that drives {@link PreviewState.stale}. */
+let unwatch: (() => void) | null = null
+
+export const usePreviewStore = create<PreviewState>((set, get) => ({
+  active: false,
+  loading: false,
+  error: null,
+  pdfUrl: null,
+  overflows: [],
+  stale: false,
+
+  enter: () => {
+    if (get().active) return
+    set({ active: true, stale: true })
+    // Watch the inputs that change what the PDF would look like. Without this
+    // the pane would keep presenting a stale render as if it were current,
+    // which is worse than showing nothing — the whole point of previewing is to
+    // trust what you see.
+    unwatch?.()
+    unwatch = useEditorStore.subscribe((s, prev) => {
+      if (
+        s.variableValues !== prev.variableValues ||
+        s.pages !== prev.pages ||
+        s.pageSpec !== prev.pageSpec ||
+        s.globalVariableDefinitions !== prev.globalVariableDefinitions
+      ) {
+        if (usePreviewStore.getState().pdfUrl) set({ stale: true })
+      }
+    })
+  },
+
+  exit: () => {
+    unwatch?.()
+    unwatch = null
+    // Revoke here as well as in generate(): leaving preview is the other way a
+    // URL stops being reachable, and a blob nobody revokes is held for the life
+    // of the document.
+    const { pdfUrl } = get()
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl)
+    set({ active: false, pdfUrl: null, overflows: [], error: null, stale: false })
+  },
+
+  markStale: () => {
+    if (get().pdfUrl) set({ stale: true })
+  },
+
+  generate: async () => {
+    set({ loading: true, error: null })
+    try {
+      const ed = useEditorStore.getState()
+      const layout = buildLayoutJson(
+        ed.pages,
+        ed.pageSpec,
+        ed.globalVariableDefinitions
+      ) as unknown as Record<string, unknown>
+
+      const data = buildPreviewData()
+      const blob = await generatePreviewPdf(layout, data)
+
+      set((s) => {
+        // Revoke the PREVIOUS url as the new one replaces it. Missing this
+        // leaked one PDF per refresh, and refreshing is the common action here.
+        if (s.pdfUrl) URL.revokeObjectURL(s.pdfUrl)
+        return { pdfUrl: URL.createObjectURL(blob), stale: false }
+      })
+
+      // Where the renderer clipped. A soft assist: a measurement failure must
+      // not discard a PDF that rendered perfectly well.
+      if (pixelParityEnabled()) {
+        try {
+          const resp = await measureLayout(layout, data)
+          set({
+            overflows: findOverflowingElements(layout as unknown as LayoutJson, resp.measurements),
+          })
+        } catch {
+          set({ overflows: [] })
+        }
+      } else {
+        set({ overflows: [] })
+      }
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Preview failed' })
+    } finally {
+      set({ loading: false })
+    }
+  },
+}))
+
+/**
+ * The render payload: scalar variables as a nested tree, plus one entry per
+ * table-bound key.
+ *
+ * <p>Reads straight from the editor store rather than from a form's local
+ * state, so the Preview tab and the Vars tab cannot disagree about what a
+ * value is.
+ */
+export function buildPreviewData(): Record<string, unknown> {
+  const ed = useEditorStore.getState()
+  const values = ed.variableValues
+  const elements = selectAllTemplateElements(ed)
+  const tableKeys = uniqueTableDataKeys(elements)
+
+  const scalars: Record<string, string> = {}
+  for (const [k, v] of Object.entries(values)) {
+    if (!tableKeys.includes(k)) scalars[k] = v
+  }
+  const data = variableValuesToDataTree(scalars) as Record<string, unknown>
+
+  for (const tk of tableKeys) {
+    const cols = getTableColumnsForDataKey(elements, tk).map((c) => c.key)
+    const raw = values[tk]?.trim() ? values[tk]! : defaultSampleTableRowsJson()
+    data[tk] = tableRowsToPayload(parseTableRowsFromJson(raw, cols))
+  }
+  return data
+}
