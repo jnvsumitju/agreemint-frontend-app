@@ -80,6 +80,10 @@ export interface TemplateDto {
   createdAt: string
   productId: string | null
   productName: string | null
+  /** Highest committed version; null when nothing has ever been committed. */
+  versionNumber: number | null
+  /** Editor changes exist that are in no committed version. */
+  hasUncommittedChanges: boolean
 }
 
 /** An org's product catalog entry (see Settings → Products). */

@@ -37,10 +37,12 @@ export function serializeTableRows(rows: Record<string, string>[]): string {
  * are the columns the author actually laid out — "Description", "HSN/SAC",
  * "Qty" — rather than anything the person filling them in has to know.
  *
- * <p>Laid out as one card per row with labelled fields, not as a grid. This
- * lives in the right-hand panel, and a seven-column invoice grid at that width
- * gives each cell about forty pixels, which is unusable. Stacking costs
- * vertical space and buys legible labels on every field.
+ * <p>Laid out as a grid: column names once in a header, then one line per row.
+ * The first attempt stacked each row's fields vertically to keep every label
+ * visible, which made a four-row invoice twenty-eight labelled inputs tall —
+ * unusable for a different reason. The panel is too narrow for seven columns,
+ * so the grid scrolls horizontally rather than crushing each cell to forty
+ * pixels; the header scrolls with it, so a column is always identifiable.
  */
 export function PreviewTableEditor({
   dataKey,
@@ -90,40 +92,54 @@ export function PreviewTableEditor({
         </span>
       </div>
 
-      {rows.map((row, rowIndex) => (
-        <div
-          key={rowIndex}
-          className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-2.5 dark:border-zinc-700 dark:bg-zinc-800/40"
-        >
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-              Row {rowIndex + 1}
-            </span>
-            <button
-              type="button"
-              onClick={() => removeRow(rowIndex)}
-              title={`Remove row ${rowIndex + 1}`}
-              className="rounded px-1 text-[13px] leading-none text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-            >
-              ×
-            </button>
+      {/* One horizontal scroller wraps header and body together, so the columns
+          stay aligned and the header travels with them. */}
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+        <div className="min-w-max">
+          <div
+            className="flex items-center gap-1 border-b border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60"
+          >
+            {columns.map((col) => (
+              <span
+                key={col.key}
+                className="w-[104px] shrink-0 truncate text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                title={col.header}
+              >
+                {col.header}
+              </span>
+            ))}
+            {/* Spacer matching the remove button, so headers line up with cells. */}
+            <span className="w-5 shrink-0" aria-hidden />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            {columns.map((col) => (
-              <label key={col.key} className="flex flex-col gap-0.5">
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{col.header}</span>
+          {rows.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              className="flex items-center gap-1 border-b border-zinc-100 px-2 py-1 last:border-b-0 dark:border-zinc-800"
+            >
+              {columns.map((col) => (
                 <input
+                  key={col.key}
                   type="text"
                   value={row[col.key] ?? ''}
                   onChange={(e) => setCell(rowIndex, col.key, e.target.value)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 outline-none focus:border-violet-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                  aria-label={`${col.header}, row ${rowIndex + 1}`}
+                  className="w-[104px] shrink-0 rounded-md border border-zinc-300 bg-white px-1.5 py-1 text-xs text-zinc-900 outline-none focus:border-violet-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
-              </label>
-            ))}
-          </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => removeRow(rowIndex)}
+                title={`Remove row ${rowIndex + 1}`}
+                aria-label={`Remove row ${rowIndex + 1}`}
+                className="w-5 shrink-0 rounded text-[13px] leading-none text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
 
       <button
         type="button"
