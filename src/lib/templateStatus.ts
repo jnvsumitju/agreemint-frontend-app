@@ -1,6 +1,9 @@
-import type { TemplateDto } from './api'
+import type { TemplateDto, TemplateStatus as TemplateStatusValue } from './api'
 
-export type TemplateStatusTone = 'warning' | 'success' | 'info'
+/** Unused re-export guard so the API union stays the source of truth. */
+export type { TemplateStatusValue }
+
+export type TemplateStatusTone = 'warning' | 'success' | 'info' | 'default'
 
 export interface TemplateStatus {
   label: string
@@ -28,26 +31,54 @@ export interface TemplateStatus {
  * edits were never committed. Documents generate from the committed version, so
  * those edits are not in the output — the previous UI gave no way to notice.
  */
-export function templateStatus(t: Pick<TemplateDto, 'versionNumber' | 'hasUncommittedChanges'>): TemplateStatus {
-  if (t.versionNumber == null) {
-    return {
-      label: 'Draft',
-      tone: 'warning',
-      title: 'Never committed — commit a version before generating documents from this template.',
-    }
+export function templateStatus(
+  t: Pick<TemplateDto, 'status' | 'versionNumber' | 'hasUncommittedChanges'>
+): TemplateStatus {
+  // The lifecycle state leads, because it is the one that decides whether this
+  // template can produce a document at all. Version state is real too, but it
+  // is detail about a template you can already use.
+  switch (t.status) {
+    case 'ARCHIVED':
+      return {
+        label: 'Archived',
+        tone: 'default',
+        title: 'Retired. Generation is refused until you restore it. Nothing has been deleted.',
+      }
+    case 'DRAFT':
+      return {
+        label: 'Draft',
+        tone: 'warning',
+        title: 'Not active yet — generation is refused. Set it to Active when it is ready.',
+      }
+    default:
+      break
   }
+  return {
+    label: 'Active',
+    tone: 'success',
+    title: 'Documents can be generated from this template.',
+  }
+}
+
+/**
+ * Version state, shown alongside the lifecycle badge rather than instead of it.
+ *
+ * <p>The case worth surfacing is the third one: an ACTIVE template whose editor
+ * changes were never committed. Documents generate from the committed version,
+ * so those edits are not in the output — and nothing else in the product says
+ * so.
+ */
+export function templateVersionNote(
+  t: Pick<TemplateDto, 'versionNumber' | 'hasUncommittedChanges'>
+): { label: string; title: string } | null {
+  if (t.versionNumber == null) return null
   if (t.hasUncommittedChanges) {
     return {
       label: `v${t.versionNumber} · edited`,
-      tone: 'info',
       title:
-        `Editor changes are not in v${t.versionNumber}. Documents still generate from v${t.versionNumber} ` +
-        'until you commit.',
+        `Editor changes are not in v${t.versionNumber}. Documents generate from ` +
+        `v${t.versionNumber} until you commit.`,
     }
   }
-  return {
-    label: `v${t.versionNumber}`,
-    tone: 'success',
-    title: `Committed. Documents generate from v${t.versionNumber}.`,
-  }
+  return { label: `v${t.versionNumber}`, title: `Documents generate from v${t.versionNumber}.` }
 }

@@ -73,6 +73,8 @@ async function parseJson<T>(res: Response): Promise<T> {
   return JSON.parse(text) as T
 }
 
+export type TemplateStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
+
 export interface TemplateDto {
   id: string
   name: string
@@ -80,6 +82,8 @@ export interface TemplateDto {
   createdAt: string
   productId: string | null
   productName: string | null
+  /** Lifecycle state set by an author. Only ACTIVE templates may generate. */
+  status: TemplateStatus
   /** Highest committed version; null when nothing has ever been committed. */
   versionNumber: number | null
   /** Editor changes exist that are in no committed version. */
@@ -1269,4 +1273,24 @@ export interface OrgEntitlementsDto {
 export async function fetchOrgEntitlements(orgId: string): Promise<OrgEntitlementsDto> {
   const res = await authFetch(`/api/orgs/${orgId}/entitlements`)
   return parseJson<OrgEntitlementsDto>(res)
+}
+
+
+/**
+ * Move a template between DRAFT / ACTIVE / ARCHIVED.
+ *
+ * <p>Only ACTIVE templates can generate documents, so this is a write gated
+ * server-side by the same roles as any other template edit.
+ */
+export async function setTemplateStatus(
+  templateId: string,
+  status: TemplateStatus
+): Promise<TemplateDto> {
+  const res = await authFetch(`${API_BASE}/api/templates/${templateId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) throw new Error('Failed to update template status')
+  return res.json() as Promise<TemplateDto>
 }

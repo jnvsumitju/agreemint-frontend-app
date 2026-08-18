@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
-import { templateStatus } from '../lib/templateStatus'
+import { templateStatus, templateVersionNote } from '../lib/templateStatus'
+import { TemplateStatusControl } from '../components/templates/TemplateStatusControl'
 import { usePlan } from '../hooks/usePlan'
 import { PublishTemplateModal } from '../components/marketplace/PublishTemplateModal'
 import { useEntitlements } from '../hooks/useEntitlements'
@@ -14,8 +15,10 @@ import {
   duplicateTemplate,
   fetchProducts,
   fetchTemplates,
+  setTemplateStatus,
   type ProductDto,
   type TemplateDto,
+  type TemplateStatus,
 } from '../lib/api'
 import {
   addTemplateTag,
@@ -149,23 +152,39 @@ function TagEditor({ templateId, tags, onUpdate }: { templateId: string; tags: s
 
 function TemplateCard({
   template, thumbnail, tags, onDuplicate, onDelete, onPublish, onTagUpdate, duplicating, deleting,
+  onSetStatus, statusBusy,
 }: {
   template: TemplateDto; thumbnail: string | null; tags: string[]
   onDuplicate: () => void; onDelete: () => void; onPublish: () => void; onTagUpdate: () => void
+  onSetStatus: (next: TemplateStatus) => void; statusBusy: boolean
   duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
   const { isFree } = usePlan()
   const canUseMarketplace = canCreateTemplates && !isFree
   const status = templateStatus(template)
+  const versionNote = templateVersionNote(template)
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600">
       {/* Derived from committed versions and draft state — see templateStatus.
           This was a hardcoded "Draft" on every card, committed or not. */}
       <div className="absolute left-2 top-2 z-10">
-        <Badge variant={status.tone} size="sm" dot title={status.title}>
-          {status.label}
-        </Badge>
+        <div className="flex items-center gap-1">
+          <Badge variant={status.tone} size="sm" dot title={status.title}>
+            {status.label}
+          </Badge>
+          {/* Version state sits beside the lifecycle badge rather than
+              replacing it: one says whether the template can be used, the
+              other whether its committed output is current. */}
+          {versionNote && (
+            <span
+              className="rounded-full bg-white/85 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 shadow-sm dark:bg-zinc-900/85 dark:text-zinc-300"
+              title={versionNote.title}
+            >
+              {versionNote.label}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Thumbnail */}
@@ -197,6 +216,11 @@ function TemplateCard({
         <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
           {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
+        <TemplateStatusControl
+          status={template.status}
+          busy={statusBusy}
+          onChange={onSetStatus}
+        />
         {canEdit && <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />}
         {!canEdit && tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -272,13 +296,16 @@ function TemplateCard({
 
 function TemplateRow({
   template, tags, onDuplicate, onDelete, onTagUpdate, duplicating, deleting,
+  onSetStatus, statusBusy,
 }: {
   template: TemplateDto; tags: string[]
   onDuplicate: () => void; onDelete: () => void; onTagUpdate: () => void
+  onSetStatus: (next: TemplateStatus) => void; statusBusy: boolean
   duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
   const status = templateStatus(template)
+  const versionNote = templateVersionNote(template)
   return (
     <li className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-900/20">
@@ -297,6 +324,20 @@ function TemplateRow({
       <Badge variant={status.tone} size="sm" className="hidden sm:inline-flex" title={status.title}>
         {status.label}
       </Badge>
+      {versionNote && (
+        <span
+          className="hidden text-[10px] font-medium text-zinc-500 sm:inline dark:text-zinc-400"
+          title={versionNote.title}
+        >
+          {versionNote.label}
+        </span>
+      )}
+      <TemplateStatusControl
+        status={template.status}
+        busy={statusBusy}
+        onChange={onSetStatus}
+        size="xs"
+      />
       <div className="hidden shrink-0 md:block">
         {canEdit ? (
           <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
@@ -540,6 +581,28 @@ export function TemplateList() {
   }
 
   // Filter + sort
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null)
+
+  /**
+   * Move a template between lifecycle states.
+   *
+   * <p>Updates the row in place from the server's response rather than
+   * re-fetching the list: the response is the authoritative new state, and a
+   * refetch would reorder or re-filter the list under the cursor of someone who
+   * just clicked one button.
+   */
+  async function changeStatus(t: TemplateDto, next: TemplateStatus) {
+    setStatusBusyId(t.id)
+    try {
+      const updated = await setTemplateStatus(t.id, next)
+      setTemplates((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+    } catch (e) {
+      console.error('[Templates] status change failed:', e)
+    } finally {
+      setStatusBusyId(null)
+    }
+  }
+
   const filtered = useMemo(() => {
     let list = templates
     if (search.trim()) {
@@ -695,6 +758,8 @@ export function TemplateList() {
               onDelete={() => setDeleteTarget(t)}
               onPublish={() => setPublishTarget(t)}
               onTagUpdate={refreshTags}
+              onSetStatus={(next) => void changeStatus(t, next)}
+              statusBusy={statusBusyId === t.id}
             />
           ))}
         </div>
@@ -710,6 +775,8 @@ export function TemplateList() {
               onDuplicate={() => void onDuplicate(t)}
               onDelete={() => setDeleteTarget(t)}
               onTagUpdate={refreshTags}
+              onSetStatus={(next) => void changeStatus(t, next)}
+              statusBusy={statusBusyId === t.id}
             />
           ))}
         </ul>

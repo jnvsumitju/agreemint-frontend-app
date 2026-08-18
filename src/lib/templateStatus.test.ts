@@ -1,52 +1,59 @@
 import { describe, expect, it } from 'vitest'
-import { templateStatus } from './templateStatus'
+import { templateStatus, templateVersionNote } from './templateStatus'
 
 /**
- * The badge has to be able to be wrong before it can be right.
+ * Two independent things, shown together.
  *
- * <p>What it replaced was the literal string "Draft", hardcoded at both call
- * sites, on every template forever. It could not be tested because it carried
- * no information — and it was misleading in the one case that matters, a
- * long-committed template that generates documents perfectly well.
+ * <p>The lifecycle status decides whether a template can produce a document at
+ * all, and is set by an author. The version note is derived and says whether
+ * the committed output has fallen behind the editor. Conflating them is what
+ * the original hardcoded "Draft" badge did — it looked like the first and was
+ * neither.
  */
-describe('template status', () => {
-  it('never committed reads as Draft', () => {
-    const s = templateStatus({ versionNumber: null, hasUncommittedChanges: false })
+describe('template lifecycle badge', () => {
+  it('draft says generation is refused, not merely that it is unfinished', () => {
+    const s = templateStatus({ status: 'DRAFT', versionNumber: 1, hasUncommittedChanges: false })
     expect(s.label).toBe('Draft')
-    // Documents generate from a committed version, so this is the state that
-    // actually blocks something — the copy has to say so.
-    expect(s.title).toMatch(/before generating/i)
+    expect(s.title).toMatch(/refused/i)
   })
 
-  it('a template with no version is Draft even with a draft in progress', () => {
-    expect(templateStatus({ versionNumber: null, hasUncommittedChanges: true }).label).toBe('Draft')
-  })
-
-  it('committed and untouched shows the version alone', () => {
-    const s = templateStatus({ versionNumber: 2, hasUncommittedChanges: false })
-    expect(s.label).toBe('v2')
+  it('active reads as usable', () => {
+    const s = templateStatus({ status: 'ACTIVE', versionNumber: 2, hasUncommittedChanges: false })
+    expect(s.label).toBe('Active')
     expect(s.tone).toBe('success')
   })
 
-  it('committed with newer edits says so — the state the old badge hid', () => {
-    const s = templateStatus({ versionNumber: 2, hasUncommittedChanges: true })
-    expect(s.label).toBe('v2 · edited')
-    // The point of this state: what you see in the editor is NOT what documents
-    // are being generated from.
-    expect(s.title).toContain('v2')
-    expect(s.title).toMatch(/until you commit/i)
+  it('archived says nothing was deleted, because that is the fear', () => {
+    const s = templateStatus({ status: 'ARCHIVED', versionNumber: 9, hasUncommittedChanges: true })
+    expect(s.label).toBe('Archived')
+    expect(s.title).toMatch(/nothing has been deleted/i)
   })
 
-  it('distinguishes all three states rather than collapsing any two', () => {
-    const labels = new Set([
-      templateStatus({ versionNumber: null, hasUncommittedChanges: false }).label,
-      templateStatus({ versionNumber: 5, hasUncommittedChanges: false }).label,
-      templateStatus({ versionNumber: 5, hasUncommittedChanges: true }).label,
-    ])
-    expect(labels.size).toBe(3)
+  it('lifecycle wins over version state — a draft with versions is still a draft', () => {
+    // Every template has a committed v1 from creation, so version count can
+    // never stand in for readiness.
+    expect(
+      templateStatus({ status: 'DRAFT', versionNumber: 4, hasUncommittedChanges: false }).label
+    ).toBe('Draft')
+  })
+})
+
+describe('version note', () => {
+  it('flags an active template whose edits are not in its committed version', () => {
+    const n = templateVersionNote({ versionNumber: 2, hasUncommittedChanges: true })
+    expect(n?.label).toBe('v2 · edited')
+    expect(n?.title).toMatch(/until you commit/i)
   })
 
-  it('carries the real version number, not a hardcoded one', () => {
-    expect(templateStatus({ versionNumber: 17, hasUncommittedChanges: false }).label).toBe('v17')
+  it('shows the plain version when everything is committed', () => {
+    expect(templateVersionNote({ versionNumber: 2, hasUncommittedChanges: false })?.label).toBe('v2')
+  })
+
+  it('is absent when there is no version to describe', () => {
+    expect(templateVersionNote({ versionNumber: null, hasUncommittedChanges: false })).toBeNull()
+  })
+
+  it('carries the real version number', () => {
+    expect(templateVersionNote({ versionNumber: 17, hasUncommittedChanges: false })?.label).toBe('v17')
   })
 })
