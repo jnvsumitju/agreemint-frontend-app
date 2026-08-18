@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
-import { templateStatus, templateVersionNote } from '../lib/templateStatus'
+import { templateStatus, templateStatusConfirm, templateVersionNote } from '../lib/templateStatus'
 import { TemplateStatusControl } from '../components/templates/TemplateStatusControl'
 import { usePlan } from '../hooks/usePlan'
 import { PublishTemplateModal } from '../components/marketplace/PublishTemplateModal'
@@ -27,8 +27,8 @@ import {
   removeTemplateTag,
   SUGGESTED_TAGS,
 } from '../lib/templateTags'
-import { getAllThumbnails } from '../lib/templateThumbnails'
 import { Button } from '../components/ui/Button'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -151,10 +151,10 @@ function TagEditor({ templateId, tags, onUpdate }: { templateId: string; tags: s
 /* ── Template Card ── */
 
 function TemplateCard({
-  template, thumbnail, tags, onDuplicate, onDelete, onPublish, onTagUpdate, duplicating, deleting,
+  template, tags, onDuplicate, onDelete, onPublish, onTagUpdate, duplicating, deleting,
   onSetStatus, statusBusy,
 }: {
-  template: TemplateDto; thumbnail: string | null; tags: string[]
+  template: TemplateDto; tags: string[]
   onDuplicate: () => void; onDelete: () => void; onPublish: () => void; onTagUpdate: () => void
   onSetStatus: (next: TemplateStatus) => void; statusBusy: boolean
   duplicating: boolean; deleting: boolean
@@ -187,11 +187,20 @@ function TemplateCard({
         </div>
       </div>
 
-      {/* Thumbnail */}
+      {/* Preview image. Rendered server-side from the same PDF pipeline the
+          real documents come out of, so a card shows the document rather than
+          a screenshot of the editor canvas — the canvas is deliberately not
+          pixel-identical to the PDF. The URL is signed and short-lived, which
+          is why it is read straight off the response instead of being cached. */}
       <Link to={`/editor/${template.id}`} className="block">
         <div className="flex h-40 items-center justify-center overflow-hidden bg-zinc-50 dark:bg-zinc-800/50">
-          {thumbnail ? (
-            <img src={thumbnail} alt={`${template.name} preview`} className="h-full w-full object-contain object-top p-1" />
+          {template.thumbnailUrl ? (
+            <img
+              src={template.thumbnailUrl}
+              alt={`${template.name} preview`}
+              loading="lazy"
+              className="h-full w-full object-contain object-top p-1"
+            />
           ) : (
             <div className="flex flex-col items-center gap-1.5 text-zinc-300 dark:text-zinc-600">
               <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -476,7 +485,6 @@ export function TemplateList() {
   const [filterTag, setFilterTag] = useState<string | null>(null)
   const [sort, setSort] = useState<SortOption>('newest')
   const [tagVersion, setTagVersion] = useState(0)
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
   const createInputRef = useRef<HTMLInputElement>(null)
 
   const tagMap = useMemo(() => getAllTemplateTags(), [tagVersion])
@@ -486,7 +494,7 @@ export function TemplateList() {
   const load = () => {
     setLoading(true)
     fetchTemplates()
-      .then((list) => { setTemplates(list); setThumbnails(getAllThumbnails()) })
+      .then(setTemplates)
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load templates'))
       .finally(() => setLoading(false))
   }
@@ -582,22 +590,47 @@ export function TemplateList() {
 
   // Filter + sort
   const [statusBusyId, setStatusBusyId] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const confirm = useConfirm()
 
   /**
-   * Move a template between lifecycle states.
+   * Change a template's lifecycle state, after confirming.
+   *
+   * <p>Confirmed because every transition changes whether documents can be
+   * generated — and two of the three break something that currently works, for
+   * anyone whose integration holds this template's id. That consequence is
+   * invisible from the button alone, so the dialog states it.
    *
    * <p>Updates the row in place from the server's response rather than
    * re-fetching the list: the response is the authoritative new state, and a
    * refetch would reorder or re-filter the list under the cursor of someone who
    * just clicked one button.
+   *
+   * <p>The failure is surfaced rather than only logged: the previous version
+   * swallowed a rejected request into the console, leaving the badge unchanged
+   * with no explanation — which reads exactly like a UI that ignored the click.
    */
   async function changeStatus(t: TemplateDto, next: TemplateStatus) {
+    const copy = templateStatusConfirm(t.name, t.status, next)
+    const ok = await confirm({
+      title: copy.title,
+      description: copy.description,
+      confirmLabel: copy.confirmLabel,
+      variant: copy.danger ? 'danger' : 'primary',
+    })
+    if (!ok) return
+
     setStatusBusyId(t.id)
     try {
       const updated = await setTemplateStatus(t.id, next)
       setTemplates((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
     } catch (e) {
       console.error('[Templates] status change failed:', e)
+      setStatusError(
+        e instanceof Error && e.message
+          ? e.message
+          : `Could not change the status of "${t.name}". Your role may not allow it.`
+      )
     } finally {
       setStatusBusyId(null)
     }
@@ -654,6 +687,23 @@ export function TemplateList() {
             requiredPlan="Starter"
             description={`The free plan is limited to ${entitlements?.maxTemplates ?? 10} templates. Upgrade for unlimited templates, or delete one you no longer need.`}
           />
+        </div>
+      )}
+
+      {/* A refused status change has to be visible. The server gate is
+          ADMIN/REVIEWER, so the most likely rejection is a role the UI thought
+          was allowed — silently doing nothing would look like a dead button. */}
+      {statusError && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-500/30 dark:bg-red-500/10">
+          <p className="text-xs text-red-700 dark:text-red-300">{statusError}</p>
+          <button
+            type="button"
+            onClick={() => setStatusError(null)}
+            className="shrink-0 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -750,7 +800,6 @@ export function TemplateList() {
             <TemplateCard
               key={t.id}
               template={t}
-              thumbnail={thumbnails[t.id] ?? null}
               tags={tagMap[t.id] ?? []}
               duplicating={duplicatingId === t.id}
               deleting={deletingId === t.id}

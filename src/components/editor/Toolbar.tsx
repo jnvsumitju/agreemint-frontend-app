@@ -11,7 +11,6 @@ import { snapshotFromEditorState, writeLocalEditorSnapshot } from '../../lib/edi
 import { findElementByIdInDocument } from '../../lib/documentPageMerge'
 import { exportTemplateJson, importTemplateJson } from '../../lib/templateExport'
 import { exportElementAsImage } from '../../lib/canvasExport'
-import { captureCanvasThumbnail, setTemplateThumbnail } from '../../lib/templateThumbnails'
 import { useCollabConnectionStore, type CollabConnectionStatus } from '../../stores/collabConnectionStore'
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import { usePreviewStore } from '../../stores/previewStore'
@@ -615,10 +614,9 @@ export function Toolbar() {
       lastDraftPayload.current = ''
       setMenuOpen(false)
       if (pendingOverflows) setOverflowWarnings(pendingOverflows)
-      // Capture thumbnail for gallery preview (fire-and-forget)
-      captureCanvasThumbnail().then((dataUrl) => {
-        if (dataUrl && templateId) setTemplateThumbnail(templateId, dataUrl)
-      }).catch(() => { /* non-critical */ })
+      // No thumbnail capture here any more: the server renders one from the
+      // committed layout inside commitDraft. Capturing the canvas at this point
+      // recorded a picture of the editor, which is not what the PDF looks like.
       // Prompt to request review from someone on the new version.
       setReviewModalVersion({ id: v.id, number: v.versionNumber })
       setReviewModalOpen(true)

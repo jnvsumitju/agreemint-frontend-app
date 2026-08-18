@@ -16,12 +16,17 @@ import {
  * this replaced advertised `{"data":[[...]]}`, a shape nothing reads, so anyone
  * following the only hint on screen produced data the renderer ignored.
  *
- * <p>Rows that are entirely blank are dropped rather than stored, because an
- * empty row renders as an empty line in the finished document.
+ * <p>Stores every row as typed, INCLUDING blank ones. An earlier version
+ * dropped blank rows here, to keep empty lines out of the finished document —
+ * a real requirement enforced in the wrong place. Storage is the editor's
+ * state, and a row you have just added is blank by definition, so filtering
+ * here made "Add row" a no-op (append a blank, serialise, blank is gone) and
+ * made deleting the last row look like clearing it (store [], read back one
+ * blank row). Blank rows are dropped where they actually matter, in
+ * {@code buildPreviewData}, on the way to the renderer.
  */
 export function serializeTableRows(rows: Record<string, string>[]): string {
-  const meaningful = rows.filter((r) => Object.values(r).some((v) => v.trim() !== ''))
-  return JSON.stringify(tableRowsToPayload(meaningful))
+  return JSON.stringify(tableRowsToPayload(rows))
 }
 
 /**
