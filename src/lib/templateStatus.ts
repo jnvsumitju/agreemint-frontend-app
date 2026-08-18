@@ -82,3 +82,54 @@ export function templateVersionNote(
   }
   return { label: `v${t.versionNumber}`, title: `Documents generate from v${t.versionNumber}.` }
 }
+
+/**
+ * Confirmation copy for a status change.
+ *
+ * <p>Each transition says what it does to *document generation*, because that
+ * is the only thing status controls and the only thing the person confirming
+ * can get wrong. "Are you sure?" would tell them nothing they did not already
+ * know from clicking the button.
+ *
+ * <p>Deactivating and archiving are the two that break something already
+ * working, so they carry the danger styling; activating is additive.
+ */
+export function templateStatusConfirm(
+  name: string,
+  from: TemplateStatusValue,
+  to: TemplateStatusValue
+): { title: string; description: string; confirmLabel: string; danger: boolean } {
+  if (to === 'ACTIVE') {
+    return {
+      title: 'Activate this template?',
+      description:
+        `Documents will be able to be generated from "${name}", including by any API ` +
+        'integration that has its id.',
+      confirmLabel: 'Activate',
+      danger: false,
+    }
+  }
+  if (to === 'ARCHIVED') {
+    return {
+      title: 'Archive this template?',
+      description:
+        `"${name}" will stop generating documents and will be hidden from the list. ` +
+        'Nothing is deleted — its versions and every document made from it are kept, ' +
+        'and you can restore it later.',
+      confirmLabel: 'Archive',
+      danger: true,
+    }
+  }
+  // → DRAFT
+  return {
+    title: from === 'ARCHIVED' ? 'Restore this template?' : 'Move back to draft?',
+    description:
+      from === 'ARCHIVED'
+        ? `"${name}" will come back as a draft. It will not generate documents until you ` +
+          'activate it.'
+        : `"${name}" will stop generating documents. Anything calling the API with its id ` +
+          'will start being refused.',
+    confirmLabel: from === 'ARCHIVED' ? 'Restore' : 'Move to draft',
+    danger: from !== 'ARCHIVED',
+  }
+}

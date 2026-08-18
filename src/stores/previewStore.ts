@@ -153,7 +153,14 @@ export function buildPreviewData(): Record<string, unknown> {
   for (const tk of tableKeys) {
     const cols = getTableColumnsForDataKey(elements, tk).map((c) => c.key)
     const raw = values[tk]?.trim() ? values[tk]! : defaultSampleTableRowsJson()
-    data[tk] = tableRowsToPayload(parseTableRowsFromJson(raw, cols))
+    // Blank rows are dropped HERE rather than when the editor saves them: a row
+    // the author is still filling in has to survive in the editor, but must not
+    // print as an empty line in the document.
+    data[tk] = tableRowsToPayload(
+      parseTableRowsFromJson(raw, cols).filter((r) =>
+        Object.values(r).some((v) => String(v ?? '').trim() !== '')
+      )
+    )
   }
   return data
 }

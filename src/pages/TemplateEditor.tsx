@@ -5,6 +5,7 @@ import { bootstrapEditorFromRemote } from '../lib/templateEditorBootstrap'
 import { connectToTemplate, disconnectFromTemplate } from '../lib/websocket'
 import { useEditorStore } from '../stores/editorStore'
 import { useFollowMode } from '../hooks/useFollowMode'
+import { useThumbnailCapture } from '../hooks/useThumbnailCapture'
 import { useCollab } from '../collab/useCollab'
 import { EditorShell } from '../components/editor/EditorShell'
 
@@ -13,6 +14,9 @@ export function TemplateEditor() {
   const [searchParams] = useSearchParams()
   useFollowMode()
   useCollab(templateId ?? null)
+  // Only here, not in EditorShell: the sandbox editor shares the shell and has
+  // a synthetic template id that no endpoint would accept.
+  useThumbnailCapture(templateId)
 
   // Deep-link support: /editor/{id}?tab=reviews opens the Reviews panel on mount.
   // Used by ReviewsInbox to jump from a notification straight to the review row.

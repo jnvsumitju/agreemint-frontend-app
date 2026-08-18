@@ -88,6 +88,14 @@ export interface TemplateDto {
   versionNumber: number | null
   /** Editor changes exist that are in no committed version. */
   hasUncommittedChanges: boolean
+  /**
+   * Short-lived signed URL for the template's preview image, or null when one
+   * has never been rendered. Shows the in-progress edit when there is one, and
+   * the last committed version otherwise.
+   *
+   * <p>Expires — do not cache it past the response it arrived in.
+   */
+  thumbnailUrl: string | null
 }
 
 /** An org's product catalog entry (see Settings → Products). */
@@ -1275,6 +1283,22 @@ export async function fetchOrgEntitlements(orgId: string): Promise<OrgEntitlemen
   return parseJson<OrgEntitlementsDto>(res)
 }
 
+
+/**
+ * Ask the server to re-render this template's preview image from its draft.
+ *
+ * <p>Fire-and-forget by design. The server answers 204 whether or not an image
+ * came out, and the caller has nothing useful to do with a failure — a missing
+ * thumbnail is a blank card, not an error worth interrupting someone's editing
+ * for. Rejections are swallowed here so no call site has to remember to.
+ */
+export async function captureTemplateThumbnail(templateId: string): Promise<void> {
+  try {
+    await authFetch(`${API_BASE}/api/templates/${templateId}/thumbnail`, { method: 'POST' })
+  } catch {
+    /* decoration; never surfaced */
+  }
+}
 
 /**
  * Move a template between DRAFT / ACTIVE / ARCHIVED.
