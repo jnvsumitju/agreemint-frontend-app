@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePermissions } from '../hooks/usePermissions'
 import { templateStatus, templateVersionNote } from '../lib/templateStatus'
+import { TemplateStatusControl } from '../components/templates/TemplateStatusControl'
 import { usePlan } from '../hooks/usePlan'
 import { PublishTemplateModal } from '../components/marketplace/PublishTemplateModal'
 import { useEntitlements } from '../hooks/useEntitlements'
@@ -215,6 +216,11 @@ function TemplateCard({
         <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
           {new Date(template.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
         </span>
+        <TemplateStatusControl
+          status={template.status}
+          busy={statusBusy}
+          onChange={onSetStatus}
+        />
         {canEdit && <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />}
         {!canEdit && tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -259,47 +265,6 @@ function TemplateCard({
               </svg>
             </button>
           )}
-          {/* Lifecycle. One button showing the transition you would actually
-              want next, rather than a menu of three states two of which are
-              already true. Archived templates offer Restore; everything else
-              toggles between Draft and Active. */}
-          {canEdit && (
-            <button
-              type="button"
-              className="rounded-lg bg-white/90 px-2 py-1.5 text-[10px] font-medium text-zinc-600 shadow-sm backdrop-blur hover:bg-white hover:text-violet-700 dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-violet-300 disabled:cursor-not-allowed disabled:opacity-40"
-              title={
-                template.status === 'ACTIVE'
-                  ? 'Move back to Draft — generation will be refused'
-                  : template.status === 'ARCHIVED'
-                  ? 'Restore this template'
-                  : 'Activate — allow documents to be generated'
-              }
-              disabled={statusBusy}
-              onClick={(e) => {
-                e.preventDefault()
-                onSetStatus(template.status === 'ACTIVE' ? 'DRAFT' : 'ACTIVE')
-              }}
-            >
-              {statusBusy
-                ? '…'
-                : template.status === 'ACTIVE'
-                ? 'Unpublish'
-                : template.status === 'ARCHIVED'
-                ? 'Restore'
-                : 'Activate'}
-            </button>
-          )}
-          {canEdit && template.status !== 'ARCHIVED' && (
-            <button
-              type="button"
-              className="rounded-lg bg-white/90 px-2 py-1.5 text-[10px] font-medium text-zinc-600 shadow-sm backdrop-blur hover:bg-white hover:text-amber-700 dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-amber-300 disabled:opacity-40"
-              title="Archive — retires the template without deleting it or its documents"
-              disabled={statusBusy}
-              onClick={(e) => { e.preventDefault(); onSetStatus('ARCHIVED') }}
-            >
-              Archive
-            </button>
-          )}
           <button
             type="button"
             className="rounded-lg bg-white/90 p-1.5 text-zinc-500 shadow-sm backdrop-blur hover:bg-white hover:text-red-600 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
@@ -331,9 +296,11 @@ function TemplateCard({
 
 function TemplateRow({
   template, tags, onDuplicate, onDelete, onTagUpdate, duplicating, deleting,
+  onSetStatus, statusBusy,
 }: {
   template: TemplateDto; tags: string[]
   onDuplicate: () => void; onDelete: () => void; onTagUpdate: () => void
+  onSetStatus: (next: TemplateStatus) => void; statusBusy: boolean
   duplicating: boolean; deleting: boolean
 }) {
   const { canEdit, canCreateTemplates } = usePermissions()
@@ -365,6 +332,12 @@ function TemplateRow({
           {versionNote.label}
         </span>
       )}
+      <TemplateStatusControl
+        status={template.status}
+        busy={statusBusy}
+        onChange={onSetStatus}
+        size="xs"
+      />
       <div className="hidden shrink-0 md:block">
         {canEdit ? (
           <TagEditor templateId={template.id} tags={tags} onUpdate={onTagUpdate} />
@@ -802,6 +775,8 @@ export function TemplateList() {
               onDuplicate={() => void onDuplicate(t)}
               onDelete={() => setDeleteTarget(t)}
               onTagUpdate={refreshTags}
+              onSetStatus={(next) => void changeStatus(t, next)}
+              statusBusy={statusBusyId === t.id}
             />
           ))}
         </ul>
