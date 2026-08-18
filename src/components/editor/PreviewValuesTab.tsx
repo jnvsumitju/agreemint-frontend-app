@@ -4,6 +4,7 @@ import { selectAllTemplateElements, useEditorStore } from '../../stores/editorSt
 import { extractVariableKeys, uniqueTableDataKeys } from '../../lib/variables'
 import { scalarVariableKeys } from '../../lib/previewFormData'
 import { variableMergeFieldSurfaceLabel } from '../../lib/layoutBehaviourResolve'
+import { PreviewTableEditor } from './PreviewTableEditor'
 
 /**
  * Right-hand tab while previewing: the values the document renders with.
@@ -79,24 +80,18 @@ export function PreviewValuesTab() {
       )}
 
       {tableKeys.length > 0 && (
-        <section className="flex flex-col gap-2.5">
+        <section className="flex flex-col gap-4">
           <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Tables
           </h3>
           {tableKeys.map((key) => (
-            <label key={key} className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">{key}</span>
-              {/* Raw JSON rather than a row editor: the Vars tab already owns
-                  the structured editing, and duplicating it here would be a
-                  second place for row data to diverge. */}
-              <textarea
-                rows={4}
-                value={values[key] ?? ''}
-                onChange={(e) => setVariableValue(key, e.target.value)}
-                placeholder='{"data":[["Name","Qty"],["Widget","2"]]}'
-                className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 font-mono text-[10px] text-zinc-900 outline-none focus:border-violet-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-              />
-            </label>
+            <PreviewTableEditor
+              key={key}
+              dataKey={key}
+              elements={elements}
+              value={values[key] ?? ''}
+              onChange={(json) => setVariableValue(key, json)}
+            />
           ))}
         </section>
       )}
