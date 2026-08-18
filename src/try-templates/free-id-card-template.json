@@ -218,7 +218,7 @@
         "x": 141.5,
         "y": 140,
         "width": 312,
-        "height": 14,
+        "height": 15.95,
         "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
@@ -281,7 +281,7 @@
         "x": 233.5,
         "y": 192,
         "width": 218,
-        "height": 18,
+        "height": 18.85,
         "content": "{{student.name}}",
         "style": {
           "fontSize": 13,
@@ -313,7 +313,7 @@
         "x": 309.5,
         "y": 214,
         "width": 142,
-        "height": 12,
+        "height": 12.33,
         "content": "{{student.roll_number}}",
         "style": {
           "fontSize": 8.5,
@@ -344,7 +344,7 @@
         "x": 309.5,
         "y": 228,
         "width": 142,
-        "height": 12,
+        "height": 12.33,
         "content": "{{student.programme}}",
         "style": {
           "fontSize": 8.5,
@@ -375,7 +375,7 @@
         "x": 309.5,
         "y": 242,
         "width": 142,
-        "height": 12,
+        "height": 12.33,
         "content": "{{card.valid_until}}",
         "style": {
           "fontSize": 8.5,
@@ -406,7 +406,7 @@
         "x": 309.5,
         "y": 256,
         "width": 142,
-        "height": 12,
+        "height": 12.33,
         "content": "{{student.blood_group}}",
         "style": {
           "fontSize": 8.5,
@@ -576,7 +576,7 @@
         "x": 141.5,
         "y": 428,
         "width": 312,
-        "height": 14,
+        "height": 15.95,
         "content": "{{institution.name}}",
         "style": {
           "fontSize": 11,
@@ -607,7 +607,7 @@
         "x": 143.5,
         "y": 480,
         "width": 308,
-        "height": 18,
+        "height": 18.85,
         "content": "Emergency contact",
         "style": {
           "fontSize": 13,
@@ -639,7 +639,7 @@
         "x": 219.5,
         "y": 502,
         "width": 232,
-        "height": 12,
+        "height": 12.33,
         "content": "{{emergency.name}}",
         "style": {
           "fontSize": 8.5,
@@ -670,7 +670,7 @@
         "x": 219.5,
         "y": 516,
         "width": 232,
-        "height": 12,
+        "height": 12.33,
         "content": "{{emergency.relation}}",
         "style": {
           "fontSize": 8.5,
@@ -701,7 +701,7 @@
         "x": 219.5,
         "y": 530,
         "width": 232,
-        "height": 12,
+        "height": 12.33,
         "content": "{{emergency.phone}}",
         "style": {
           "fontSize": 8.5,
@@ -732,7 +732,7 @@
         "x": 219.5,
         "y": 544,
         "width": 232,
-        "height": 12,
+        "height": 12.33,
         "content": "{{institution.address}}",
         "style": {
           "fontSize": 8.5,
@@ -939,7 +939,7 @@
             "x": 141.5,
             "y": 140,
             "width": 312,
-            "height": 14,
+            "height": 15.95,
             "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
@@ -1002,7 +1002,7 @@
             "x": 233.5,
             "y": 192,
             "width": 218,
-            "height": 18,
+            "height": 18.85,
             "content": "{{student.name}}",
             "style": {
               "fontSize": 13,
@@ -1034,7 +1034,7 @@
             "x": 309.5,
             "y": 214,
             "width": 142,
-            "height": 12,
+            "height": 12.33,
             "content": "{{student.roll_number}}",
             "style": {
               "fontSize": 8.5,
@@ -1065,7 +1065,7 @@
             "x": 309.5,
             "y": 228,
             "width": 142,
-            "height": 12,
+            "height": 12.33,
             "content": "{{student.programme}}",
             "style": {
               "fontSize": 8.5,
@@ -1096,7 +1096,7 @@
             "x": 309.5,
             "y": 242,
             "width": 142,
-            "height": 12,
+            "height": 12.33,
             "content": "{{card.valid_until}}",
             "style": {
               "fontSize": 8.5,
@@ -1127,7 +1127,7 @@
             "x": 309.5,
             "y": 256,
             "width": 142,
-            "height": 12,
+            "height": 12.33,
             "content": "{{student.blood_group}}",
             "style": {
               "fontSize": 8.5,
@@ -1297,7 +1297,7 @@
             "x": 141.5,
             "y": 428,
             "width": 312,
-            "height": 14,
+            "height": 15.95,
             "content": "{{institution.name}}",
             "style": {
               "fontSize": 11,
@@ -1328,7 +1328,7 @@
             "x": 143.5,
             "y": 480,
             "width": 308,
-            "height": 18,
+            "height": 18.85,
             "content": "Emergency contact",
             "style": {
               "fontSize": 13,
@@ -1360,7 +1360,7 @@
             "x": 219.5,
             "y": 502,
             "width": 232,
-            "height": 12,
+            "height": 12.33,
             "content": "{{emergency.name}}",
             "style": {
               "fontSize": 8.5,
@@ -1391,7 +1391,7 @@
             "x": 219.5,
             "y": 516,
             "width": 232,
-            "height": 12,
+            "height": 12.33,
             "content": "{{emergency.relation}}",
             "style": {
               "fontSize": 8.5,
@@ -1422,7 +1422,7 @@
             "x": 219.5,
             "y": 530,
             "width": 232,
-            "height": 12,
+            "height": 12.33,
             "content": "{{emergency.phone}}",
             "style": {
               "fontSize": 8.5,
@@ -1453,7 +1453,7 @@
             "x": 219.5,
             "y": 544,
             "width": 232,
-            "height": 12,
+            "height": 12.33,
             "content": "{{institution.address}}",
             "style": {
               "fontSize": 8.5,

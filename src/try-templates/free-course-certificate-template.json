@@ -129,7 +129,7 @@
         "x": 64,
         "y": 186,
         "width": 467,
-        "height": 40,
+        "height": 43.5,
         "content": "Certificate of Completion",
         "style": {
           "fontSize": 30,
@@ -237,7 +237,7 @@
         "x": 104,
         "y": 462,
         "width": 129,
-        "height": 13,
+        "height": 13.78,
         "content": "{{course.grade}}",
         "style": {
           "fontSize": 9.5,
@@ -271,7 +271,7 @@
         "x": 233,
         "y": 462,
         "width": 129,
-        "height": 13,
+        "height": 13.78,
         "content": "{{course.credits}}",
         "style": {
           "fontSize": 9.5,
@@ -305,7 +305,7 @@
         "x": 362,
         "y": 462,
         "width": 129,
-        "height": 13,
+        "height": 13.78,
         "content": "{{certificate.date}}",
         "style": {
           "fontSize": 9.5,
@@ -334,7 +334,7 @@
         "x": 84,
         "y": 680,
         "width": 170,
-        "height": 14,
+        "height": 14.5,
         "content": "{{signatory.name}}",
         "style": {
           "fontSize": 10,
@@ -379,7 +379,7 @@
         "x": 341,
         "y": 680,
         "width": 170,
-        "height": 14,
+        "height": 14.5,
         "content": "{{cosignatory.name}}",
         "style": {
           "fontSize": 10,
@@ -495,7 +495,7 @@
             "x": 64,
             "y": 186,
             "width": 467,
-            "height": 40,
+            "height": 43.5,
             "content": "Certificate of Completion",
             "style": {
               "fontSize": 30,
@@ -603,7 +603,7 @@
             "x": 104,
             "y": 462,
             "width": 129,
-            "height": 13,
+            "height": 13.78,
             "content": "{{course.grade}}",
             "style": {
               "fontSize": 9.5,
@@ -637,7 +637,7 @@
             "x": 233,
             "y": 462,
             "width": 129,
-            "height": 13,
+            "height": 13.78,
             "content": "{{course.credits}}",
             "style": {
               "fontSize": 9.5,
@@ -671,7 +671,7 @@
             "x": 362,
             "y": 462,
             "width": 129,
-            "height": 13,
+            "height": 13.78,
             "content": "{{certificate.date}}",
             "style": {
               "fontSize": 9.5,
@@ -700,7 +700,7 @@
             "x": 84,
             "y": 680,
             "width": 170,
-            "height": 14,
+            "height": 14.5,
             "content": "{{signatory.name}}",
             "style": {
               "fontSize": 10,
@@ -745,7 +745,7 @@
             "x": 341,
             "y": 680,
             "width": 170,
-            "height": 14,
+            "height": 14.5,
             "content": "{{cosignatory.name}}",
             "style": {
               "fontSize": 10,

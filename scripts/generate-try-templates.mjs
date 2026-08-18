@@ -27,6 +27,7 @@
  */
 
 import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs'
+import { findCollisions } from './check-template-collisions.mjs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -68,16 +69,71 @@ const MONO = 'JetBrains Mono'
 let seq = 0
 const id = (p) => `${p}${String(++seq).padStart(3, '0')}`
 
+/**
+ * Preview values for the template currently being built.
+ *
+ * <p>Module-level because box heights depend on the *resolved* text — a box has
+ * to fit `"Meridian Institute of Technology"`, not `"{{institution.name}}"` —
+ * and threading the values through every builder signature would touch all 20.
+ * Set once per template in the generation loop, immediately before `build()`.
+ */
+let activeValues = {}
+
+/**
+ * Average glyph advance as a fraction of the em, per shipped family.
+ *
+ * <p>JetBrains Mono is exact — it is monospaced at 0.6em. The proportional
+ * numbers are deliberately generous: over-estimating predicts an extra line and
+ * yields a box slightly taller than needed, which is harmless, whereas
+ * under-estimating clips glyphs. Validated against the real iText measurement
+ * rather than trusted on their own.
+ */
+const AVG_ADVANCE_EM = { [SANS]: 0.56, [SERIF]: 0.54, [MONO]: 0.6 }
+
+/** Height the content will actually occupy once wrapped, in pt. */
+function fittedHeight(content, width, style) {
+  const fontSize = style.fontSize ?? 10
+  const lineHeight = style.lineHeight ?? 1.45
+  if (!(width > 0) || typeof content !== 'string') return fontSize * lineHeight
+
+  const resolved = content.replace(
+    /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
+    (m, k) => activeValues[k] ?? m
+  )
+  const em = AVG_ADVANCE_EM[style.fontFamily] ?? AVG_ADVANCE_EM[SANS]
+  // Bold sets slightly wider; a few percent is enough to matter at a wrap.
+  const perChar = fontSize * em * (style.bold ? 1.04 : 1)
+  const maxChars = Math.max(1, Math.floor(width / perChar))
+
+  // Explicit newlines are hard breaks; each segment then wraps on its own.
+  // A blank segment (from "\n\n") is still one empty line.
+  let lines = 0
+  for (const segment of resolved.split('\n')) {
+    lines += Math.max(1, Math.ceil(segment.length / maxChars))
+  }
+  return Math.ceil(lines * fontSize * lineHeight * 100) / 100
+}
+
 function text(x, y, width, height, content, style = {}) {
+  const merged = { fontSize: 10, fontFamily: SANS, color: BODY, lineHeight: 1.45, ...style }
+  // A box can never be shorter than the text it holds. The heights below are
+  // hand-written per call site, and 68 of them had drifted under even a single
+  // line. Both surfaces clip a too-short box — the canvas silently, the PDF
+  // visibly mid-glyph — so an offer letter shipped reading "...by 26 August
+  // 2026. We look" with the rest of the sentence and the sign-off gone.
+  //
+  // Only ever grows, so every deliberately-tall box stays exactly as authored.
+  // Callers that stack content below a growable block must advance by the
+  // RETURNED element's height rather than the one they passed in.
   return {
     id: id('t'),
     type: 'TEXT',
     x,
     y,
     width,
-    height,
+    height: Math.max(height, fittedHeight(content, width, merged)),
     content,
-    style: { fontSize: 10, fontFamily: SANS, color: BODY, lineHeight: 1.45, ...style },
+    style: merged,
   }
 }
 
@@ -159,20 +215,22 @@ function list(x, y, width, height, items, opts = {}) {
 function letterhead(els, accent, title, metaRows, opts = {}) {
   const prefix = opts.varPrefix ?? 'company'
   els.push(rect(M, M, 3, 34, { backgroundColor: accent }))
-  els.push(
-    text(M + 12, M, 250, 20, `{{${prefix}.name}}`, {
-      fontSize: 16,
-      bold: true,
-      color: INK,
-    })
-  )
+  // A long identity ("Meridian Institute of Technology") wraps to two lines at
+  // 16pt in the space left by the title, so everything below it has to follow
+  // the box's real height rather than a fixed 20pt step.
+  const nameEl = text(M + 12, M, 250, 20, `{{${prefix}.name}}`, {
+    fontSize: 16,
+    bold: true,
+    color: INK,
+  })
+  els.push(nameEl)
   // 46pt, not 30: this block is three lines (two of address, one of contact) at
   // 8.5pt on a 1.4 line-height, so it needs ~36pt — and the address is the
   // field a user is most likely to make longer, not shorter. A box sized to the
   // sample data clips the moment anyone edits it, silently, with no warning on
   // the canvas.
   els.push(
-    text(M + 12, M + 20, 270, 46, `{{${prefix}.address}}\n{{${prefix}.contact}}`, {
+    text(M + 12, M + nameEl.height, 270, 46, `{{${prefix}.address}}\n{{${prefix}.contact}}`, {
       fontSize: 8.5,
       color: MUTED,
       lineHeight: 1.4,
@@ -191,19 +249,26 @@ function letterhead(els, accent, title, metaRows, opts = {}) {
 
   let y = M + 28
   for (const [k, v] of metaRows) {
-    els.push(text(RIGHT - 230, y, 110, 12, k, { fontSize: 8.5, color: MUTED, align: 'right' }))
-    els.push(
-      text(RIGHT - 116, y, 116, 12, v, {
-        fontSize: 8.5,
-        color: INK,
-        align: 'right',
-        fontFamily: MONO,
-      })
-    )
-    y += 13
+    const labelEl = text(RIGHT - 230, y, 110, 12, k, {
+      fontSize: 8.5,
+      color: MUTED,
+      align: 'right',
+    })
+    const valueEl = text(RIGHT - 116, y, 116, 12, v, {
+      fontSize: 8.5,
+      color: INK,
+      align: 'right',
+      fontFamily: MONO,
+    })
+    els.push(labelEl, valueEl)
+    // 1pt gap, as the original fixed 13pt step gave a 12pt box. A value that
+    // wraps (mono is wide: 116pt holds only ~22 characters at 8.5pt) pushes the
+    // following row down instead of being overprinted by it.
+    y += Math.max(labelEl.height, valueEl.height) + 1
   }
 
-  const bottom = Math.max(y, M + 62) + 10
+  const identityBottom = M + nameEl.height + 46
+  const bottom = Math.max(y, identityBottom, M + 62) + 10
   els.push(rule(M, bottom, CW))
   return bottom + 18
 }
@@ -233,27 +298,31 @@ function totals(els, x, y, width, rows, accent) {
   let cy = y
   for (const row of rows) {
     const strong = !!row.strong
+    const labelEl = text(x + 8, cy, labelW, 14, row.label, {
+      fontSize: strong ? 10 : 9,
+      bold: strong,
+      color: strong ? INK : MUTED,
+      align: 'right',
+    })
+    const valueEl = text(x + labelW, cy, valueW - 8, 14, row.value, {
+      fontSize: strong ? 11 : 9.5,
+      bold: strong,
+      color: strong ? accent : INK,
+      align: 'right',
+      fontFamily: MONO,
+    })
+    const rowH = Math.max(labelEl.height, valueEl.height)
+    // The highlight has to grow with the row. A fixed 22pt band behind a value
+    // that wrapped left the extra lines sitting outside their own background.
     if (strong) {
-      els.push(rect(x, cy - 4, width, 22, { backgroundColor: SOFT, borderRadius: 3 }))
+      els.push(rect(x, cy - 4, width, rowH + 8, { backgroundColor: SOFT, borderRadius: 3 }))
     }
-    els.push(
-      text(x + 8, cy, labelW, 14, row.label, {
-        fontSize: strong ? 10 : 9,
-        bold: strong,
-        color: strong ? INK : MUTED,
-        align: 'right',
-      })
-    )
-    els.push(
-      text(x + labelW, cy, valueW - 8, 14, row.value, {
-        fontSize: strong ? 11 : 9.5,
-        bold: strong,
-        color: strong ? accent : INK,
-        align: 'right',
-        fontFamily: MONO,
-      })
-    )
-    cy += strong ? 26 : 16
+    els.push(labelEl, valueEl)
+    // Advance by what the row actually occupies. The fixed step overprinted the
+    // next row whenever a value wrapped — mono in a narrow value column holds
+    // very little, and these carry text as well as figures ("PASS — First Class
+    // with Distinction").
+    cy += rowH + (strong ? 12 : 2)
   }
   return cy
 }
@@ -398,10 +467,16 @@ function formalLetter(cfg) {
     y += h + 16
   }
 
-  els.push(
-    text(M, y, CW, 16, cfg.closing ?? 'Yours sincerely,', { fontSize: 10, color: BODY })
-  )
-  signature(els, M, y + 46, 200, '{{signatory.name}}', '{{signatory.title}}')
+  // The closing can be several lines (many templates end with a paragraph, a
+  // blank line, then the sign-off), so the signature has to follow the box's
+  // real height. Pinning it to `y + 46` overlapped the sign-off the moment the
+  // closing grew past one line.
+  const closing = text(M, y, CW, 16, cfg.closing ?? 'Yours sincerely,', {
+    fontSize: 10,
+    color: BODY,
+  })
+  els.push(closing)
+  signature(els, M, y + closing.height + 18, 200, '{{signatory.name}}', '{{signatory.title}}')
 
   footnote(els, cfg.footer)
   return els
@@ -1229,7 +1304,12 @@ const TEMPLATES = [
             height: 62,
           },
           {
-            body: 'During {{recipient.pronoun_possessive}} tenure, {{recipient.pronoun_subject}} was responsible for {{employment.responsibilities}}. We found {{recipient.pronoun_object}} to be {{employment.conduct}}, and {{recipient.pronoun_possessive}} contribution to the team was valued.',
+            // Phrased so the verb agrees whatever pronoun the author sets. The
+            // subject pronoun is a variable defaulting to "they", so the
+            // original "{{recipient.pronoun_subject}} was responsible" printed
+            // "they was responsible" out of the box — on a document whose whole
+            // purpose is to be handed to a future employer.
+            body: 'During {{recipient.pronoun_possessive}} tenure, {{recipient.pronoun_subject}} held responsibility for {{employment.responsibilities}}. We found {{recipient.pronoun_object}} to be {{employment.conduct}}, and {{recipient.pronoun_possessive}} contribution to the team was valued.',
             height: 62,
           },
           {
@@ -2019,7 +2099,7 @@ const TEMPLATES = [
       'statement.remittance':
         'Bank transfer to Northwind Traders Pvt Ltd\nA/c 5010 2233 8891 · IFSC HDFC0000512\nQuote your account number with every payment.',
       'balances.opening': '₹86,400.00',
-      'balances.payments': '₹1,41,600.00',
+      'balances.payments': '₹86,400.00',
       'balances.closing': '₹94,340.00',
       'ageing.current': '₹94,340.00',
       'ageing.thirty': '₹0.00',
@@ -2072,15 +2152,17 @@ function collectVariables(elements) {
 }
 
 
-mkdirSync(OUT_DIR, { recursive: true })
-for (const stale of readdirSync(OUT_DIR).filter((f) => f.endsWith('.json'))) {
-  unlinkSync(join(OUT_DIR, stale))
-}
-
+// Nothing is written until every template validates. The directory used to be
+// emptied here, before the loop, so a run that failed validation still replaced
+// the working bundles with the broken ones it had already written — the worst
+// of both outcomes. Build in memory, then commit or leave the last good set
+// untouched.
 let failed = false
+const outputs = []
 
 for (const tpl of TEMPLATES) {
   seq = 0
+  activeValues = tpl.values
   const elements = tpl.build()
 
   const referenced = collectVariables(elements)
@@ -2097,6 +2179,20 @@ for (const tpl of TEMPLATES) {
   const globalVariables = referenced.map((key) => ({ key }))
   const variableValues = Object.fromEntries(
     referenced.filter((key) => tpl.values[key] !== undefined).map((key) => [key, tpl.values[key]]))
+
+  // Boxes are sized to hold their own text, but a box that grew can still land
+  // on its neighbour — that is exactly how the marksheet shipped with
+  // "Technology" printed across its own address line. Nothing overflowed, so
+  // the overflow check was silent; the two boxes' contents simply occupied the
+  // same space. Checked here, against the resolved values, so a bad layout
+  // fails generation instead of reaching a landing page.
+  const collisions = findCollisions(elements, variableValues)
+  if (collisions.length > 0) {
+    console.error(`  ✗ ${tpl.slug}: text collides —`)
+    for (const c of collisions.slice(0, 8)) console.error(`      ${c}`)
+    if (collisions.length > 8) console.error(`      … ${collisions.length - 8} more`)
+    failed = true
+  }
 
   const layout = {
     page: {
@@ -2119,13 +2215,21 @@ for (const tpl of TEMPLATES) {
     exportedAt: EXPORTED_AT,
   }
 
-  writeFileSync(join(OUT_DIR, `${tpl.slug}.json`), `${JSON.stringify(payload, null, 2)}\n`)
+  outputs.push({ slug: tpl.slug, payload })
   console.log(`  ${tpl.slug}  ${elements.length} elements, ${globalVariables.length} variables`)
 }
 
 if (failed) {
-  console.error('\nGeneration failed — see the errors above.')
+  console.error('\nGeneration failed — nothing written, existing bundles left as they were.')
   process.exit(1)
 }
 
-console.log(`\n${TEMPLATES.length} templates written to src/try-templates/`)
+mkdirSync(OUT_DIR, { recursive: true })
+for (const stale of readdirSync(OUT_DIR).filter((f) => f.endsWith('.json'))) {
+  unlinkSync(join(OUT_DIR, stale))
+}
+for (const { slug, payload } of outputs) {
+  writeFileSync(join(OUT_DIR, `${slug}.json`), `${JSON.stringify(payload, null, 2)}\n`)
+}
+
+console.log(`\n${outputs.length} templates written to src/try-templates/`)

@@ -74,7 +74,7 @@
         "x": 44,
         "y": 62,
         "width": 507,
-        "height": 30,
+        "height": 34.8,
         "content": "{{proposal.title}}",
         "style": {
           "fontSize": 24,
@@ -440,7 +440,7 @@
             "x": 44,
             "y": 62,
             "width": 507,
-            "height": 30,
+            "height": 34.8,
             "content": "{{proposal.title}}",
             "style": {
               "fontSize": 24,

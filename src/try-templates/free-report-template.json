@@ -71,7 +71,7 @@
         "x": 44,
         "y": 62,
         "width": 507,
-        "height": 30,
+        "height": 34.8,
         "content": "{{report.title}}",
         "style": {
           "fontSize": 24,
@@ -243,7 +243,7 @@
         "x": 44,
         "y": 204,
         "width": 507,
-        "height": 46,
+        "height": 48,
         "content": "{{report.summary}}",
         "style": {
           "fontSize": 10,
@@ -437,7 +437,7 @@
             "x": 44,
             "y": 62,
             "width": 507,
-            "height": 30,
+            "height": 34.8,
             "content": "{{report.title}}",
             "style": {
               "fontSize": 24,
@@ -609,7 +609,7 @@
             "x": 44,
             "y": 204,
             "width": 507,
-            "height": 46,
+            "height": 48,
             "content": "{{report.summary}}",
             "style": {
               "fontSize": 10,

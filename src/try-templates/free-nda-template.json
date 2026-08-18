@@ -74,7 +74,7 @@
         "x": 44,
         "y": 62,
         "width": 507,
-        "height": 30,
+        "height": 34.8,
         "content": "Non-Disclosure Agreement",
         "style": {
           "fontSize": 24,
@@ -340,7 +340,7 @@
         "x": 44,
         "y": 292,
         "width": 507,
-        "height": 46,
+        "height": 48,
         "content": "The parties wish to explore {{agreement.purpose}} and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
         "style": {
           "fontSize": 10,
@@ -488,7 +488,7 @@
         "x": 44,
         "y": 698,
         "width": 210,
-        "height": 14,
+        "height": 14.5,
         "content": "{{party_one.signatory}}",
         "style": {
           "fontSize": 10,
@@ -533,7 +533,7 @@
         "x": 341,
         "y": 698,
         "width": 210,
-        "height": 14,
+        "height": 14.5,
         "content": "{{party_two.signatory}}",
         "style": {
           "fontSize": 10,
@@ -612,7 +612,7 @@
             "x": 44,
             "y": 62,
             "width": 507,
-            "height": 30,
+            "height": 34.8,
             "content": "Non-Disclosure Agreement",
             "style": {
               "fontSize": 24,
@@ -878,7 +878,7 @@
             "x": 44,
             "y": 292,
             "width": 507,
-            "height": 46,
+            "height": 48,
             "content": "The parties wish to explore {{agreement.purpose}} and, in doing so, may disclose confidential information to one another. This agreement sets out how that information must be handled.",
             "style": {
               "fontSize": 10,
@@ -1026,7 +1026,7 @@
             "x": 44,
             "y": 698,
             "width": 210,
-            "height": 14,
+            "height": 14.5,
             "content": "{{party_one.signatory}}",
             "style": {
               "fontSize": 10,
@@ -1071,7 +1071,7 @@
             "x": 341,
             "y": 698,
             "width": 210,
-            "height": 14,
+            "height": 14.5,
             "content": "{{party_two.signatory}}",
             "style": {
               "fontSize": 10,
