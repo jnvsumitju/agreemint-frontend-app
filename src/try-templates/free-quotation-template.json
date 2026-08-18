@@ -130,7 +130,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 72,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Quote no.",
         "style": {
@@ -144,9 +144,9 @@
       {
         "id": "t006",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 72,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{quote.number}}",
         "style": {
@@ -162,7 +162,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 85.33,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Date",
         "style": {
@@ -176,9 +176,9 @@
       {
         "id": "t008",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 85.33,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{quote.date}}",
         "style": {
@@ -194,7 +194,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 98.66,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Valid until",
         "style": {
@@ -208,9 +208,9 @@
       {
         "id": "t010",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 98.66,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{quote.valid_until}}",
         "style": {
@@ -473,7 +473,7 @@
         "x": 446,
         "y": 413.2,
         "width": 97,
-        "height": 15.95,
+        "height": 31.9,
         "content": "{{totals.grand_total}}",
         "style": {
           "fontSize": 11,
@@ -659,7 +659,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 72,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Quote no.",
             "style": {
@@ -673,9 +673,9 @@
           {
             "id": "t006",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 72,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{quote.number}}",
             "style": {
@@ -691,7 +691,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 85.33,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Date",
             "style": {
@@ -705,9 +705,9 @@
           {
             "id": "t008",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 85.33,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{quote.date}}",
             "style": {
@@ -723,7 +723,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 98.66,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Valid until",
             "style": {
@@ -737,9 +737,9 @@
           {
             "id": "t010",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 98.66,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{quote.valid_until}}",
             "style": {
@@ -1002,7 +1002,7 @@
             "x": 446,
             "y": 413.2,
             "width": 97,
-            "height": 15.95,
+            "height": 31.9,
             "content": "{{totals.grand_total}}",
             "style": {
               "fontSize": 11,

@@ -90,15 +90,30 @@ let activeValues = {}
  */
 const AVG_ADVANCE_EM = { [SANS]: 0.56, [SERIF]: 0.54, [MONO]: 0.6 }
 
-/** Height the content will actually occupy once wrapped, in pt. */
-function fittedHeight(content, width, style) {
+/** `invoice.place_of_supply` → `Invoice Place Of Supply`, as the editor shows it. */
+function humanisePlaceholder(key) {
+  return key
+    .split(/[._]/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+/**
+ * Height the content will actually occupy once wrapped, in pt.
+ *
+ * <p>`mode: 'placeholder'` substitutes the field-name label the editor shows
+ * before any data is entered, which is routinely LONGER than the data itself —
+ * "Invoice Place Of Supply" against "Karnataka (29)".
+ */
+function fittedHeight(content, width, style, mode = 'value') {
   const fontSize = style.fontSize ?? 10
   const lineHeight = style.lineHeight ?? 1.45
   if (!(width > 0) || typeof content !== 'string') return fontSize * lineHeight
 
   const resolved = content.replace(
     /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
-    (m, k) => activeValues[k] ?? m
+    (m, k) => (mode === 'placeholder' ? humanisePlaceholder(k) : activeValues[k] ?? m)
   )
   const em = AVG_ADVANCE_EM[style.fontFamily] ?? AVG_ADVANCE_EM[SANS]
   // Bold sets slightly wider; a few percent is enough to matter at a wrap.
@@ -125,16 +140,37 @@ function text(x, y, width, height, content, style = {}) {
   // Only ever grows, so every deliberately-tall box stays exactly as authored.
   // Callers that stack content below a growable block must advance by the
   // RETURNED element's height rather than the one they passed in.
-  return {
+  // The box is sized for whichever is taller: the preview value, or the
+  // field-name placeholder the editor shows before anyone types. Sizing for the
+  // value alone let the placeholder be CLIPPED rather than wrapped, and a
+  // truncated "Totals Grand Total" reads as the value "Totals Grand" — a
+  // silent lie is worse than an obviously-too-long line.
+  //
+  // Extra height costs nothing once real data is in: text is top-anchored, so
+  // an oversized box draws no ink. Callers stacking content below must advance
+  // by `contentHeight()`, NOT by this box height, or every layout would space
+  // itself out to fit placeholders no finished document contains.
+  const el = {
     id: id('t'),
     type: 'TEXT',
     x,
     y,
     width,
-    height: Math.max(height, fittedHeight(content, width, merged)),
+    height: Math.max(
+      height,
+      fittedHeight(content, width, merged, 'value'),
+      fittedHeight(content, width, merged, 'placeholder')
+    ),
     content,
     style: merged,
   }
+  el.contentHeight = Math.max(height, fittedHeight(content, width, merged, 'value'))
+  return el
+}
+
+/** What the element occupies with real data — the number layout math must use. */
+function contentHeight(el) {
+  return el.contentHeight ?? el.height
 }
 
 /**
@@ -230,7 +266,7 @@ function letterhead(els, accent, title, metaRows, opts = {}) {
   // sample data clips the moment anyone edits it, silently, with no warning on
   // the canvas.
   els.push(
-    text(M + 12, M + nameEl.height, 270, 46, `{{${prefix}.address}}\n{{${prefix}.contact}}`, {
+    text(M + 12, M + contentHeight(nameEl), 270, 46, `{{${prefix}.address}}\n{{${prefix}.contact}}`, {
       fontSize: 8.5,
       color: MUTED,
       lineHeight: 1.4,
@@ -249,12 +285,21 @@ function letterhead(els, accent, title, metaRows, opts = {}) {
 
   let y = M + 28
   for (const [k, v] of metaRows) {
-    const labelEl = text(RIGHT - 230, y, 110, 12, k, {
+    // Column split: 82pt label / 146pt value, not 110/116.
+    //
+    // A freshly imported template is read with FIELD-NAME placeholders before
+    // anyone types real data, and those are longer than the data. "Invoice
+    // Place Of Supply" needs 117.3pt of mono at 8.5pt; the old 116pt box wrapped
+    // it and the PDF clipped the second line, so the invoice showed "Invoice
+    // Place Of" — truncated to something that still reads like a real value,
+    // which is the worst way for it to fail. The labels never needed 110pt: the
+    // longest ("Place of supply") is 63.8pt.
+    const labelEl = text(RIGHT - 230, y, 82, 12, k, {
       fontSize: 8.5,
       color: MUTED,
       align: 'right',
     })
-    const valueEl = text(RIGHT - 116, y, 116, 12, v, {
+    const valueEl = text(RIGHT - 146, y, 146, 12, v, {
       fontSize: 8.5,
       color: INK,
       align: 'right',
@@ -264,10 +309,10 @@ function letterhead(els, accent, title, metaRows, opts = {}) {
     // 1pt gap, as the original fixed 13pt step gave a 12pt box. A value that
     // wraps (mono is wide: 116pt holds only ~22 characters at 8.5pt) pushes the
     // following row down instead of being overprinted by it.
-    y += Math.max(labelEl.height, valueEl.height) + 1
+    y += Math.max(contentHeight(labelEl), contentHeight(valueEl)) + 1
   }
 
-  const identityBottom = M + nameEl.height + 46
+  const identityBottom = M + contentHeight(nameEl) + 46
   const bottom = Math.max(y, identityBottom, M + 62) + 10
   els.push(rule(M, bottom, CW))
   return bottom + 18
@@ -311,7 +356,7 @@ function totals(els, x, y, width, rows, accent) {
       align: 'right',
       fontFamily: MONO,
     })
-    const rowH = Math.max(labelEl.height, valueEl.height)
+    const rowH = Math.max(contentHeight(labelEl), contentHeight(valueEl))
     // The highlight has to grow with the row. A fixed 22pt band behind a value
     // that wrapped left the extra lines sitting outside their own background.
     if (strong) {
@@ -476,7 +521,7 @@ function formalLetter(cfg) {
     color: BODY,
   })
   els.push(closing)
-  signature(els, M, y + closing.height + 18, 200, '{{signatory.name}}', '{{signatory.title}}')
+  signature(els, M, y + contentHeight(closing) + 18, 200, '{{signatory.name}}', '{{signatory.title}}')
 
   footnote(els, cfg.footer)
   return els
@@ -2186,6 +2231,10 @@ for (const tpl of TEMPLATES) {
   // the overflow check was silent; the two boxes' contents simply occupied the
   // same space. Checked here, against the resolved values, so a bad layout
   // fails generation instead of reaching a landing page.
+  // `contentHeight` is scratch for the layout math above — strip it before it
+  // reaches the bundle, where it would be an unrecognised element property.
+  for (const el of elements) delete el.contentHeight
+
   const collisions = findCollisions(elements, variableValues)
   if (collisions.length > 0) {
     console.error(`  ✗ ${tpl.slug}: text collides —`)

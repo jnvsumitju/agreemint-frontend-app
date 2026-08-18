@@ -130,7 +130,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 72,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Reference",
         "style": {
@@ -144,9 +144,9 @@
       {
         "id": "t006",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 72,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{letter.reference}}",
         "style": {
@@ -162,7 +162,7 @@
         "type": "TEXT",
         "x": 321,
         "y": 85.33,
-        "width": 110,
+        "width": 82,
         "height": 12.33,
         "content": "Date",
         "style": {
@@ -176,9 +176,9 @@
       {
         "id": "t008",
         "type": "TEXT",
-        "x": 435,
+        "x": 405,
         "y": 85.33,
-        "width": 116,
+        "width": 146,
         "height": 12.33,
         "content": "{{letter.date}}",
         "style": {
@@ -482,7 +482,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 72,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Reference",
             "style": {
@@ -496,9 +496,9 @@
           {
             "id": "t006",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 72,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{letter.reference}}",
             "style": {
@@ -514,7 +514,7 @@
             "type": "TEXT",
             "x": 321,
             "y": 85.33,
-            "width": 110,
+            "width": 82,
             "height": 12.33,
             "content": "Date",
             "style": {
@@ -528,9 +528,9 @@
           {
             "id": "t008",
             "type": "TEXT",
-            "x": 435,
+            "x": 405,
             "y": 85.33,
-            "width": 116,
+            "width": 146,
             "height": 12.33,
             "content": "{{letter.date}}",
             "style": {

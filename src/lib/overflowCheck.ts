@@ -67,10 +67,39 @@ function elementHeight(el: WireElement): number {
 }
 
 /**
- * Diff the layout against the measurement response. Returns one entry per
- * text element whose laid-out height exceeds its box height by more than
- * 0.5pt — sub-point noise (sub-pixel rounding, ascender/descender drift) is
- * ignored so every author doesn't see a toast on every save.
+ * The empty space below the last line's glyphs, in pt.
+ *
+ * <p>A line BOX is `fontSize × lineHeight`; the glyphs occupy roughly the font
+ * size within it, with the leading split evenly above and below. So a box can
+ * be shorter than the measured line box by up to half the leading and still
+ * clip nothing — the renderer's clip lands in whitespace.
+ *
+ * <p>Without this the badge cried wolf on every heading: 16pt at `lineHeight`
+ * 1.45 measures 23.2pt, so a 20pt box was reported as "overflows by 3pt" while
+ * rendering perfectly — descenders and all. Authors then either grew boxes that
+ * did not need growing or learned to ignore the warning, which is worse,
+ * because the same badge also reports the real clipping.
+ */
+function halfLeadingPt(el: WireElement): number {
+  // Defaults mirror the renderer's own (`fontSize` 12, `lineHeight` 1.4). An
+  // element with no style still renders with leading, so returning 0 here would
+  // reinstate the false positive for exactly those elements.
+  const style = typeof el.style === 'object' && el.style !== null
+    ? (el.style as Record<string, unknown>)
+    : {}
+  const fontSize = typeof style.fontSize === 'number' ? style.fontSize : 12
+  const lineHeight = typeof style.lineHeight === 'number' ? style.lineHeight : 1.4
+  return Math.max(0, (fontSize * (lineHeight - 1)) / 2)
+}
+
+/**
+ * Diff the layout against the measurement response. Returns one entry per text
+ * element whose rendered GLYPHS exceed its box height by more than 0.5pt —
+ * sub-point noise (sub-pixel rounding, ascender/descender drift) is ignored so
+ * every author doesn't see a toast on every save.
+ *
+ * <p>Glyphs, not the laid-out line box: see {@link halfLeadingPt}. Reporting
+ * the line box flagged documents that render perfectly.
  */
 export function findOverflowingElements(
   layout: LayoutJson,
@@ -87,7 +116,10 @@ export function findOverflowingElements(
       if (m.measuredHeight <= 0) continue
       const boxHeight = elementHeight(el)
       if (boxHeight <= 0) continue
-      const delta = m.measuredHeight - boxHeight
+      // Compare the INK, not the line box: the bottom half-leading is
+      // whitespace the clip can eat without touching a glyph.
+      const inkBottom = m.measuredHeight - halfLeadingPt(el)
+      const delta = inkBottom - boxHeight
       if (delta > 0.5) {
         out.push({
           elementId: id,
