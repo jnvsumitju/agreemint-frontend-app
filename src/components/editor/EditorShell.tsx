@@ -14,7 +14,6 @@ import { EditorStatusBar } from './EditorStatusBar'
 import { ShortcutCheatsheet, useShortcutCheatsheet } from './ShortcutCheatsheet'
 import { AiGenerateModal } from './AiGenerateModal'
 import { AiGenerationOverlay, AiPendingBar } from './AiGenerationOverlay'
-import { FixLayoutBadge } from './FixLayoutBadge'
 import { RearrangePagesView } from './RearrangePagesView'
 import { AddCommentModal } from './AddCommentModal'
 
@@ -60,7 +59,10 @@ function EditorChrome({
   return (
     <div className="flex h-full min-w-0 flex-col overflow-x-hidden bg-zinc-100 dark:bg-zinc-950">
       <Toolbar />
-      {!rearrangeMode && (
+      {/* The format bar acts on the current canvas selection, and previewing
+          has no selection to format — it only ever read "Select an element to
+          format it". */}
+      {!rearrangeMode && !previewActive && (
         <FormatBar contextToolbarExemptRef={exemptFromInlineCommitRef} />
       )}
       <div className="flex min-h-0 min-w-0 flex-1">
@@ -79,13 +81,15 @@ function EditorChrome({
         )}
         {!rearrangeMode && <PropertiesPanel />}
       </div>
-      <EditorStatusBar />
+      {/* Zoom, margins, rulers and grid all act on the canvas, which is not on
+          screen while previewing — and the PDF has its own zoom and page
+          controls. Keeping the bar would offer a second, non-functioning set. */}
+      {!previewActive && <EditorStatusBar />}
       <ShortcutCheatsheet open={shortcuts.open} onClose={shortcuts.onClose} />
       <AiGenerateModal />
       <AiGenerationOverlay />
       <AiPendingBar />
       <AddCommentModal />
-      {!rearrangeMode && <FixLayoutBadge />}
     </div>
   )
 }

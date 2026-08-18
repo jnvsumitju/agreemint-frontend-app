@@ -104,13 +104,17 @@ export function FixLayoutBadge() {
 
   return (
     <>
+      <div className="h-3 w-px bg-zinc-200 dark:bg-zinc-700" />
       <button
         type="button"
         onClick={runDetect}
         title="Detect and fix overlap, overflow, glued text and height drift on this page"
-        className="fixed right-[320px] top-[80px] z-30 flex items-center gap-1.5 rounded-full border border-fuchsia-300 bg-white/95 px-3 py-1 text-[12px] font-medium text-fuchsia-700 shadow-sm backdrop-blur transition-opacity hover:bg-fuchsia-50 dark:border-fuchsia-700 dark:bg-zinc-900/95 dark:text-fuchsia-300 dark:hover:bg-zinc-800"
+        // In the status bar now, not floating. Pinned at right-[320px]/top-[80px]
+        // it sat over the properties panel's tab strip and covered whichever tab
+        // happened to be underneath it — "Comments", in a default layout.
+        className="flex items-center gap-1 rounded-full border border-fuchsia-300 px-2 py-0.5 text-[10px] font-medium text-fuchsia-700 transition-colors hover:bg-fuchsia-50 dark:border-fuchsia-700 dark:text-fuchsia-300 dark:hover:bg-fuchsia-500/10"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M14.5 9.5L4 20" />
           <path d="M14.5 9.5l5-5" />
           <path d="M13 8l3 3" />
