@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Keep the console out of the search index.
+
+      Every free template exists twice in public: the landing page at
+      crixaa.com/templates/<slug>, which carries the prose and the metadata, and
+      the sandbox at console.crixaa.com/try/<slug>, which is this shell. They are
+      the same document, and every marketing page links to its console twin — so
+      Google discovers all of them and picks one per pair. Letting it pick the
+      shell would bury the page the writing went into.
+
+      noindex rather than a robots.txt Disallow, deliberately: these URLs are
+      linked from an indexed site, and a blocked crawl means the directive is
+      never seen — a blocked-but-linked URL can still surface as a bare listing.
+      Allow the crawl, serve the tag, and the page drops out properly.
+
+      Nothing else here wants indexing either: the rest of the console is behind
+      authentication.
+    -->
+    <meta name="robots" content="noindex" />
     <title>Crixaa</title>
   </head>
   <body>
