@@ -1,0 +1,8 @@
+# The console is an application, not content. Crawling is allowed on purpose:
+# the pages carry <meta name="robots" content="noindex">, and a Disallow here
+# would stop that ever being read.
+#
+# Without this file the SPA catch-all answers /robots.txt with index.html, so
+# crawlers receive HTML where they expect directives.
+User-agent: *
+Allow: /
