@@ -560,6 +560,12 @@ export function FormatBar({
       italic: ed?.isActive('italic') ?? false,
       underline: ed?.isActive('underline') ?? false,
       strike: ed?.isActive('strike') ?? false,
+      // Read off the marks, not the element style. While a selection is live
+      // the swatch has to show what THAT text is, otherwise a coloured run in
+      // a black table reads as black and re-picking the colour looks like a
+      // no-op.
+      color: (ed?.getAttributes('textStyle')?.color as string | undefined) ?? undefined,
+      highlight: (ed?.getAttributes('highlight')?.color as string | undefined) ?? undefined,
     }),
   })
 
@@ -574,6 +580,11 @@ export function FormatBar({
   const italicActive = isInline ? (fmt?.italic ?? false) : !!style.italic
   const underlineActive = isInline ? (fmt?.underline ?? false) : !!style.underline
   const strikeActive = isInline ? (fmt?.strike ?? false) : !!style.strikethrough
+  // undefined rather than the element colour when a selection carries no mark:
+  // the swatch then shows "inherited" instead of claiming a colour the run
+  // does not have.
+  const textColorValue = isInline ? fmt?.color : style.color
+  const bgColorValue = isInline ? fmt?.highlight : style.backgroundColor
 
   // Action handlers — TipTap commands when inline, style patch when not
   const toggleBold = () => {
@@ -781,18 +792,75 @@ export function FormatBar({
     )
   }
 
-  // Table: delegate entirely
+  // Table: delegate the table-level controls, but keep the per-selection text
+  // formatting that every other element type gets.
+  //
+  // This branch returns early, so the Typography / B-I-U-S / Colors groups in
+  // the main return below never render for a TABLE. That was invisible until a
+  // cell was being edited: the cell uses the same TipTap instance as a TEXT
+  // element and every handler here already branches on `isInline`, so the
+  // commands worked — there was simply nothing on screen to press. Colouring a
+  // few words inside a cell was impossible, while "Table → Text" recoloured the
+  // entire table and "Cell" only changed a fill.
+  //
+  // Deliberately NOT offered here: font size and font family. Both are real
+  // element-level controls, but per RUN the renderer has no fontFamily at all,
+  // and there is no TipTap FontSize extension so a size mark would not survive
+  // serialisation. Either would look correct on the canvas and print wrong,
+  // which is the exact canvas-versus-PDF divergence this codebase treats as a
+  // defect rather than a rough edge.
   if (isTable && el) {
     return (
       <>
         <div
           ref={contextToolbarExemptRef}
           data-agreemint-context-toolbar
-          className="flex h-9 shrink-0 items-center overflow-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-zinc-900/90"
+          className="flex h-9 shrink-0 items-center gap-1.5 overflow-x-auto overflow-y-hidden border-b border-zinc-200 bg-white/80 px-3 backdrop-blur-sm dark:border-zinc-700/50 dark:bg-zinc-900/90"
           role="toolbar"
           aria-label="Table formatting"
           onMouseDown={(e) => { if (isInline) e.preventDefault() }}
         >
+          {isInline && (
+            <>
+              <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-0.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30">
+                <FmtBtn title="Bold — selected text (⌘B / Ctrl+B)" active={boldActive} onMouseDown={toggleBold}>
+                  <IconBold size={14} />
+                </FmtBtn>
+                <FmtBtn title="Italic — selected text (⌘I / Ctrl+I)" active={italicActive} onMouseDown={toggleItalic}>
+                  <IconItalic size={14} />
+                </FmtBtn>
+                <FmtBtn title="Underline — selected text (⌘U / Ctrl+U)" active={underlineActive} onMouseDown={toggleUnderline}>
+                  <IconUnderline size={14} />
+                </FmtBtn>
+                <FmtBtn title="Strikethrough — selected text" active={strikeActive} onMouseDown={toggleStrike}>
+                  <IconStrikethrough size={14} />
+                </FmtBtn>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200/40 bg-zinc-50/40 px-1.5 py-0.5 dark:border-zinc-700/30 dark:bg-zinc-800/30">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400" title="Text color — selected text">A</span>
+                  <ColorToolbarSwatch
+                    title="Text color — selected text"
+                    value={textColorValue}
+                    onChange={setTextColor}
+                    onClear={textColorValue ? clearTextColor : undefined}
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-zinc-400 dark:text-zinc-500" title="Highlight — selected text">
+                    <IconPaintBucket size={12} />
+                  </span>
+                  <ColorToolbarSwatch
+                    title="Highlight — selected text"
+                    value={bgColorValue}
+                    onChange={setBgColor}
+                    onClear={bgColorValue ? clearBgColor : undefined}
+                  />
+                </div>
+              </div>
+              <span className="h-5 w-px shrink-0 bg-zinc-200 dark:bg-zinc-700" aria-hidden />
+            </>
+          )}
           <TableContextToolbar el={el} />
         </div>
         {textHelpDialog}
@@ -975,9 +1043,9 @@ export function FormatBar({
                 <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400" title="Text color">A</span>
                 <ColorToolbarSwatch
                   title="Text color"
-                  value={textDisabled ? undefined : style.color}
+                  value={textDisabled ? undefined : textColorValue}
                   onChange={textDisabled ? () => {} : setTextColor}
-                  onClear={textDisabled || !style.color ? undefined : clearTextColor}
+                  onClear={textDisabled || !textColorValue ? undefined : clearTextColor}
                   gradient={textDisabled ? undefined : style.colorGradient}
                   onGradientChange={textDisabled || isInline ? undefined : setTextGradient}
                 />
@@ -991,9 +1059,9 @@ export function FormatBar({
                 </span>
                 <ColorToolbarSwatch
                   title="Background / highlight"
-                  value={textDisabled ? undefined : style.backgroundColor}
+                  value={textDisabled ? undefined : bgColorValue}
                   onChange={textDisabled ? () => {} : setBgColor}
-                  onClear={textDisabled || !style.backgroundColor ? undefined : clearBgColor}
+                  onClear={textDisabled || !bgColorValue ? undefined : clearBgColor}
                   gradient={textDisabled ? undefined : style.bgGradient}
                   onGradientChange={textDisabled || isInline ? undefined : setBgGradient}
                 />

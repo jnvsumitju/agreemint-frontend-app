@@ -422,7 +422,12 @@ export function TableContextToolbar({ el }: { el: LayoutElement }) {
         <span className="shrink-0 text-[10px] font-semibold text-zinc-600 lg:text-xs dark:text-zinc-300">Table</span>
         <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">Text</span>
         <ColorToolbarSwatch
-          title="Cell text color"
+          // Named for what it writes. It was "Cell text color", which is
+          // what someone reads when they want to recolour a few words in one
+          // cell — and it recolours every cell in the table instead. The
+          // per-selection swatch that does that job is to the left, and only
+          // while a cell is being edited.
+          title="Text colour — entire table"
           value={el.style?.color}
           onChange={(v) =>
             updateElement(el.id, {
