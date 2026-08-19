@@ -207,13 +207,19 @@ test.describe('anonymous try-a-template sandbox', () => {
 
   test('every catalogue template renders values and exposes its variables', async ({ page }) => {
     // Cheap breadth: one bad bundle takes down one landing page, and there are
-    // twenty of them. The unit tests check the JSON; this checks it survives the
+    // fifty of them. The unit tests check the JSON; this checks it survives the
     // parse → store → canvas path in a real browser, for every single one.
     //
     // Counts are read from the bundles rather than hardcoded, so adding a
     // template or a field to one cannot silently fall out of coverage.
     const here = path.dirname(new URL(import.meta.url).pathname)
     const dir = path.join(here, '..', '..', 'src', 'try-templates')
+
+    // One navigation and a canvas render per template, in one test. Playwright's
+    // default 30s covered twenty and silently stopped covering fifty — the
+    // failure looked like a broken template rather than an exhausted budget.
+    // Derived from the catalogue so it keeps pace as templates are added.
+    test.setTimeout(fs.readdirSync(dir).filter((f) => f.endsWith('.json')).length * 4_000)
 
     const bundles = fs
       .readdirSync(dir)
@@ -239,7 +245,24 @@ test.describe('anonymous try-a-template sandbox', () => {
         }
       })
 
-    expect(bundles.length, 'expected the full catalogue').toBe(20)
+    // Against the catalogue rather than a literal, so adding a template never
+    // needs this number remembered — which is exactly when it gets forgotten.
+    //
+    // Read as TEXT rather than imported. `tryTemplates.ts` reaches for
+    // `import.meta.env`, which exists under Vite and not under Playwright's
+    // Node runtime, so importing it throws while the spec file is still being
+    // loaded and Playwright reports "No tests found" — the whole file silently
+    // stops running rather than failing a single assertion.
+    const catalogue = [
+      ...fs
+        .readFileSync(path.join(here, '..', '..', 'src', 'lib', 'tryTemplates.ts'), 'utf8')
+        .matchAll(/\{\s*slug:\s*'([a-z0-9-]+)'/g),
+    ].map((m) => m[1])
+
+    expect(catalogue.length, 'no slugs found in the catalogue source').toBeGreaterThan(0)
+    expect(bundles.map((b) => b.slug).sort(), 'bundles and catalogue disagree').toEqual(
+      [...catalogue].sort()
+    )
 
     for (const { slug, declared, referenced } of bundles) {
       await page.goto(`/try/${slug}`)

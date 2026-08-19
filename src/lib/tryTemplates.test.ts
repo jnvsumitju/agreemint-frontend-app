@@ -41,6 +41,31 @@ describe('try-template bundles', () => {
     )
   })
 
+  it('files every template under the category its bundle declares', () => {
+    // The same fact is written down three times — here, in the bundle (which
+    // the backend seeder reads), and in the marketing page's frontmatter. The
+    // bundle is the source; this asserts the catalogue has not drifted from it.
+    //
+    // Worth guarding because the failure is invisible: a template listed under
+    // HR here and seeded as Business appears in one place on the hub and
+    // another in the marketplace, and nothing errors.
+    const byBundle = Object.fromEntries(
+      bundles.map((b) => [b.slug, (b.raw as { category?: string }).category])
+    )
+    const mismatches = TRY_TEMPLATES.filter((t) => byBundle[t.slug] !== t.category).map(
+      (t) => `${t.slug}: catalogue says ${t.category}, bundle says ${byBundle[t.slug]}`
+    )
+    expect(mismatches).toEqual([])
+  })
+
+  it('gives every bundle a category', () => {
+    // Absent means the backend falls back to guessing from slug keywords, which
+    // silently answers "Business" for anything it does not recognise.
+    expect(
+      bundles.filter((b) => !(b.raw as { category?: string }).category).map((b) => b.slug)
+    ).toEqual([])
+  })
+
   describe.each(bundles)('$slug', ({ raw }) => {
     const parsed = parseTemplateExportPayload(raw)
 

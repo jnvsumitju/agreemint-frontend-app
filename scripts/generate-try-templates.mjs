@@ -76,7 +76,23 @@ const ACCENT = {
   HR: '#0f766e',
   Education: '#a16207',
   Business: '#1d4ed8',
+  Legal: '#7c3aed',
 }
+
+/**
+ * The categories a template may declare.
+ *
+ * <p>Derived from ACCENT so the two cannot drift: a category with no accent
+ * colour would render with a silent fallback, and an accent with no category
+ * would be dead config.
+ *
+ * <p>This list is the SOURCE of the category, not a copy of it. The value is
+ * written into each bundle and read from there by the backend seeder and by the
+ * console's catalogue test. It used to be inferred from the slug by a keyword
+ * chain in the backend that fell through to "Business", so a template whose
+ * name matched no keyword was silently mis-filed with nothing to catch it.
+ */
+const CATEGORIES = Object.keys(ACCENT)
 
 const SANS = 'Inter'
 const SERIF = 'Source Serif 4'
@@ -945,12 +961,13 @@ const CUSTOMER_VALUES = {
 
 const rows = (arr) => JSON.stringify(arr)
 
-// ── The twenty templates ─────────────────────────────────────────────────────
+// ── The templates ────────────────────────────────────────────────────────────
 
 const TEMPLATES = [
   // ── Finance ────────────────────────────────────────────────────────────────
   {
     slug: 'free-invoice-template',
+    category: 'Finance',
     name: 'Invoice',
     build: () =>
       financialDoc({
@@ -1017,6 +1034,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-gst-invoice-template',
+    category: 'Finance',
     name: 'GST Invoice',
     build: () =>
       financialDoc({
@@ -1096,6 +1114,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-receipt-template',
+    category: 'Finance',
     name: 'Receipt',
     build: () =>
       financialDoc({
@@ -1155,6 +1174,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-quotation-template',
+    category: 'Finance',
     name: 'Quotation',
     build: () =>
       financialDoc({
@@ -1218,6 +1238,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-purchase-order-template',
+    category: 'Finance',
     name: 'Purchase Order',
     build: () =>
       financialDoc({
@@ -1293,6 +1314,7 @@ const TEMPLATES = [
   // ── HR ─────────────────────────────────────────────────────────────────────
   {
     slug: 'free-offer-letter-template',
+    category: 'HR',
     name: 'Offer Letter',
     build: () =>
       formalLetter({
@@ -1351,6 +1373,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-experience-certificate-template',
+    category: 'HR',
     name: 'Experience Certificate',
     build: () =>
       formalLetter({
@@ -1408,6 +1431,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-salary-slip-template',
+    category: 'HR',
     name: 'Salary Slip',
     build: () =>
       tabularRecord({
@@ -1494,6 +1518,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-joining-letter-template',
+    category: 'HR',
     name: 'Joining Letter',
     build: () =>
       formalLetter({
@@ -1550,6 +1575,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-relieving-letter-template',
+    category: 'HR',
     name: 'Relieving Letter',
     build: () =>
       formalLetter({
@@ -1601,6 +1627,7 @@ const TEMPLATES = [
   // ── Education ──────────────────────────────────────────────────────────────
   {
     slug: 'free-course-certificate-template',
+    category: 'Education',
     name: 'Course Certificate',
     build: () =>
       certificate({
@@ -1633,6 +1660,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-achievement-certificate-template',
+    category: 'Education',
     name: 'Achievement Certificate',
     build: () =>
       certificate({
@@ -1664,6 +1692,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-marksheet-template',
+    category: 'Education',
     name: 'Marksheet',
     build: () =>
       tabularRecord({
@@ -1737,6 +1766,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-id-card-template',
+    category: 'Education',
     name: 'ID Card',
     build: () =>
       cardSheet({
@@ -1786,6 +1816,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-admit-card-template',
+    category: 'Education',
     name: 'Admit Card',
     build: () =>
       cardSheet({
@@ -1835,6 +1866,7 @@ const TEMPLATES = [
   // ── Business ───────────────────────────────────────────────────────────────
   {
     slug: 'free-contract-template',
+    category: 'Business',
     name: 'Contract',
     build: () =>
       longFormDoc({
@@ -1905,6 +1937,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-nda-template',
+    category: 'Business',
     name: 'NDA',
     build: () =>
       longFormDoc({
@@ -1969,6 +2002,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-business-proposal-template',
+    category: 'Business',
     name: 'Business Proposal',
     build: () =>
       longFormDoc({
@@ -2041,6 +2075,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-report-template',
+    category: 'Business',
     name: 'Report',
     build: () =>
       longFormDoc({
@@ -2110,6 +2145,7 @@ const TEMPLATES = [
   },
   {
     slug: 'free-statement-template',
+    category: 'Business',
     name: 'Statement',
     build: () =>
       financialDoc({
@@ -2178,6 +2214,2126 @@ const TEMPLATES = [
       ]),
     },
   },
+
+  // ── Finance ────────────────────────────────────────────────────────────────
+
+  {
+    slug: 'free-proforma-invoice-template',
+    category: 'Finance',
+    name: 'Proforma Invoice',
+    build: () =>
+      financialDoc({
+        title: 'PROFORMA INVOICE',
+        meta: [
+          ['Proforma no.', '{{proforma.number}}'],
+          ['Date', '{{proforma.date}}'],
+          ['Valid until', '{{proforma.valid_until}}'],
+        ],
+        partyHeading: 'Bill to',
+        partyLines: CUSTOMER.slice(0, 2),
+        strip: [
+          ['Currency', '{{proforma.currency}}'],
+          ['Incoterms', '{{proforma.incoterms}}'],
+          ['Lead time', '{{proforma.lead_time}}'],
+        ],
+        columns: [
+          { header: 'Description', key: 'description' },
+          { header: 'Qty', key: 'qty' },
+          { header: 'Rate', key: 'rate' },
+          { header: 'Amount', key: 'amount' },
+        ],
+        columnWidths: [3.2, 0.7, 1, 1.1],
+        dataKey: 'line_items',
+        rows: 4,
+        totals: [
+          { label: 'Subtotal', value: '{{totals.subtotal}}' },
+          { label: 'Estimated tax', value: '{{totals.tax}}' },
+          { label: 'Estimated total', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'Not a tax invoice',
+          body: '{{proforma.disclaimer}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'A tax invoice will be issued once the goods are dispatched.',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'proforma.number': 'PI-2026-0091',
+      'proforma.date': '17 Aug 2026',
+      'proforma.valid_until': '16 Sep 2026',
+      'proforma.currency': 'INR (₹)',
+      'proforma.incoterms': 'FOB Bengaluru',
+      'proforma.lead_time': '3–4 weeks from order',
+      'totals.subtotal': '₹2,86,000.00',
+      'totals.tax': '₹51,480.00',
+      'totals.grand_total': '₹3,37,480.00',
+      'totals.in_words': 'Three lakh thirty-seven thousand four hundred eighty rupees only',
+      'proforma.disclaimer':
+        'This document is issued for quotation and customs purposes only.\nIt is not a demand for payment and carries no GST liability.',
+      'signatory.name': 'Ananya Rao',
+      line_items: rows([
+        { description: 'Industrial shelving unit — 2400mm', qty: '20', rate: '₹9,800.00', amount: '₹1,96,000.00' },
+        { description: 'Workbench with vice — 1800mm', qty: '6', rate: '₹11,500.00', amount: '₹69,000.00' },
+        { description: 'Assembly and installation', qty: '1', rate: '₹15,000.00', amount: '₹15,000.00' },
+        { description: 'Freight to site', qty: '1', rate: '₹6,000.00', amount: '₹6,000.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-credit-note-template',
+    category: 'Finance',
+    name: 'Credit Note',
+    build: () =>
+      financialDoc({
+        title: 'CREDIT NOTE',
+        meta: [
+          ['Credit note no.', '{{note.number}}'],
+          ['Date', '{{note.date}}'],
+          ['Against invoice', '{{note.against_invoice}}'],
+        ],
+        partyHeading: 'Issued to',
+        partyLines: CUSTOMER.slice(0, 2),
+        strip: [
+          ['Reason', '{{note.reason}}'],
+          ['Invoice date', '{{note.invoice_date}}'],
+          ['GSTIN', '{{customer.gstin}}'],
+        ],
+        columns: [
+          { header: 'Description', key: 'description' },
+          { header: 'Qty', key: 'qty' },
+          { header: 'Rate', key: 'rate' },
+          { header: 'Amount', key: 'amount' },
+        ],
+        columnWidths: [3.2, 0.7, 1, 1.1],
+        dataKey: 'line_items',
+        rows: 3,
+        totals: [
+          { label: 'Taxable value', value: '{{totals.subtotal}}' },
+          { label: 'GST reversed', value: '{{totals.tax}}' },
+          { label: 'Total credited', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'How this credit is applied',
+          body: '{{note.settlement}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'Please retain this note with the original invoice for your GST records.',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'note.number': 'CN-2026-0042',
+      'note.date': '17 Aug 2026',
+      'note.against_invoice': 'INV-2026-0184',
+      'note.invoice_date': '16 Aug 2026',
+      'note.reason': 'Goods returned — damaged in transit',
+      'totals.subtotal': '₹34,000.00',
+      'totals.tax': '₹6,120.00',
+      'totals.grand_total': '₹40,120.00',
+      'totals.in_words': 'Forty thousand one hundred twenty rupees only',
+      'note.settlement':
+        'This credit will be set against your next invoice.\nWhere no further invoice is due, it is refundable on written request.',
+      'signatory.name': 'Ananya Rao',
+      line_items: rows([
+        { description: 'Steel shelving unit — returned', qty: '2', rate: '₹14,000.00', amount: '₹28,000.00' },
+        { description: 'Shipping charge — reversed', qty: '1', rate: '₹4,000.00', amount: '₹4,000.00' },
+        { description: 'Handling adjustment', qty: '1', rate: '₹2,000.00', amount: '₹2,000.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-debit-note-template',
+    category: 'Finance',
+    name: 'Debit Note',
+    build: () =>
+      financialDoc({
+        title: 'DEBIT NOTE',
+        meta: [
+          ['Debit note no.', '{{note.number}}'],
+          ['Date', '{{note.date}}'],
+          ['Against invoice', '{{note.against_invoice}}'],
+        ],
+        partyHeading: 'Raised on',
+        partyLines: CUSTOMER.slice(0, 2),
+        strip: [
+          ['Reason', '{{note.reason}}'],
+          ['Invoice date', '{{note.invoice_date}}'],
+          ['GSTIN', '{{customer.gstin}}'],
+        ],
+        columns: [
+          { header: 'Description', key: 'description' },
+          { header: 'Qty', key: 'qty' },
+          { header: 'Rate', key: 'rate' },
+          { header: 'Amount', key: 'amount' },
+        ],
+        columnWidths: [3.2, 0.7, 1, 1.1],
+        dataKey: 'line_items',
+        rows: 3,
+        totals: [
+          { label: 'Taxable value', value: '{{totals.subtotal}}' },
+          { label: 'GST', value: '{{totals.tax}}' },
+          { label: 'Total debited', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'Why this note was raised',
+          body: '{{note.explanation}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'Payable with your next settlement. Queries to {{company.contact}}',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'note.number': 'DN-2026-0018',
+      'note.date': '17 Aug 2026',
+      'note.against_invoice': 'INV-2026-0177',
+      'note.invoice_date': '04 Jul 2026',
+      'note.reason': 'Short billing — rate revision applied late',
+      'totals.subtotal': '₹18,500.00',
+      'totals.tax': '₹3,330.00',
+      'totals.grand_total': '₹21,830.00',
+      'totals.in_words': 'Twenty-one thousand eight hundred thirty rupees only',
+      'note.explanation':
+        'The original invoice applied the previous contract rate.\nThis note recovers the difference agreed in the revision dated 01 July 2026.',
+      'signatory.name': 'Ananya Rao',
+      line_items: rows([
+        { description: 'Rate revision — shelving units', qty: '10', rate: '₹1,200.00', amount: '₹12,000.00' },
+        { description: 'Rate revision — workbenches', qty: '4', rate: '₹1,375.00', amount: '₹5,500.00' },
+        { description: 'Freight differential', qty: '1', rate: '₹1,000.00', amount: '₹1,000.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-delivery-challan-template',
+    category: 'Finance',
+    name: 'Delivery Challan',
+    build: () =>
+      financialDoc({
+        title: 'DELIVERY CHALLAN',
+        meta: [
+          ['Challan no.', '{{challan.number}}'],
+          ['Date', '{{challan.date}}'],
+          ['Order ref.', '{{challan.order_reference}}'],
+        ],
+        partyHeading: 'Consignee',
+        partyLines: CUSTOMER.slice(0, 2),
+        secondParty: {
+          heading: 'Ship to',
+          lines: ['{{shipping.name}}', '{{shipping.address}}'],
+        },
+        strip: [
+          ['Vehicle no.', '{{challan.vehicle}}'],
+          ['E-way bill', '{{challan.eway_bill}}'],
+          ['Transport mode', '{{challan.transport_mode}}'],
+        ],
+        columns: [
+          { header: 'Description of goods', key: 'description' },
+          { header: 'HSN', key: 'hsn' },
+          { header: 'Qty', key: 'qty' },
+          { header: 'Value', key: 'value' },
+        ],
+        columnWidths: [3, 0.9, 0.7, 1.1],
+        dataKey: 'line_items',
+        rows: 4,
+        totals: [
+          { label: 'Declared value', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'Purpose of movement',
+          body: '{{challan.purpose}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'Not a tax invoice. Goods moved under the reference shown above.',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'challan.number': 'DC-2026-0311',
+      'challan.date': '17 Aug 2026',
+      'challan.order_reference': 'PO-2026-1148',
+      'challan.vehicle': 'KA 05 MJ 4471',
+      'challan.eway_bill': '4712 8890 3315',
+      'challan.transport_mode': 'Road',
+      'shipping.name': 'Halcyon Design Studio — Warehouse',
+      'shipping.address': 'Warehouse 3, Hosur Road, Bengaluru 560068',
+      'totals.grand_total': '₹2,14,000.00',
+      'totals.in_words': 'Two lakh fourteen thousand rupees only',
+      'challan.purpose':
+        'Supply against purchase order. Goods remain the property of the consignor until accepted at the delivery address.',
+      'signatory.name': 'Ananya Rao',
+      line_items: rows([
+        { description: 'Industrial shelving unit — 2400mm', hsn: '9403', qty: '20', value: '₹1,96,000.00' },
+        { description: 'Fixing kit — wall anchors', hsn: '7318', qty: '20', value: '₹8,000.00' },
+        { description: 'Assembly tool set', hsn: '8205', qty: '2', value: '₹6,000.00' },
+        { description: 'Protective wrap — roll', hsn: '3923', qty: '4', value: '₹4,000.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-petty-cash-voucher-template',
+    category: 'Finance',
+    name: 'Petty Cash Voucher',
+    build: () =>
+      financialDoc({
+        title: 'PETTY CASH VOUCHER',
+        meta: [
+          ['Voucher no.', '{{voucher.number}}'],
+          ['Date', '{{voucher.date}}'],
+          ['Cost centre', '{{voucher.cost_centre}}'],
+        ],
+        partyHeading: 'Paid to',
+        partyLines: ['{{payee.name}}', '{{payee.department}}'],
+        strip: [
+          ['Paid by', '{{voucher.paid_by}}'],
+          ['Method', '{{voucher.method}}'],
+          ['Approved by', '{{voucher.approved_by}}'],
+        ],
+        columns: [
+          { header: 'Particulars', key: 'description' },
+          { header: 'Account', key: 'account' },
+          { header: 'Amount', key: 'amount' },
+        ],
+        columnWidths: [3, 1.2, 1.1],
+        dataKey: 'line_items',
+        rows: 4,
+        totals: [
+          { label: 'Total claimed', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'Receipts attached',
+          body: '{{voucher.receipts}}',
+        },
+        signName: '{{payee.name}}',
+        signRole: 'Received by',
+        footer: 'Attach original receipts. Vouchers without receipts cannot be reimbursed.',
+      }),
+    values: {
+      ...COMPANY,
+      'voucher.number': 'PCV-2026-0264',
+      'voucher.date': '17 Aug 2026',
+      'voucher.cost_centre': 'Operations — Bengaluru',
+      'voucher.paid_by': 'Petty cash float',
+      'voucher.method': 'Cash',
+      'voucher.approved_by': 'Ananya Rao, Finance Manager',
+      'payee.name': 'Rahul Sharma',
+      'payee.department': 'Warehouse Operations',
+      'totals.grand_total': '₹4,850.00',
+      'totals.in_words': 'Four thousand eight hundred fifty rupees only',
+      'voucher.receipts': '4 receipts attached and initialled by the claimant.',
+      line_items: rows([
+        { description: 'Courier — documents to Chennai', account: 'Postage', amount: '₹1,250.00' },
+        { description: 'Stationery — labels and markers', account: 'Consumables', amount: '₹1,400.00' },
+        { description: 'Auto fare — bank and back', account: 'Local travel', amount: '₹600.00' },
+        { description: 'Refreshments — audit visit', account: 'Hospitality', amount: '₹1,600.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-expense-report-template',
+    category: 'Finance',
+    name: 'Expense Report',
+    build: () =>
+      tabularRecord({
+        title: 'EXPENSE REPORT',
+        accent: ACCENT.Finance,
+        meta: [
+          ['Report no.', '{{report.number}}'],
+          ['Period', '{{report.period}}'],
+          ['Submitted', '{{report.submitted}}'],
+        ],
+        details: [
+          ['Employee', '{{employee.name}}'],
+          ['Employee ID', '{{employee.id}}'],
+          ['Department', '{{employee.department}}'],
+          ['Cost centre', '{{report.cost_centre}}'],
+          ['Approver', '{{report.approver}}'],
+          ['Reimburse to', '{{employee.bank_account}}'],
+        ],
+        sections: [
+          {
+            heading: 'Travel and accommodation',
+            columns: [
+              { header: 'Date', key: 'date' },
+              { header: 'Particulars', key: 'description' },
+              { header: 'Amount', key: 'amount' },
+            ],
+            columnWidths: [1, 3, 1.1],
+            dataKey: 'travel',
+            rows: 4,
+            height: 100,
+          },
+          {
+            heading: 'Other expenses',
+            columns: [
+              { header: 'Date', key: 'date' },
+              { header: 'Particulars', key: 'description' },
+              { header: 'Amount', key: 'amount' },
+            ],
+            columnWidths: [1, 3, 1.1],
+            dataKey: 'other',
+            rows: 3,
+            height: 82,
+          },
+        ],
+        totals: [
+          { label: 'Travel and accommodation', value: '{{totals.travel}}' },
+          { label: 'Other expenses', value: '{{totals.other}}' },
+          { label: 'Total reimbursable', value: '{{totals.net}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        footer: 'Claims must be submitted within 30 days of the expense date, with receipts.',
+      }),
+    values: {
+      ...COMPANY,
+      'report.number': 'EXP-2026-0128',
+      'report.period': '01–31 July 2026',
+      'report.submitted': '05 August 2026',
+      'report.cost_centre': 'Sales — South',
+      'report.approver': 'Devika Menon, Regional Head',
+      'employee.name': 'Rahul Sharma',
+      'employee.id': 'NW-2291',
+      'employee.department': 'Field Sales',
+      'employee.bank_account': 'HDFC ••••4417',
+      'totals.travel': '₹28,400.00',
+      'totals.other': '₹6,150.00',
+      'totals.net': '₹34,550.00',
+      'totals.in_words': 'Thirty-four thousand five hundred fifty rupees only',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Regional Head, Sales',
+      travel: rows([
+        { date: '04 Jul', description: 'Flight BLR–HYD, economy', amount: '₹8,900.00' },
+        { date: '04 Jul', description: 'Hotel — 2 nights, Hyderabad', amount: '₹12,400.00' },
+        { date: '06 Jul', description: 'Flight HYD–BLR, economy', amount: '₹6,100.00' },
+        { date: '18 Jul', description: 'Cab — client visits, Chennai', amount: '₹1,000.00' },
+      ]),
+      other: rows([
+        { date: '05 Jul', description: 'Client lunch — 3 attendees', amount: '₹3,250.00' },
+        { date: '12 Jul', description: 'Printing — proposal copies', amount: '₹1,400.00' },
+        { date: '22 Jul', description: 'Mobile data top-up', amount: '₹1,500.00' },
+      ]),
+    },
+  },
+
+  // ── HR ─────────────────────────────────────────────────────────────────────
+
+  {
+    slug: 'free-appointment-letter-template',
+    category: 'HR',
+    name: 'Appointment Letter',
+    build: () =>
+      formalLetter({
+        title: 'APPOINTMENT',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Subject: Appointment as {{job.title}}',
+        salutation: 'Dear {{recipient.first_name}},',
+        paragraphs: [
+          {
+            body: 'Further to your acceptance of our offer, we are pleased to confirm your appointment as {{job.title}} in the {{job.department}} team at {{company.name}}, effective {{job.start_date}}.',
+            height: 50,
+          },
+          {
+            body: 'You will report to {{job.reporting_to}} at our {{job.location}} office. Your appointment is governed by the terms below and by the employee handbook, a copy of which has been provided to you.',
+            height: 50,
+          },
+        ],
+        terms: {
+          heading: 'Terms of appointment',
+          items: [
+            'Annual cost to company: {{job.ctc}}, reviewed each {{job.review_month}}.',
+            'Probation: {{job.probation}}, extendable at the company’s discretion.',
+            'Notice period: {{job.notice_period}} once confirmed in the role.',
+            'Working hours: {{job.hours}}, with flexibility as the role requires.',
+            'You confirm you are not bound by any agreement that conflicts with this appointment.',
+          ],
+        },
+        closing:
+          'Please sign and return the enclosed copy of this letter as confirmation of your acceptance.\n\nYours sincerely,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'people@northwind.example · +91 80 4123 7788',
+      'letter.reference': 'NW/HR/2026/0248',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Ms Priya Nair',
+      'recipient.first_name': 'Priya',
+      'recipient.address': '18 Lakeview Apartments, Indiranagar\nBengaluru, Karnataka 560038',
+      'job.title': 'Senior Operations Analyst',
+      'job.department': 'Supply Chain',
+      'job.start_date': '15 September 2026',
+      'job.reporting_to': 'the Head of Supply Chain',
+      'job.location': 'Bengaluru',
+      'job.ctc': '₹18,50,000 per annum',
+      'job.review_month': 'April',
+      'job.probation': 'Six months',
+      'job.notice_period': 'Two months',
+      'job.hours': '9.30am to 6.00pm, Monday to Friday',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Head of People, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  {
+    slug: 'free-internship-certificate-template',
+    category: 'HR',
+    name: 'Internship Certificate',
+    build: () =>
+      formalLetter({
+        title: 'CERTIFICATE',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'To whom it may concern',
+        salutation: '',
+        paragraphs: [
+          {
+            body: 'This is to certify that {{recipient.name}} completed an internship with {{company.name}} in the {{intern.department}} team, from {{intern.start_date}} to {{intern.end_date}}.',
+            height: 50,
+          },
+          {
+            body: 'During the internship {{recipient.first_name}} worked on {{intern.project}}, reporting to {{intern.mentor}}. The work was carried out with diligence and a willingness to learn, and the contribution was of real value to the team.',
+            height: 58,
+          },
+        ],
+        terms: {
+          heading: 'Internship details',
+          items: [
+            'Duration: {{intern.duration}}.',
+            'Mode: {{intern.mode}}.',
+            'Stipend: {{intern.stipend}}.',
+            'Conduct during the internship was found to be satisfactory throughout.',
+          ],
+        },
+        closing:
+          'We wish {{recipient.first_name}} every success in the next stage of study and career.\n\nYours sincerely,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'people@northwind.example · +91 80 4123 7788',
+      'letter.reference': 'NW/HR/INT/2026/0077',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Mr Arjun Deshpande',
+      'recipient.first_name': 'Arjun',
+      'recipient.address': 'Department of Computer Science\nMeridian Institute of Technology, Pune 411014',
+      'intern.department': 'Data and Analytics',
+      'intern.start_date': '02 June 2026',
+      'intern.end_date': '08 August 2026',
+      'intern.project': 'a demand-forecasting dashboard for the warehouse team',
+      'intern.mentor': 'Sneha Kulkarni, Analytics Lead',
+      'intern.duration': 'Ten weeks, full time',
+      'intern.mode': 'On-site, Bengaluru office',
+      'intern.stipend': '₹25,000 per month',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Head of People, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  {
+    slug: 'free-resignation-acceptance-letter-template',
+    category: 'HR',
+    name: 'Resignation Acceptance Letter',
+    build: () =>
+      formalLetter({
+        title: 'ACCEPTANCE',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Subject: Acceptance of resignation',
+        salutation: 'Dear {{recipient.first_name}},',
+        paragraphs: [
+          {
+            body: 'We acknowledge receipt of your resignation letter dated {{resignation.received_date}} from the position of {{job.title}} in the {{job.department}} team. Your resignation is accepted.',
+            height: 50,
+          },
+          {
+            body: 'Your last working day will be {{resignation.last_working_day}}, on completion of your notice period. Please work with {{resignation.handover_to}} to complete the handover of your responsibilities before that date.',
+            height: 58,
+          },
+        ],
+        terms: {
+          heading: 'Before your last day',
+          items: [
+            'Complete the handover checklist and return all company property.',
+            'Full and final settlement will be processed by {{resignation.settlement_date}}.',
+            'Your experience and relieving letters will be issued on your last working day.',
+            'Confidentiality obligations under your appointment continue after employment ends.',
+          ],
+        },
+        closing:
+          'Thank you for your contribution over the past {{resignation.tenure}}. We wish you well in your next role.\n\nYours sincerely,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'people@northwind.example · +91 80 4123 7788',
+      'letter.reference': 'NW/HR/2026/0259',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Mr Vikram Iyer',
+      'recipient.first_name': 'Vikram',
+      'recipient.address': '32 Brigade Gardens, Koramangala\nBengaluru, Karnataka 560034',
+      'job.title': 'Logistics Coordinator',
+      'job.department': 'Supply Chain',
+      'resignation.received_date': '12 August 2026',
+      'resignation.last_working_day': '11 October 2026',
+      'resignation.handover_to': 'Sneha Kulkarni',
+      'resignation.settlement_date': '10 November 2026',
+      'resignation.tenure': 'four years',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Head of People, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  {
+    slug: 'free-warning-letter-template',
+    category: 'HR',
+    name: 'Warning Letter',
+    build: () =>
+      formalLetter({
+        title: 'WARNING',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Subject: Written warning — {{warning.matter}}',
+        salutation: 'Dear {{recipient.first_name}},',
+        paragraphs: [
+          {
+            body: 'This letter is a formal written warning regarding {{warning.matter}}. The concern was discussed with you on {{warning.discussed_date}} by {{warning.raised_by}}, and this letter records the outcome of that discussion.',
+            height: 58,
+          },
+          {
+            body: 'Specifically: {{warning.detail}} This does not meet the standard expected of your role and is inconsistent with the terms of your appointment.',
+            height: 50,
+          },
+        ],
+        terms: {
+          heading: 'What we expect now',
+          items: [
+            'Improvement is expected with immediate effect and will be reviewed on {{warning.review_date}}.',
+            'Your manager will meet you fortnightly until that review.',
+            'Support is available through {{warning.support}} if anything is affecting your work.',
+            'Further instances may lead to disciplinary action up to termination of employment.',
+          ],
+        },
+        closing:
+          'You may respond in writing within seven days if you wish your comments recorded alongside this letter. Please sign and return the enclosed copy as acknowledgement of receipt.\n\nYours sincerely,',
+        footer: 'A copy of this letter will be placed on your personnel file.',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'people@northwind.example · +91 80 4123 7788',
+      'letter.reference': 'NW/HR/2026/0261',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Mr Sameer Joshi',
+      'recipient.first_name': 'Sameer',
+      'recipient.address': '9 Palm Grove, Whitefield\nBengaluru, Karnataka 560066',
+      'warning.matter': 'repeated unreported absence',
+      'warning.discussed_date': '11 August 2026',
+      'warning.raised_by': 'your reporting manager',
+      'warning.detail':
+        'you were absent on 28 and 29 July and on 5 August without notifying your manager in advance or submitting leave requests afterwards.',
+      'warning.review_date': '30 September 2026',
+      'warning.support': 'the employee assistance programme',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Head of People, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  {
+    slug: 'free-promotion-letter-template',
+    category: 'HR',
+    name: 'Promotion Letter',
+    build: () =>
+      formalLetter({
+        title: 'PROMOTION',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Subject: Promotion to {{promotion.new_title}}',
+        salutation: 'Dear {{recipient.first_name}},',
+        paragraphs: [
+          {
+            body: 'It is a pleasure to confirm your promotion from {{promotion.old_title}} to {{promotion.new_title}}, effective {{promotion.effective_date}}. The decision reflects the quality of your work over the past year and the responsibility you have taken on beyond your current role.',
+            height: 58,
+          },
+          {
+            body: 'In the new role you will report to {{promotion.reporting_to}} and take ownership of {{promotion.scope}}. Your revised terms are set out below; all other terms of your appointment are unchanged.',
+            height: 58,
+          },
+        ],
+        terms: {
+          heading: 'Revised terms',
+          items: [
+            'Revised annual cost to company: {{promotion.new_ctc}}, effective {{promotion.effective_date}}.',
+            'Reporting line: {{promotion.reporting_to}}.',
+            'Notice period: {{promotion.notice_period}}.',
+            'Next review: {{promotion.next_review}}.',
+          ],
+        },
+        closing:
+          'Congratulations on a well-earned step forward. Please sign and return the enclosed copy.\n\nYours sincerely,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'people@northwind.example · +91 80 4123 7788',
+      'letter.reference': 'NW/HR/2026/0266',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Ms Sneha Kulkarni',
+      'recipient.first_name': 'Sneha',
+      'recipient.address': '44 Jubilee Residency, HSR Layout\nBengaluru, Karnataka 560102',
+      'promotion.old_title': 'Analytics Lead',
+      'promotion.new_title': 'Head of Analytics',
+      'promotion.effective_date': '01 September 2026',
+      'promotion.reporting_to': 'the Chief Operating Officer',
+      'promotion.scope': 'the analytics function across supply chain and sales',
+      'promotion.new_ctc': '₹32,00,000 per annum',
+      'promotion.notice_period': 'Three months',
+      'promotion.next_review': 'April 2027',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Head of People, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  {
+    slug: 'free-timesheet-template',
+    category: 'HR',
+    name: 'Timesheet',
+    build: () =>
+      tabularRecord({
+        title: 'TIMESHEET',
+        accent: ACCENT.HR,
+        meta: [
+          ['Week ending', '{{timesheet.week_ending}}'],
+          ['Sheet no.', '{{timesheet.number}}'],
+          ['Status', '{{timesheet.status}}'],
+        ],
+        details: [
+          ['Employee', '{{employee.name}}'],
+          ['Employee ID', '{{employee.id}}'],
+          ['Department', '{{employee.department}}'],
+          ['Manager', '{{timesheet.manager}}'],
+          ['Contract hours', '{{timesheet.contract_hours}}'],
+          ['Cost centre', '{{timesheet.cost_centre}}'],
+        ],
+        sections: [
+          {
+            heading: 'Hours worked',
+            columns: [
+              { header: 'Date', key: 'date' },
+              { header: 'Project / task', key: 'task' },
+              { header: 'Hours', key: 'hours' },
+            ],
+            columnWidths: [1.1, 3, 0.8],
+            dataKey: 'entries',
+            rows: 5,
+            height: 118,
+          },
+          {
+            heading: 'Leave and absence',
+            columns: [
+              { header: 'Date', key: 'date' },
+              { header: 'Type', key: 'type' },
+              { header: 'Hours', key: 'hours' },
+            ],
+            columnWidths: [1.1, 3, 0.8],
+            dataKey: 'absence',
+            rows: 2,
+            height: 64,
+          },
+        ],
+        totals: [
+          { label: 'Hours worked', value: '{{totals.worked}}' },
+          { label: 'Leave and absence', value: '{{totals.absence}}' },
+          { label: 'Total accounted', value: '{{totals.net}}', strong: true },
+        ],
+        footer: 'Submit by Monday 12pm. Approved timesheets feed the payroll run for that month.',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'payroll@northwind.example · +91 80 4123 7788',
+      'timesheet.week_ending': 'Sunday, 16 August 2026',
+      'timesheet.number': 'TS-2026-W33-0412',
+      'timesheet.status': 'Submitted, awaiting approval',
+      'timesheet.manager': 'Sneha Kulkarni',
+      'timesheet.contract_hours': '40.0 per week',
+      'timesheet.cost_centre': 'Operations — Bengaluru',
+      'employee.name': 'Rahul Sharma',
+      'employee.id': 'NW-2291',
+      'employee.department': 'Warehouse Operations',
+      'totals.worked': '32.0 hrs',
+      'totals.absence': '8.0 hrs',
+      'totals.net': '40.0 hrs',
+      'signatory.name': 'Sneha Kulkarni',
+      'signatory.title': 'Reporting Manager',
+      entries: rows([
+        { date: 'Mon 10 Aug', task: 'Inbound goods receipting', hours: '8.0' },
+        { date: 'Tue 11 Aug', task: 'Cycle count — aisles 3 to 7', hours: '8.0' },
+        { date: 'Wed 12 Aug', task: 'Dispatch — south region orders', hours: '8.0' },
+        { date: 'Thu 13 Aug', task: 'Stock reconciliation with finance', hours: '8.0' },
+        { date: 'Fri 14 Aug', task: 'Annual leave', hours: '0.0' },
+      ]),
+      absence: rows([
+        { date: 'Fri 14 Aug', type: 'Annual leave — approved', hours: '8.0' },
+        { date: '—', type: 'Sick leave', hours: '0.0' },
+      ]),
+    },
+  },
+
+  // ── Education ──────────────────────────────────────────────────────────────
+
+  {
+    slug: 'free-bonafide-certificate-template',
+    category: 'Education',
+    name: 'Bonafide Certificate',
+    build: () =>
+      formalLetter({
+        title: 'BONAFIDE',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'To whom it may concern',
+        salutation: '',
+        paragraphs: [
+          {
+            body: 'This is to certify that {{student.name}}, {{student.relation}} {{student.guardian}}, is a bonafide student of {{company.name}}, enrolled in {{student.programme}} under registration number {{student.registration}}.',
+            height: 58,
+          },
+          {
+            body: 'The student is currently studying in {{student.year}} for the academic year {{student.academic_year}}. Conduct during the period of study has been satisfactory.',
+            height: 50,
+          },
+        ],
+        terms: {
+          heading: 'Certificate details',
+          items: [
+            'Date of admission: {{student.admission_date}}.',
+            'Programme: {{student.programme}}, {{student.duration}}.',
+            'Date of birth as per records: {{student.dob}}.',
+            'Issued at the request of the student for {{letter.purpose}}.',
+          ],
+        },
+        closing:
+          'This certificate is issued for official purposes and is valid for {{letter.validity}} from the date of issue.\n\nYours faithfully,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Meridian Institute of Technology',
+      'company.address': 'Survey 118, Hinjewadi Phase II, Pune 411057',
+      'company.contact': 'registrar@meridian.example · +91 20 6612 3300',
+      'letter.reference': 'MIT/REG/BC/2026/0834',
+      'letter.date': '17 August 2026',
+      'letter.purpose': 'a passport application',
+      'letter.validity': 'six months',
+      'recipient.name': 'Ms Kavya Ramesh',
+      'recipient.address': '12 Sunrise Colony, Aundh\nPune, Maharashtra 411007',
+      'student.name': 'Kavya Ramesh',
+      'student.relation': 'daughter of',
+      'student.guardian': 'Mr R. Ramesh',
+      'student.programme': 'B.Tech in Computer Science and Engineering',
+      'student.registration': 'MIT/CSE/2023/0416',
+      'student.year': 'the sixth semester, third year',
+      'student.academic_year': '2026–27',
+      'student.admission_date': '01 August 2023',
+      'student.duration': 'four years, full time',
+      'student.dob': '14 March 2005',
+      'signatory.name': 'Dr S. Venkataraman',
+      'signatory.title': 'Registrar, Meridian Institute of Technology',
+    },
+  },
+
+  {
+    slug: 'free-transfer-certificate-template',
+    category: 'Education',
+    name: 'Transfer Certificate',
+    build: () =>
+      formalLetter({
+        title: 'TRANSFER',
+        meta: [
+          ['TC no.', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Transfer Certificate',
+        salutation: '',
+        paragraphs: [
+          {
+            body: 'This is to certify that {{student.name}}, {{student.relation}} {{student.guardian}}, was a student of {{company.name}} under registration number {{student.registration}}, and has been granted a transfer certificate on leaving the institution.',
+            height: 58,
+          },
+          {
+            body: 'The student was admitted on {{student.admission_date}} and left on {{student.leaving_date}}, having completed {{student.completed}}. No dues remain outstanding against the student’s account.',
+            height: 58,
+          },
+        ],
+        terms: {
+          heading: 'Record of the student',
+          items: [
+            'Date of birth as per records: {{student.dob}}.',
+            'Last class studied: {{student.last_class}}, academic year {{student.academic_year}}.',
+            'Conduct and character: {{student.conduct}}.',
+            'Reason for leaving: {{student.reason}}.',
+            'Whether qualified for promotion: {{student.promotion}}.',
+          ],
+        },
+        closing:
+          'This certificate is issued on the written application of the parent or guardian and supersedes no other record.\n\nYours faithfully,',
+        footer: 'Alterations to this certificate render it invalid. Duplicates are issued only on written request.',
+      }),
+    values: {
+      'company.name': 'Meridian Institute of Technology',
+      'company.address': 'Survey 118, Hinjewadi Phase II, Pune 411057',
+      'company.contact': 'registrar@meridian.example · +91 20 6612 3300',
+      'letter.reference': 'MIT/TC/2026/0219',
+      'letter.date': '17 August 2026',
+      'recipient.name': 'Mr Arjun Deshpande',
+      'recipient.address': '7 Riverside Enclave, Baner\nPune, Maharashtra 411045',
+      'student.name': 'Arjun Deshpande',
+      'student.relation': 'son of',
+      'student.guardian': 'Mr M. Deshpande',
+      'student.registration': 'MIT/CSE/2022/0288',
+      'student.admission_date': '02 August 2022',
+      'student.leaving_date': '31 July 2026',
+      'student.completed': 'the full four-year programme',
+      'student.dob': '09 November 2004',
+      'student.last_class': 'B.Tech, eighth semester',
+      'student.academic_year': '2025–26',
+      'student.conduct': 'Good throughout the period of study',
+      'student.reason': 'Completion of the programme',
+      'student.promotion': 'Yes — passed and eligible for the award of the degree',
+      'signatory.name': 'Dr S. Venkataraman',
+      'signatory.title': 'Registrar, Meridian Institute of Technology',
+    },
+  },
+
+  {
+    slug: 'free-character-certificate-template',
+    category: 'Education',
+    name: 'Character Certificate',
+    build: () =>
+      certificate({
+        heading: 'Character Certificate',
+        subheading: 'This is to certify that',
+        body: 'was a student of {{institution.name}} from {{student.start_date}} to {{student.end_date}}, enrolled in {{student.programme}}. During this period conduct and character were found to be {{student.character}}, and no disciplinary action was recorded against the student.',
+        detailStrip: [
+          ['Registration', '{{student.registration}}'],
+          ['Programme', '{{student.programme_short}}'],
+          ['Issued', '{{certificate.date}}'],
+        ],
+      }),
+    values: {
+      'institution.name': 'Meridian Institute of Technology',
+      'institution.tagline': 'Office of the Registrar',
+      'recipient.name': 'Kavya Ramesh',
+      'student.start_date': '01 August 2023',
+      'student.end_date': '31 July 2026',
+      'student.programme': 'B.Tech in Computer Science and Engineering',
+      'student.programme_short': 'B.Tech CSE',
+      'student.registration': 'MIT/CSE/2023/0416',
+      'student.character': 'exemplary',
+      'certificate.date': '17 August 2026',
+      'certificate.number': 'MIT/CC/2026/0451',
+      'signatory.name': 'Dr S. Venkataraman',
+      'signatory.title': 'Registrar',
+      'cosignatory.name': 'Prof. Leela Iyer',
+      'cosignatory.title': 'Dean of Students',
+    },
+  },
+
+  {
+    slug: 'free-attendance-register-template',
+    category: 'Education',
+    name: 'Attendance Register',
+    build: () =>
+      tabularRecord({
+        title: 'ATTENDANCE REGISTER',
+        accent: ACCENT.Education,
+        varPrefix: 'institution',
+        meta: [
+          ['Month', '{{register.month}}'],
+          ['Class', '{{register.class}}'],
+          ['Register no.', '{{register.number}}'],
+        ],
+        details: [
+          ['Subject', '{{register.subject}}'],
+          ['Faculty', '{{register.faculty}}'],
+          ['Sessions held', '{{register.sessions_held}}'],
+          ['Minimum required', '{{register.minimum}}'],
+          ['Semester', '{{register.semester}}'],
+          ['Academic year', '{{register.academic_year}}'],
+        ],
+        sections: [
+          {
+            heading: 'Student attendance',
+            columns: [
+              { header: 'Roll no.', key: 'roll' },
+              { header: 'Student name', key: 'name' },
+              { header: 'Present', key: 'present' },
+              { header: '%', key: 'percent' },
+            ],
+            columnWidths: [1, 3, 0.9, 0.8],
+            dataKey: 'students',
+            rows: 6,
+            height: 140,
+          },
+        ],
+        totals: [
+          { label: 'Students on roll', value: '{{totals.on_roll}}' },
+          { label: 'Meeting the minimum', value: '{{totals.eligible}}' },
+          { label: 'Class average', value: '{{totals.average}}', strong: true },
+        ],
+        footer: 'Students below the minimum attendance are not eligible to sit the end-semester examination.',
+      }),
+    values: {
+      'institution.name': 'Meridian Institute of Technology',
+      'institution.address': 'Survey 118, Hinjewadi Phase II, Pune 411057',
+      'institution.contact': 'registrar@meridian.example · +91 20 6612 3300',
+      'register.month': 'July 2026',
+      'register.class': 'B.Tech CSE — Section A',
+      'register.number': 'MIT/ATT/2026/S6-A',
+      'register.subject': 'Applied Data Analysis (CS-604)',
+      'register.faculty': 'Prof. Leela Iyer',
+      'register.sessions_held': '24',
+      'register.minimum': '75%',
+      'register.semester': 'Sixth',
+      'register.academic_year': '2026–27',
+      'totals.on_roll': '6',
+      'totals.eligible': '5',
+      'totals.average': '84.7%',
+      'signatory.name': 'Prof. Leela Iyer',
+      'signatory.title': 'Subject Faculty',
+      students: rows([
+        { roll: 'CSE-041', name: 'Kavya Ramesh', present: '23', percent: '95.8' },
+        { roll: 'CSE-042', name: 'Arjun Deshpande', present: '21', percent: '87.5' },
+        { roll: 'CSE-043', name: 'Nikhil Menon', present: '22', percent: '91.7' },
+        { roll: 'CSE-044', name: 'Sara Qureshi', present: '20', percent: '83.3' },
+        { roll: 'CSE-045', name: 'Tanvi Bhatt', present: '19', percent: '79.2' },
+        { roll: 'CSE-046', name: 'Rohan Pillai', present: '17', percent: '70.8' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-fee-receipt-template',
+    category: 'Education',
+    name: 'Fee Receipt',
+    build: () =>
+      financialDoc({
+        title: 'FEE RECEIPT',
+        meta: [
+          ['Receipt no.', '{{receipt.number}}'],
+          ['Receipt date', '{{receipt.date}}'],
+          ['Academic year', '{{receipt.academic_year}}'],
+        ],
+        partyHeading: 'Received from',
+        partyLines: ['{{student.name}}', '{{student.programme}}'],
+        strip: [
+          ['Registration', '{{student.registration}}'],
+          ['Payment method', '{{payment.method}}'],
+          ['Reference', '{{payment.reference}}'],
+        ],
+        columns: [
+          { header: 'Fee head', key: 'description' },
+          { header: 'Term', key: 'term' },
+          { header: 'Amount', key: 'amount' },
+        ],
+        columnWidths: [3, 1.2, 1.1],
+        dataKey: 'line_items',
+        rows: 5,
+        totals: [
+          { label: 'Total fees', value: '{{totals.subtotal}}' },
+          { label: 'Scholarship applied', value: '{{totals.discount}}' },
+          { label: 'Amount received', value: '{{totals.grand_total}}', strong: true },
+        ],
+        amountInWords: '{{totals.in_words}}',
+        notes: {
+          heading: 'Balance and next instalment',
+          body: '{{receipt.balance_note}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'Retain this receipt. It is required for fee-related queries and for income-tax purposes.',
+      }),
+    values: {
+      'company.name': 'Meridian Institute of Technology',
+      'company.address': 'Survey 118, Hinjewadi Phase II, Pune 411057',
+      'company.contact': 'accounts@meridian.example · +91 20 6612 3300',
+      'receipt.number': 'MIT/FEE/2026/11842',
+      'receipt.date': '17 Aug 2026',
+      'receipt.academic_year': '2026–27',
+      'student.name': 'Kavya Ramesh',
+      'student.programme': 'B.Tech CSE — Sixth semester',
+      'student.registration': 'MIT/CSE/2023/0416',
+      'payment.method': 'Net banking',
+      'payment.reference': 'UTR 6621480093117',
+      'totals.subtotal': '₹1,42,000.00',
+      'totals.discount': '−₹20,000.00',
+      'totals.grand_total': '₹1,22,000.00',
+      'totals.in_words': 'One lakh twenty-two thousand rupees only',
+      'receipt.balance_note':
+        'Balance outstanding for the academic year: ₹0.00\nNext instalment falls due on 05 January 2027.',
+      'signatory.name': 'Meena Iyer',
+      line_items: rows([
+        { description: 'Tuition fee', term: 'Semester 6', amount: '₹98,000.00' },
+        { description: 'Laboratory and equipment', term: 'Semester 6', amount: '₹18,000.00' },
+        { description: 'Library and digital resources', term: 'Annual', amount: '₹12,000.00' },
+        { description: 'Examination fee', term: 'Semester 6', amount: '₹8,000.00' },
+        { description: 'Student activities', term: 'Annual', amount: '₹6,000.00' },
+      ]),
+    },
+  },
+
+  // ── Business ───────────────────────────────────────────────────────────────
+
+  {
+    slug: 'free-meeting-minutes-template',
+    category: 'Business',
+    name: 'Meeting Minutes',
+    build: () =>
+      longFormDoc({
+        title: 'Minutes of Meeting',
+        subtitle: 'A record of what was discussed, what was decided, and who owns each action.',
+        accent: ACCENT.Business,
+        meta: [
+          ['Meeting', '{{meeting.title}}'],
+          ['Date and time', '{{meeting.datetime}}'],
+          ['Location', '{{meeting.location}}'],
+          ['Chair', '{{meeting.chair}}'],
+        ],
+        parties: [
+          { heading: 'Present', lines: ['{{meeting.present}}'] },
+          { heading: 'Apologies', lines: ['{{meeting.apologies}}'] },
+        ],
+        intro:
+          'The chair opened the meeting at {{meeting.start_time}} and confirmed a quorum. The minutes of the previous meeting held on {{meeting.previous_date}} were approved without amendment.',
+        sections: [
+          {
+            heading: '1. Matters arising',
+            body: '{{meeting.matters_arising}}',
+            height: 46,
+          },
+          {
+            heading: '2. Decisions taken',
+            items: [
+              '{{meeting.decision_one}}',
+              '{{meeting.decision_two}}',
+              '{{meeting.decision_three}}',
+            ],
+          },
+          {
+            heading: '3. Actions and owners',
+            items: [
+              '{{meeting.action_one}}',
+              '{{meeting.action_two}}',
+              '{{meeting.action_three}}',
+            ],
+          },
+          {
+            heading: '4. Next meeting',
+            body: 'The next meeting is scheduled for {{meeting.next_date}} at {{meeting.next_location}}. The chair closed the meeting at {{meeting.end_time}}.',
+            height: 40,
+          },
+        ],
+        signatures: false,
+        footer: 'Circulated to all attendees. Corrections should be raised before the next meeting.',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'meeting.title': 'Operations review — Q3',
+      'meeting.datetime': '14 August 2026, 10.00am',
+      'meeting.location': 'Boardroom, MG Road office',
+      'meeting.chair': 'Devika Menon, Chief Operating Officer',
+      'meeting.present':
+        'Devika Menon (chair), Ananya Rao, Sneha Kulkarni, Rahul Sharma, Vikram Iyer',
+      'meeting.apologies': 'Meena Iyer (annual leave)',
+      'meeting.start_time': '10.02am',
+      'meeting.end_time': '11.15am',
+      'meeting.previous_date': '10 July 2026',
+      'meeting.matters_arising':
+        'The warehouse racking installation, carried over from the previous meeting, is complete and signed off. The delayed supplier audit has been rescheduled to September.',
+      'meeting.decision_one':
+        'Approved the revised freight rates with effect from 01 September 2026.',
+      'meeting.decision_two':
+        'Agreed to extend the Hyderabad pilot by one quarter before deciding on a wider rollout.',
+      'meeting.decision_three':
+        'Deferred the ERP upgrade to the next financial year on cost grounds.',
+      'meeting.action_one':
+        'Ananya Rao to circulate the revised rate card to customers by 25 August.',
+      'meeting.action_two':
+        'Sneha Kulkarni to report on pilot metrics at the October meeting.',
+      'meeting.action_three':
+        'Rahul Sharma to complete the supplier audit checklist before 15 September.',
+      'meeting.next_date': '11 September 2026, 10.00am',
+      'meeting.next_location': 'the MG Road boardroom',
+    },
+  },
+
+  {
+    slug: 'free-sow-template',
+    category: 'Business',
+    name: 'SOW',
+    build: () =>
+      longFormDoc({
+        title: 'Statement of Work',
+        subtitle: 'The scope, deliverables, timeline and commercial terms for a defined piece of work.',
+        accent: ACCENT.Business,
+        meta: [
+          ['SOW no.', '{{sow.number}}'],
+          ['Effective date', '{{sow.effective_date}}'],
+          ['Under agreement', '{{sow.master_agreement}}'],
+          ['Duration', '{{sow.duration}}'],
+        ],
+        parties: [
+          {
+            heading: 'Supplier',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Client',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'This statement of work is issued under the master services agreement referenced above and describes {{sow.summary}}. Where this document and the master agreement conflict, the master agreement prevails except on scope and fees.',
+        sections: [
+          {
+            heading: '1. Scope of work',
+            body: '{{sow.scope}}',
+            height: 46,
+          },
+          {
+            heading: '2. Deliverables and acceptance',
+            items: [
+              '{{sow.deliverable_one}}',
+              '{{sow.deliverable_two}}',
+              '{{sow.deliverable_three}}',
+              'Each deliverable is deemed accepted {{sow.acceptance_window}} after submission unless rejected in writing with reasons.',
+            ],
+          },
+          {
+            heading: '3. Fees and invoicing',
+            body: 'Total fees are {{sow.fees}}, invoiced {{sow.invoice_schedule}}. Payment terms are {{sow.payment_terms}}. Expenses require prior written approval and are charged at cost.',
+            height: 46,
+          },
+          {
+            heading: '4. Out of scope',
+            body: '{{sow.out_of_scope}}',
+            height: 40,
+          },
+        ],
+        footer: 'Changes to scope require a written change order signed by both parties.',
+      }),
+    values: {
+      'sow.number': 'SOW-2026-0014',
+      'sow.effective_date': '01 September 2026',
+      'sow.master_agreement': 'MSA-2025-0007',
+      'sow.duration': '14 weeks',
+      'sow.summary': 'a warehouse automation assessment and implementation plan',
+      'sow.scope':
+        'The supplier will assess current warehouse operations across two sites, model three automation options, and produce an implementation plan with costs, sequencing and risks. Work includes site visits, stakeholder interviews and a final presentation to the leadership team.',
+      'sow.deliverable_one': 'Current-state assessment report, week 4.',
+      'sow.deliverable_two': 'Options model with costed scenarios, week 9.',
+      'sow.deliverable_three': 'Implementation plan and final presentation, week 14.',
+      'sow.acceptance_window': 'ten working days',
+      'sow.fees': '₹24,00,000 excluding taxes',
+      'sow.invoice_schedule': 'in three instalments on acceptance of each deliverable',
+      'sow.payment_terms': 'net 30 days from invoice date',
+      'sow.out_of_scope':
+        'Software licensing, hardware procurement, and any work at sites other than the two named above. These may be added by change order.',
+      'party_one.name': 'Meridian Advisory LLP',
+      'party_one.address': 'Level 6, Cyber Towers, Hitec City, Hyderabad 500081',
+      'party_one.registration': 'LLPIN AAB-4471',
+      'party_one.signatory': 'K. Subramanian, Partner',
+      'party_two.name': 'Northwind Traders Pvt Ltd',
+      'party_two.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'party_two.registration': 'CIN U51909KA2015PTC081234',
+      'party_two.signatory': 'Devika Menon, Chief Operating Officer',
+    },
+  },
+
+  {
+    slug: 'free-business-plan-template',
+    category: 'Business',
+    name: 'Business Plan',
+    build: () =>
+      longFormDoc({
+        title: 'Business Plan',
+        subtitle: 'A summary of the business, the market it serves, and how it intends to grow.',
+        accent: ACCENT.Business,
+        meta: [
+          ['Business', '{{plan.business_name}}'],
+          ['Prepared', '{{plan.date}}'],
+          ['Planning horizon', '{{plan.horizon}}'],
+          ['Prepared by', '{{plan.author}}'],
+        ],
+        parties: [
+          {
+            heading: 'Registered office',
+            lines: ['{{plan.business_name}}', '{{plan.address}}', '{{plan.registration}}'],
+          },
+          { heading: 'Contact', lines: ['{{plan.contact_name}}', '{{plan.contact}}'] },
+        ],
+        intro:
+          '{{plan.executive_summary}}',
+        sections: [
+          {
+            heading: '1. The opportunity',
+            body: '{{plan.opportunity}}',
+            height: 46,
+          },
+          {
+            heading: '2. Products and services',
+            items: [
+              '{{plan.offer_one}}',
+              '{{plan.offer_two}}',
+              '{{plan.offer_three}}',
+            ],
+          },
+          {
+            heading: '3. Market and competition',
+            body: '{{plan.market}}',
+            height: 46,
+          },
+          {
+            heading: '4. Financial outline',
+            items: [
+              'Revenue target, year one: {{plan.revenue_y1}}.',
+              'Gross margin, steady state: {{plan.margin}}.',
+              'Funding sought: {{plan.funding}}, applied to {{plan.funding_use}}.',
+              'Break-even expected: {{plan.breakeven}}.',
+            ],
+          },
+        ],
+        signatures: false,
+        footer: 'Figures are projections prepared in good faith and are not a guarantee of performance.',
+      }),
+    values: {
+      'plan.business_name': 'Northwind Traders Pvt Ltd',
+      'plan.date': '17 August 2026',
+      'plan.horizon': 'Three years, FY27–FY29',
+      'plan.author': 'Devika Menon, Chief Operating Officer',
+      'plan.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'plan.registration': 'CIN U51909KA2015PTC081234',
+      'plan.contact_name': 'Devika Menon',
+      'plan.contact': 'devika@northwind.example · +91 80 4123 7788',
+      'plan.executive_summary':
+        'Northwind supplies industrial storage and workspace fittings to mid-sized manufacturers in south India. The business is profitable at ₹18 crore of revenue and plans to reach ₹34 crore in three years.',
+      'plan.opportunity':
+        'Manufacturers increasingly want fitting-out handled end to end rather than buying components and arranging installation separately. Few regional suppliers offer both, and national players quote at a premium mid-sized buyers resist.',
+      'plan.offer_one': 'Industrial storage systems — racking, shelving and mezzanine structures.',
+      'plan.offer_two': 'Workspace fittings — benches, tool systems and safety enclosures.',
+      'plan.offer_three': 'Design, installation and annual maintenance as a bundled service.',
+      'plan.market':
+        'The addressable market across Karnataka, Telangana and Tamil Nadu is roughly ₹1,900 crore, growing at 9% a year. Competition is fragmented and largely price-led.',
+      'plan.revenue_y1': '₹22 crore',
+      'plan.margin': '31%',
+      'plan.funding': '₹4.5 crore',
+      'plan.funding_use': 'working capital and the Hyderabad warehouse',
+      'plan.breakeven': 'Month 14 on the new territories',
+    },
+  },
+
+  {
+    slug: 'free-price-list-template',
+    category: 'Business',
+    name: 'Price List',
+    build: () =>
+      financialDoc({
+        title: 'PRICE LIST',
+        meta: [
+          ['List no.', '{{list.number}}'],
+          ['Effective from', '{{list.effective_from}}'],
+          ['Supersedes', '{{list.supersedes}}'],
+        ],
+        partyHeading: 'Prepared for',
+        partyLines: CUSTOMER.slice(0, 2),
+        strip: [
+          ['Currency', '{{list.currency}}'],
+          ['Prices include', '{{list.includes}}'],
+          ['Valid until', '{{list.valid_until}}'],
+        ],
+        columns: [
+          { header: 'Item', key: 'description' },
+          { header: 'Code', key: 'code' },
+          { header: 'Unit', key: 'unit' },
+          { header: 'Price', key: 'price' },
+        ],
+        columnWidths: [3, 1, 0.9, 1.1],
+        dataKey: 'line_items',
+        rows: 6,
+        totals: [
+          { label: 'Items listed', value: '{{totals.count}}' },
+          { label: 'Volume discount', value: '{{totals.discount}}', strong: true },
+        ],
+        notes: {
+          heading: 'Terms',
+          body: '{{list.terms}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'For {{company.name}}',
+        footer: 'Prices are subject to change with 30 days’ notice. Freight quoted separately.',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'list.number': 'PL-2026-H2',
+      'list.effective_from': '01 Sep 2026',
+      'list.supersedes': 'PL-2026-H1',
+      'list.currency': 'INR (₹)',
+      'list.includes': 'GST at 18%',
+      'list.valid_until': '28 Feb 2027',
+      'totals.count': '6 items',
+      'totals.discount': '5% above ₹5,00,000',
+      'list.terms':
+        'Minimum order value ₹25,000. Lead time 3–4 weeks from confirmed order.\nInstallation quoted per site and is not included in the unit prices above.',
+      'signatory.name': 'Ananya Rao',
+      line_items: rows([
+        { description: 'Industrial shelving unit — 1800mm', code: 'SH-1800', unit: 'each', price: '₹7,400.00' },
+        { description: 'Industrial shelving unit — 2400mm', code: 'SH-2400', unit: 'each', price: '₹9,800.00' },
+        { description: 'Workbench with vice — 1800mm', code: 'WB-1800', unit: 'each', price: '₹11,500.00' },
+        { description: 'Tool wall system — 2m run', code: 'TW-2000', unit: 'run', price: '₹6,200.00' },
+        { description: 'Safety enclosure panel', code: 'SE-P01', unit: 'panel', price: '₹3,900.00' },
+        { description: 'Mezzanine decking', code: 'MZ-DK', unit: 'sq m', price: '₹2,150.00' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-packing-list-template',
+    category: 'Business',
+    name: 'Packing List',
+    build: () =>
+      financialDoc({
+        title: 'PACKING LIST',
+        meta: [
+          ['Packing list no.', '{{packing.number}}'],
+          ['Date', '{{packing.date}}'],
+          ['Invoice ref.', '{{packing.invoice_reference}}'],
+        ],
+        partyHeading: 'Consignee',
+        partyLines: CUSTOMER.slice(0, 2),
+        secondParty: {
+          heading: 'Deliver to',
+          lines: ['{{shipping.name}}', '{{shipping.address}}'],
+        },
+        strip: [
+          ['Total cartons', '{{packing.cartons}}'],
+          ['Gross weight', '{{packing.gross_weight}}'],
+          ['Dimensions', '{{packing.dimensions}}'],
+        ],
+        columns: [
+          { header: 'Contents', key: 'description' },
+          { header: 'Carton', key: 'carton' },
+          { header: 'Qty', key: 'qty' },
+          { header: 'Weight', key: 'weight' },
+        ],
+        columnWidths: [3, 1, 0.7, 1],
+        dataKey: 'line_items',
+        rows: 5,
+        totals: [
+          { label: 'Cartons', value: '{{packing.cartons}}' },
+          { label: 'Net weight', value: '{{packing.net_weight}}' },
+          { label: 'Gross weight', value: '{{packing.gross_weight}}', strong: true },
+        ],
+        notes: {
+          heading: 'Handling',
+          body: '{{packing.handling}}',
+        },
+        signName: '{{signatory.name}}',
+        signRole: 'Packed and checked by',
+        footer: 'Check contents against this list on delivery. Report shortages within 48 hours.',
+      }),
+    values: {
+      ...COMPANY,
+      ...CUSTOMER_VALUES,
+      'packing.number': 'PKL-2026-0298',
+      'packing.date': '17 Aug 2026',
+      'packing.invoice_reference': 'INV-2026-0184',
+      'packing.cartons': '14',
+      'packing.gross_weight': '486 kg',
+      'packing.net_weight': '452 kg',
+      'packing.dimensions': '4 pallets, 1.2 × 1.0 × 1.6 m',
+      'shipping.name': 'Halcyon Design Studio — Warehouse',
+      'shipping.address': 'Warehouse 3, Hosur Road, Bengaluru 560068',
+      'packing.handling':
+        'Keep dry. Do not stack pallets more than two high.\nCartons 11 to 14 contain glass panels and are marked fragile.',
+      'signatory.name': 'Rahul Sharma',
+      line_items: rows([
+        { description: 'Shelving uprights — 2400mm', carton: '1–4', qty: '40', weight: '184 kg' },
+        { description: 'Shelf beams and decking', carton: '5–8', qty: '120', weight: '156 kg' },
+        { description: 'Fixing kits and anchors', carton: '9', qty: '20', weight: '38 kg' },
+        { description: 'Assembly tool sets', carton: '10', qty: '2', weight: '14 kg' },
+        { description: 'Safety enclosure panels', carton: '11–14', qty: '8', weight: '60 kg' },
+      ]),
+    },
+  },
+
+  {
+    slug: 'free-letterhead-template',
+    category: 'Business',
+    name: 'Letterhead',
+    build: () =>
+      formalLetter({
+        title: 'LETTER',
+        meta: [
+          ['Reference', '{{letter.reference}}'],
+          ['Date', '{{letter.date}}'],
+        ],
+        subject: 'Subject: {{letter.subject}}',
+        salutation: 'Dear {{recipient.first_name}},',
+        paragraphs: [
+          {
+            body: '{{letter.opening}}',
+            height: 58,
+          },
+          {
+            body: '{{letter.body}}',
+            height: 66,
+          },
+        ],
+        terms: {
+          heading: 'Enclosures',
+          items: [
+            '{{letter.enclosure_one}}',
+            '{{letter.enclosure_two}}',
+          ],
+        },
+        closing: '{{letter.closing}}\n\nYours sincerely,',
+        footer: '{{company.name}} · {{company.address}} · {{company.contact}}',
+      }),
+    values: {
+      'company.name': 'Northwind Traders Pvt Ltd',
+      'company.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'company.contact': 'hello@northwind.example · +91 80 4123 7788 · northwind.example',
+      'letter.reference': 'NW/GEN/2026/0142',
+      'letter.date': '17 August 2026',
+      'letter.subject': 'Replace this with what the letter is about',
+      'recipient.name': 'Ms Halcyon Recipient',
+      'recipient.first_name': 'Halcyon',
+      'recipient.address': '22 Residency Road\nBengaluru, Karnataka 560025',
+      'letter.opening':
+        'Open with why you are writing, in one or two sentences. A reader who stops after the first paragraph should still know what the letter is for and what, if anything, is being asked of them.',
+      'letter.body':
+        'Use the second paragraph for the detail — dates, amounts, references, anything the reader will need to act. Keep one idea to a paragraph, and put the request before the justification rather than after it.',
+      'letter.enclosure_one': 'List anything sent with the letter here.',
+      'letter.enclosure_two': 'Delete this section if nothing is enclosed.',
+      'letter.closing':
+        'Close by saying what happens next and by when. Give a name and a way to reach it.',
+      'signatory.name': 'Devika Menon',
+      'signatory.title': 'Chief Operating Officer, Northwind Traders Pvt Ltd',
+    },
+  },
+
+  // ── Legal ──────────────────────────────────────────────────────────────────
+  //
+  // These are document LAYOUTS with sample wording, not legal advice, and the
+  // marketing prose says so. The sample clauses exist to show where text goes
+  // and roughly how long it runs — the header on each makes clear the wording
+  // is to be replaced.
+
+  {
+    slug: 'free-rent-agreement-template',
+    category: 'Legal',
+    name: 'Rent Agreement',
+    build: () =>
+      longFormDoc({
+        title: 'Rent Agreement',
+        subtitle: 'A residential leave and licence agreement between a landlord and a tenant.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Agreement no.', '{{agreement.number}}'],
+          ['Date of agreement', '{{agreement.date}}'],
+          ['Term', '{{agreement.term}}'],
+          ['Commencing', '{{agreement.start_date}}'],
+        ],
+        parties: [
+          {
+            heading: 'Landlord',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Tenant',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'The landlord lets and the tenant takes on leave and licence the premises at {{property.address}}, comprising {{property.description}}.',
+        sections: [
+          {
+            heading: '1. Rent and deposit',
+            items: [
+              'Monthly rent: {{terms.rent}}, payable in advance by the {{terms.rent_due_day}} of each month.',
+              'Security deposit: {{terms.deposit}}, refundable within {{terms.deposit_refund}} of vacating, less lawful deductions.',
+              'Rent escalation: {{terms.escalation}}.',
+            ],
+          },
+          {
+            heading: '2. Use of the premises',
+            body: 'The premises shall be used for {{terms.permitted_use}} only. The tenant shall not sublet or assign without written consent, nor make structural alterations.',
+            height: 46,
+          },
+          {
+            heading: '3. Maintenance and outgoings',
+            items: [
+              'Society maintenance: {{terms.maintenance_by}}.',
+              'Electricity and water on actuals: {{terms.utilities_by}}.',
+              'Municipal taxes: {{terms.taxes_by}}. Minor repairs to {{terms.minor_repairs}}: the tenant.',
+            ],
+          },
+          {
+            heading: '4. Termination',
+            body: 'Either party may terminate on {{terms.notice}} written notice. The landlord may terminate on non-payment of rent for {{terms.default_period}}.',
+            height: 30,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Replace the clauses with terms drafted for your situation.',
+      }),
+    values: {
+      'agreement.number': 'RA-2026-0117',
+      'agreement.date': '17 August 2026',
+      'agreement.term': '11 months',
+      'agreement.start_date': '01 September 2026',
+      'property.address': 'Flat 402, Brigade Gardens, Koramangala, Bengaluru 560034',
+      'property.description': 'two bedrooms, one hall, kitchen and two bathrooms, semi-furnished',
+      'terms.rent': '₹42,000 per month',
+      'terms.rent_due_day': '5th',
+      'terms.deposit': '₹2,52,000 (six months’ rent)',
+      'terms.deposit_refund': '30 days',
+      'terms.escalation': '5% on renewal after 11 months',
+      'terms.payment_method': 'Bank transfer to the landlord’s account on or before the due date',
+      'terms.permitted_use': 'residential purposes by the tenant and immediate family',
+      'terms.maintenance_by': 'Payable by the landlord',
+      'terms.utilities_by': 'Payable by the tenant',
+      'terms.taxes_by': 'Payable by the landlord',
+      'terms.minor_repairs': '₹2,000',
+      'terms.notice': 'two months’',
+      'terms.default_period': 'two consecutive months',
+      'party_one.name': 'Mr Suresh Prabhu',
+      'party_one.address': '9 Palm Grove, Whitefield, Bengaluru 560066',
+      'party_one.registration': 'PAN ABCPP1234K',
+      'party_one.signatory': 'Suresh Prabhu, Landlord',
+      'party_two.name': 'Ms Priya Nair',
+      'party_two.address': '18 Lakeview Apartments, Indiranagar, Bengaluru 560038',
+      'party_two.registration': 'PAN DEFPN5678L',
+      'party_two.signatory': 'Priya Nair, Tenant',
+    },
+  },
+
+  {
+    slug: 'free-affidavit-template',
+    category: 'Legal',
+    name: 'Affidavit',
+    build: () =>
+      longFormDoc({
+        title: 'Affidavit',
+        subtitle: 'A sworn written statement of facts, made on oath before an authorised officer.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Affidavit no.', '{{affidavit.number}}'],
+          ['Date', '{{affidavit.date}}'],
+          ['Place', '{{affidavit.place}}'],
+          ['Purpose', '{{affidavit.purpose}}'],
+        ],
+        parties: [
+          {
+            heading: 'Deponent',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Sworn before',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'I, {{party_one.name}}, {{deponent.relation}} {{deponent.parent}}, aged {{deponent.age}} years, residing at {{party_one.address}}, do hereby solemnly affirm and declare as follows:',
+        sections: [
+          {
+            heading: '1. Statements of fact',
+            items: [
+              '{{affidavit.statement_one}}',
+              '{{affidavit.statement_two}}',
+              '{{affidavit.statement_three}}',
+            ],
+          },
+          {
+            heading: '2. Verification',
+            body: 'I state that the contents of paragraph 1 above are true to the best of my knowledge and belief, that nothing material has been concealed, and that no part of this affidavit is false.',
+            height: 46,
+          },
+          {
+            heading: '3. Declaration',
+            body: 'Solemnly affirmed at {{affidavit.place}} on {{affidavit.date}}. I make this affidavit for the purpose of {{affidavit.purpose}} and for no other purpose.',
+            height: 40,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Affidavits have formal requirements that vary by state and by purpose.',
+      }),
+    values: {
+      'affidavit.number': 'AFF-2026-0233',
+      'affidavit.date': '17 August 2026',
+      'affidavit.place': 'Bengaluru, Karnataka',
+      'affidavit.purpose': 'a change of name record',
+      'deponent.relation': 'daughter of',
+      'deponent.parent': 'Mr R. Ramesh',
+      'deponent.age': '34',
+      'affidavit.statement_one':
+        'That my name was recorded as Kavya R. in my school records and as Kavya Ramesh in my other identity documents.',
+      'affidavit.statement_two':
+        'That both names refer to one and the same person, namely myself, and no other person is referred to by either.',
+      'affidavit.statement_three':
+        'That I wish my name to be recorded uniformly as Kavya Ramesh in all official records hereafter.',
+      'party_one.name': 'Ms Kavya Ramesh',
+      'party_one.address': '12 Sunrise Colony, Aundh, Pune 411007',
+      'party_one.registration': 'Aadhaar ending 4417 · PAN GHIPK9012M',
+      'party_one.signatory': 'Kavya Ramesh, Deponent',
+      'party_two.name': 'Notary Public',
+      'party_two.address': 'City Civil Court complex, Bengaluru 560009',
+      'party_two.registration': 'Notary registration KA/NOT/2019/0447',
+      'party_two.signatory': 'Notary Public, seal and signature',
+    },
+  },
+
+  {
+    slug: 'free-power-of-attorney-template',
+    category: 'Legal',
+    name: 'Power of Attorney',
+    build: () =>
+      longFormDoc({
+        title: 'Power of Attorney',
+        subtitle: 'An authority given by one person to another to act on their behalf in defined matters.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Instrument no.', '{{poa.number}}'],
+          ['Date', '{{poa.date}}'],
+          ['Type', '{{poa.type}}'],
+          ['Valid until', '{{poa.valid_until}}'],
+        ],
+        parties: [
+          {
+            heading: 'Principal (grantor)',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Attorney (grantee)',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'I, {{party_one.name}}, appoint {{party_two.name}} as my lawful attorney to act on my behalf in the matters set out below, and to do all things reasonably necessary to give effect to that authority.',
+        sections: [
+          {
+            heading: '1. Powers granted',
+            items: [
+              '{{poa.power_one}}',
+              '{{poa.power_two}}',
+              '{{poa.power_three}}',
+            ],
+          },
+          {
+            heading: '2. Limits on the authority',
+            body: '{{poa.limits}}',
+            height: 46,
+          },
+          {
+            heading: '3. Duration and revocation',
+            body: 'This power takes effect on {{poa.effective_date}} and remains in force until {{poa.valid_until}} unless revoked earlier in writing. Revocation takes effect when written notice reaches the attorney and any party relying on this instrument.',
+            height: 46,
+          },
+          {
+            heading: '4. Ratification',
+            body: 'I ratify all lawful acts done by the attorney within the authority granted above, and undertake to be bound by them as if done by me personally.',
+            height: 40,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. A power of attorney may need to be stamped, notarised or registered.',
+      }),
+    values: {
+      'poa.number': 'POA-2026-0058',
+      'poa.date': '17 August 2026',
+      'poa.type': 'Special (limited to the matters listed)',
+      'poa.valid_until': '31 August 2027',
+      'poa.effective_date': '01 September 2026',
+      'poa.power_one':
+        'To manage and let the property at Flat 402, Brigade Gardens, Koramangala, Bengaluru 560034, and to sign leave and licence agreements for terms not exceeding eleven months.',
+      'poa.power_two':
+        'To collect rent and deposits, issue receipts, and operate the designated rent account for that property.',
+      'poa.power_three':
+        'To represent me before the housing society, utility providers and municipal authorities in respect of that property.',
+      'poa.limits':
+        'This authority does not extend to selling, mortgaging, gifting or otherwise disposing of the property, nor to borrowing against it, nor to any property other than the one named above.',
+      'party_one.name': 'Mr Suresh Prabhu',
+      'party_one.address': '9 Palm Grove, Whitefield, Bengaluru 560066',
+      'party_one.registration': 'PAN ABCPP1234K',
+      'party_one.signatory': 'Suresh Prabhu, Principal',
+      'party_two.name': 'Ms Meena Iyer',
+      'party_two.address': '44 Jubilee Residency, HSR Layout, Bengaluru 560102',
+      'party_two.registration': 'PAN JKLPI3456N',
+      'party_two.signatory': 'Meena Iyer, Attorney',
+    },
+  },
+
+  {
+    slug: 'free-mou-template',
+    category: 'Legal',
+    name: 'MoU',
+    build: () =>
+      longFormDoc({
+        title: 'Memorandum of Understanding',
+        subtitle: 'A record of what two parties have agreed in principle, ahead of a binding contract.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['MoU no.', '{{mou.number}}'],
+          ['Effective date', '{{mou.effective_date}}'],
+          ['Review date', '{{mou.review_date}}'],
+          ['Status', '{{mou.status}}'],
+        ],
+        parties: [
+          {
+            heading: 'First party',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Second party',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'The parties wish to record their shared understanding regarding {{mou.purpose}}. This memorandum sets out what each intends to contribute and how they will work together while a definitive agreement is negotiated.',
+        sections: [
+          {
+            heading: '1. Shared objectives',
+            body: '{{mou.objectives}}',
+            height: 46,
+          },
+          {
+            heading: '2. What each party will contribute',
+            items: [
+              'First party: {{mou.contribution_one}}',
+              'Second party: {{mou.contribution_two}}',
+              'Both parties: {{mou.contribution_shared}}',
+            ],
+          },
+          {
+            heading: '3. Status of this memorandum',
+            body: '{{mou.binding_status}}',
+            height: 46,
+          },
+          {
+            heading: '4. Confidentiality and term',
+            body: 'Each party will keep the other’s non-public information confidential. This memorandum runs until {{mou.review_date}} and may be extended or replaced by a definitive agreement in writing.',
+            height: 46,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Whether an MoU binds depends on what it says and how the parties act.',
+      }),
+    values: {
+      'mou.number': 'MOU-2026-0009',
+      'mou.effective_date': '01 September 2026',
+      'mou.review_date': '28 February 2027',
+      'mou.status': 'Non-binding except where stated',
+      'mou.purpose': 'a joint distribution arrangement across south India',
+      'mou.objectives':
+        'To test whether combining Northwind’s storage products with Halcyon’s design and fit-out practice produces a proposition both can sell, across three pilot cities, before committing to a formal joint venture.',
+      'mou.contribution_one':
+        'product supply at agreed transfer prices, technical training and installation support.',
+      'mou.contribution_two':
+        'client relationships, design services and project management on pilot engagements.',
+      'mou.contribution_shared':
+        'joint marketing at two trade events, and a shared pipeline review each month.',
+      'mou.binding_status':
+        'Clauses 3 and 4 are intended to be legally binding. The remainder records intent only and creates no obligation to enter a definitive agreement, no exclusivity, and no liability for withdrawal.',
+      'party_one.name': 'Northwind Traders Pvt Ltd',
+      'party_one.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'party_one.registration': 'CIN U51909KA2015PTC081234',
+      'party_one.signatory': 'Devika Menon, Chief Operating Officer',
+      'party_two.name': 'Halcyon Design Studio LLP',
+      'party_two.address': '22 Residency Road, Bengaluru 560025',
+      'party_two.registration': 'LLPIN AAC-8812',
+      'party_two.signatory': 'Nikhil Menon, Designated Partner',
+    },
+  },
+
+  {
+    slug: 'free-partnership-deed-template',
+    category: 'Legal',
+    name: 'Partnership Deed',
+    build: () =>
+      longFormDoc({
+        title: 'Partnership Deed',
+        subtitle: 'The constitution of a partnership firm — capital, shares, roles and dissolution.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Deed no.', '{{deed.number}}'],
+          ['Date of deed', '{{deed.date}}'],
+          ['Firm name', '{{deed.firm_name}}'],
+          ['Commencement', '{{deed.commencement}}'],
+        ],
+        parties: [
+          {
+            heading: 'First partner',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Second partner',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'The partners will carry on the business of {{deed.business}} under the name {{deed.firm_name}}, at {{deed.place}}.',
+        sections: [
+          {
+            heading: '1. Capital and profit sharing',
+            items: [
+              'Capital contributed — first partner: {{deed.capital_one}}.',
+              'Capital contributed — second partner: {{deed.capital_two}}.',
+              'Profits and losses shared: {{deed.profit_share}}. Interest on capital: {{deed.interest_on_capital}}.',
+            ],
+          },
+          {
+            heading: '2. Management and duties',
+            body: '{{deed.management}}',
+            height: 46,
+          },
+          {
+            heading: '3. Banking and accounts',
+            items: [
+              'Bank operations: {{deed.banking}}.',
+              'Books of account kept at the principal place of business, open to both partners.',
+              'Accounts closed on {{deed.year_end}} each year. Drawings limited to {{deed.drawings}} per partner per month.',
+            ],
+          },
+          {
+            heading: '4. Retirement and dissolution',
+            body: 'A partner may retire on {{deed.retirement_notice}} written notice. Accounts are settled after liabilities, goodwill valued at {{deed.goodwill}}.',
+            height: 30,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Partnership deeds are usually stamped and may be registered.',
+      }),
+    values: {
+      'deed.number': 'PD-2026-0021',
+      'deed.date': '17 August 2026',
+      'deed.firm_name': 'Prabhu & Iyer Associates',
+      'deed.commencement': '01 September 2026',
+      'deed.business': 'industrial fit-out consultancy and project management',
+      'deed.place': '9 Palm Grove, Whitefield, Bengaluru 560066',
+      'deed.capital_one': '₹15,00,000',
+      'deed.capital_two': '₹10,00,000',
+      'deed.profit_share': '60% to the first partner and 40% to the second',
+      'deed.interest_on_capital': '6% per annum on the opening balance',
+      'deed.management':
+        'The first partner is responsible for operations and delivery, the second for finance and client relationships. Expenditure above ₹2,00,000 needs both partners’ written consent.',
+      'deed.banking': 'Accounts operated jointly; cheques above ₹1,00,000 signed by both partners',
+      'deed.year_end': '31 March',
+      'deed.drawings': '₹1,00,000',
+      'deed.retirement_notice': 'three months’',
+      'deed.goodwill': 'two years’ purchase of average net profit',
+      'party_one.name': 'Mr Suresh Prabhu',
+      'party_one.address': '9 Palm Grove, Whitefield, Bengaluru 560066',
+      'party_one.registration': 'PAN ABCPP1234K',
+      'party_one.signatory': 'Suresh Prabhu, Partner',
+      'party_two.name': 'Ms Meena Iyer',
+      'party_two.address': '44 Jubilee Residency, HSR Layout, Bengaluru 560102',
+      'party_two.registration': 'PAN JKLPI3456N',
+      'party_two.signatory': 'Meena Iyer, Partner',
+    },
+  },
+
+  {
+    slug: 'free-consultancy-agreement-template',
+    category: 'Legal',
+    name: 'Consultancy Agreement',
+    build: () =>
+      longFormDoc({
+        title: 'Consultancy Agreement',
+        subtitle: 'An engagement of an independent consultant — scope, fees, IP and termination.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Agreement no.', '{{agreement.number}}'],
+          ['Effective date', '{{agreement.effective_date}}'],
+          ['Initial term', '{{agreement.term}}'],
+          ['Governing law', '{{agreement.governing_law}}'],
+        ],
+        parties: [
+          {
+            heading: 'Client',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Consultant',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'The client engages the consultant to provide {{agreement.services}}, to be performed with reasonable skill and care.',
+        sections: [
+          {
+            heading: '1. Services and time commitment',
+            body: '{{agreement.scope}}',
+            height: 46,
+          },
+          {
+            heading: '2. Fees and expenses',
+            items: [
+              'Fees: {{agreement.fees}}.',
+              'Invoicing: {{agreement.invoicing}}, payable {{agreement.payment_terms}}.',
+              'Expenses: pre-approved and reimbursed at cost against receipts.',
+              'Taxes: the consultant is responsible for their own tax and statutory obligations.',
+            ],
+          },
+          {
+            heading: '3. Status, IP and confidentiality',
+            items: [
+              'The consultant is an independent contractor and not an employee, agent or partner of the client.',
+              'Intellectual property created in performing the services: {{agreement.ip}}.',
+              'Each party keeps the other’s confidential information confidential during and after the term.',
+              'The consultant may work for others provided there is no conflict with this engagement.',
+            ],
+          },
+          {
+            heading: '4. Termination',
+            body: 'Either party may terminate on {{agreement.notice}} written notice, or for material breach not remedied within {{agreement.cure_period}}.',
+            height: 46,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Contractor status is judged on the working reality, not the label.',
+      }),
+    values: {
+      'agreement.number': 'CA-2026-0064',
+      'agreement.effective_date': '01 September 2026',
+      'agreement.term': '12 months',
+      'agreement.governing_law': 'India, courts at Bengaluru',
+      'agreement.services': 'supply-chain advisory and process design services',
+      'agreement.scope':
+        'The consultant will review warehouse and distribution processes across two sites and support implementation. Expected commitment is eight days a month, two of them on site.',
+      'agreement.fees': '₹1,80,000 per month, exclusive of applicable taxes',
+      'agreement.invoicing': 'monthly in arrears',
+      'agreement.payment_terms': 'within 30 days of a valid invoice',
+      'agreement.ip':
+        'vests in the client on payment; the consultant keeps pre-existing materials',
+      'agreement.notice': 'one month’s',
+      'agreement.cure_period': '15 days',
+      'party_one.name': 'Northwind Traders Pvt Ltd',
+      'party_one.address': '4th Floor, Prestige Corner, MG Road, Bengaluru 560001',
+      'party_one.registration': 'CIN U51909KA2015PTC081234',
+      'party_one.signatory': 'Devika Menon, Chief Operating Officer',
+      'party_two.name': 'Mr K. Subramanian',
+      'party_two.address': 'Level 6, Cyber Towers, Hitec City, Hyderabad 500081',
+      'party_two.registration': 'PAN MNOPS7890Q · GSTIN 36MNOPS7890Q1ZR',
+      'party_two.signatory': 'K. Subramanian, Consultant',
+    },
+  },
+
+  {
+    slug: 'free-loan-agreement-template',
+    category: 'Legal',
+    name: 'Loan Agreement',
+    build: () =>
+      longFormDoc({
+        title: 'Loan Agreement',
+        subtitle: 'A private loan between two parties — amount, interest, repayment and default.',
+        accent: ACCENT.Legal,
+        meta: [
+          ['Agreement no.', '{{loan.number}}'],
+          ['Date', '{{loan.date}}'],
+          ['Principal', '{{loan.principal}}'],
+          ['Term', '{{loan.term}}'],
+        ],
+        parties: [
+          {
+            heading: 'Lender',
+            lines: ['{{party_one.name}}', '{{party_one.address}}', '{{party_one.registration}}'],
+          },
+          {
+            heading: 'Borrower',
+            lines: ['{{party_two.name}}', '{{party_two.address}}', '{{party_two.registration}}'],
+          },
+        ],
+        intro:
+          'The lender lends and the borrower borrows {{loan.principal}} for {{loan.purpose}}, on the terms below.',
+        sections: [
+          {
+            heading: '1. Interest and repayment',
+            items: [
+              'Interest: {{loan.interest}}, calculated on the reducing balance.',
+              'Repayment: {{loan.repayment}}.',
+              'First instalment due: {{loan.first_due}}. Prepayment permitted without penalty.',
+            ],
+          },
+          {
+            heading: '2. Security',
+            body: '{{loan.security}}',
+            height: 46,
+          },
+          {
+            heading: '3. Events of default',
+            items: [
+              'Failure to pay any instalment within {{loan.grace_period}} of its due date.',
+              'Any material misstatement made by the borrower in connection with this loan.',
+              'Insolvency of the borrower. On default the balance falls due, with interest at {{loan.default_interest}}.',
+            ],
+          },
+          {
+            heading: '4. General',
+            body: 'Governed by {{loan.governing_law}}. Variations must be in writing and signed by both parties.',
+            height: 30,
+          },
+        ],
+        footer: 'Sample wording for layout purposes. Interest rates and enforcement are subject to law.',
+      }),
+    values: {
+      'loan.number': 'LA-2026-0031',
+      'loan.date': '17 August 2026',
+      'loan.principal': '₹12,00,000',
+      'loan.term': '36 months',
+      'loan.purpose': 'working capital for the borrower’s design practice',
+      'loan.interest': '11% per annum',
+      'loan.repayment': '36 equal monthly instalments of ₹39,290',
+      'loan.first_due': '05 October 2026',
+      'loan.security':
+        'The loan is unsecured. The borrower will not charge its receivables ahead of this loan while any amount is outstanding.',
+      'loan.grace_period': '15 days',
+      'loan.default_interest': '15% per annum from the date of default',
+      'loan.governing_law': 'the laws of India, with courts at Bengaluru having jurisdiction',
+      'party_one.name': 'Mr Suresh Prabhu',
+      'party_one.address': '9 Palm Grove, Whitefield, Bengaluru 560066',
+      'party_one.registration': 'PAN ABCPP1234K',
+      'party_one.signatory': 'Suresh Prabhu, Lender',
+      'party_two.name': 'Halcyon Design Studio LLP',
+      'party_two.address': '22 Residency Road, Bengaluru 560025',
+      'party_two.registration': 'LLPIN AAC-8812',
+      'party_two.signatory': 'Nikhil Menon, Designated Partner',
+    },
+  },
 ]
 
 // ── Emit ─────────────────────────────────────────────────────────────────────
@@ -2233,6 +4389,14 @@ for (const tpl of TEMPLATES) {
   // Every referenced field must have a preview value. Without one the canvas
   // falls back to the field-name chip, and the landing page is a wireframe
   // again — so this is the check that keeps the templates presentable.
+  // A typo'd category would reach the bundle, the seeder and the marketing hub
+  // before anyone noticed, so it fails generation here instead.
+  if (!CATEGORIES.includes(tpl.category)) {
+    console.error(`  ✗ ${tpl.slug}: unknown category ${JSON.stringify(tpl.category)}`
+      + ` — expected one of ${CATEGORIES.join(', ')}`)
+    failed = true
+  }
+
   const missing = referenced.filter((key) => tpl.values[key] === undefined)
   if (missing.length > 0) {
     console.error(`  ✗ ${tpl.slug}: no preview value for ${missing.join(', ')}`)
@@ -2277,6 +4441,10 @@ for (const tpl of TEMPLATES) {
   const payload = {
     __agreemint_template__: true,
     version: 2,
+    // Carried in the bundle so every consumer reads the same answer. The
+    // backend seeder prefers this over its slug-keyword fallback, and the
+    // console's catalogue test asserts TRY_TEMPLATES agrees with it.
+    category: tpl.category,
     layout,
     variableValues,
     exportedAt: EXPORTED_AT,
