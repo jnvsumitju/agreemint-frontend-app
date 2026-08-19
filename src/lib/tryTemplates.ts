@@ -17,7 +17,7 @@
 
 import { parseTemplateExportPayload, type ParsedTemplatePayload } from './templateExport'
 
-export type TryTemplateCategory = 'Finance' | 'HR' | 'Education' | 'Business'
+export type TryTemplateCategory = 'Finance' | 'HR' | 'Education' | 'Business' | 'Legal'
 
 export interface TryTemplateMeta {
   slug: string
@@ -57,6 +57,42 @@ export const TRY_TEMPLATES: readonly TryTemplateMeta[] = [
   { slug: 'free-business-proposal-template', name: 'Business Proposal', category: 'Business' },
   { slug: 'free-report-template', name: 'Report', category: 'Business' },
   { slug: 'free-statement-template', name: 'Statement', category: 'Business' },
+
+  // Finance
+  { slug: 'free-proforma-invoice-template', name: 'Proforma Invoice', category: 'Finance' },
+  { slug: 'free-credit-note-template', name: 'Credit Note', category: 'Finance' },
+  { slug: 'free-debit-note-template', name: 'Debit Note', category: 'Finance' },
+  { slug: 'free-delivery-challan-template', name: 'Delivery Challan', category: 'Finance' },
+  { slug: 'free-petty-cash-voucher-template', name: 'Petty Cash Voucher', category: 'Finance' },
+  { slug: 'free-expense-report-template', name: 'Expense Report', category: 'Finance' },
+  // HR
+  { slug: 'free-appointment-letter-template', name: 'Appointment Letter', category: 'HR' },
+  { slug: 'free-internship-certificate-template', name: 'Internship Certificate', category: 'HR' },
+  { slug: 'free-resignation-acceptance-letter-template', name: 'Resignation Acceptance Letter', category: 'HR' },
+  { slug: 'free-warning-letter-template', name: 'Warning Letter', category: 'HR' },
+  { slug: 'free-promotion-letter-template', name: 'Promotion Letter', category: 'HR' },
+  { slug: 'free-timesheet-template', name: 'Timesheet', category: 'HR' },
+  // Education
+  { slug: 'free-bonafide-certificate-template', name: 'Bonafide Certificate', category: 'Education' },
+  { slug: 'free-transfer-certificate-template', name: 'Transfer Certificate', category: 'Education' },
+  { slug: 'free-character-certificate-template', name: 'Character Certificate', category: 'Education' },
+  { slug: 'free-attendance-register-template', name: 'Attendance Register', category: 'Education' },
+  { slug: 'free-fee-receipt-template', name: 'Fee Receipt', category: 'Education' },
+  // Business
+  { slug: 'free-meeting-minutes-template', name: 'Meeting Minutes', category: 'Business' },
+  { slug: 'free-sow-template', name: 'SOW', category: 'Business' },
+  { slug: 'free-business-plan-template', name: 'Business Plan', category: 'Business' },
+  { slug: 'free-price-list-template', name: 'Price List', category: 'Business' },
+  { slug: 'free-packing-list-template', name: 'Packing List', category: 'Business' },
+  { slug: 'free-letterhead-template', name: 'Letterhead', category: 'Business' },
+  // Legal
+  { slug: 'free-rent-agreement-template', name: 'Rent Agreement', category: 'Legal' },
+  { slug: 'free-affidavit-template', name: 'Affidavit', category: 'Legal' },
+  { slug: 'free-power-of-attorney-template', name: 'Power of Attorney', category: 'Legal' },
+  { slug: 'free-mou-template', name: 'MoU', category: 'Legal' },
+  { slug: 'free-partnership-deed-template', name: 'Partnership Deed', category: 'Legal' },
+  { slug: 'free-consultancy-agreement-template', name: 'Consultancy Agreement', category: 'Legal' },
+  { slug: 'free-loan-agreement-template', name: 'Loan Agreement', category: 'Legal' },
 ]
 
 export function getTryTemplateMeta(slug: string): TryTemplateMeta | null {

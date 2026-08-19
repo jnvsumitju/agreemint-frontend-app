@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { pickerHexFromCssColor } from '../../lib/cssColor'
+import { normalizeHexInput, pickerHexFromCssColor } from '../../lib/cssColor'
 import { DOCUMENT_COLOR_PALETTE_HEX } from '../../lib/docColorPalette'
 import type { GradientDef, GradientStop } from '../../types/layout'
 import {
@@ -218,6 +218,27 @@ export function ColorToolbarSwatch({
   const [customHex, setCustomHex] = useState(() => pickerHexFromCssColor(value))
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 })
 
+  /**
+   * Apply a hex the author has finished typing.
+   *
+   * <p>Shared by Enter and by blur so the two cannot drift — they are the same
+   * decision made at two different moments, and the earlier version had the
+   * expansion logic inline in one of them only.
+   *
+   * <p>Writes the canonical form back into the field, so a shorthand visibly
+   * becomes the six-digit value that was actually stored rather than leaving
+   * the author guessing which one the document has.
+   */
+  const commitCustomHex = useCallback(
+    (hex: string) => {
+      setCustomHex(hex)
+      pushRecentColor(hex)
+      if (onGradientChange) onGradientChange(undefined)
+      onChange(hex)
+    },
+    [onChange, onGradientChange]
+  )
+
   const updatePanelPosition = useCallback(() => {
     const btn = triggerRef.current
     if (!btn) return
@@ -311,6 +332,24 @@ export function ColorToolbarSwatch({
         data-agreemint-skip-canvas-inline-commit
         className="fixed z-[10050] w-[260px] rounded-lg border border-zinc-200 bg-white p-2 shadow-xl dark:border-zinc-600 dark:bg-zinc-900"
         style={{ top: panelPos.top, left: panelPos.left }}
+        /*
+         * Stop the press here rather than letting it reach the toolbar.
+         *
+         * This panel is portaled to document.body, but React propagates
+         * synthetic events up the REACT tree, not the DOM tree — so a mousedown
+         * in here still arrives at the toolbar that rendered the trigger, and
+         * those toolbars call preventDefault() to keep the text selection alive
+         * while a button is pressed. preventDefault on mousedown also cancels
+         * the browser's focus-on-click, which made the hex field impossible to
+         * type into: the click landed, the caret stayed in the document, and
+         * the keystrokes went there instead.
+         *
+         * stopPropagation, NOT preventDefault: the field needs the default to
+         * happen. Every button inside this panel already calls preventDefault
+         * on itself, so the selection is still protected where that matters.
+         */
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {/* No Color. Historically this dispatched both `onClear()` and
             `onGradientChange(undefined)` back-to-back, but each handler
@@ -430,19 +469,34 @@ export function ColorToolbarSwatch({
                   onChange={(e) => {
                     const v = e.target.value
                     setCustomHex(v)
+                    // Live preview for a COMPLETE six-digit value only.
+                    // Deliberately not the shorthand: typing "#1a2b3c" passes
+                    // through "#1a2", which is itself a valid shorthand, so
+                    // expanding here would flash #11aa22 onto the document
+                    // mid-keystroke and push it into recent colours. Shorthand
+                    // resolves when the author says they are done — Enter or
+                    // blur.
                     if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
                       if (onGradientChange) onGradientChange(undefined)
                       onChange(v)
                     }
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    // Otherwise Enter would reach whatever the field sits in —
+                    // and for the toolbar swatch that is the canvas.
+                    e.preventDefault()
+                    const v = normalizeHexInput(customHex)
+                    // An unparseable value leaves the text alone rather than
+                    // reverting it, so the author can see and correct the typo
+                    // instead of watching their input vanish.
+                    if (!v) return
+                    commitCustomHex(v)
+                    setOpen(false)
+                  }}
                   onBlur={() => {
-                    if (/^#[0-9A-Fa-f]{6}$/i.test(customHex.trim())) {
-                      const v =
-                        customHex.trim().length === 7 ? customHex.trim() : pickerHexFromCssColor(customHex)
-                      pushRecentColor(v)
-                      if (onGradientChange) onGradientChange(undefined)
-                      onChange(v)
-                    }
+                    const v = normalizeHexInput(customHex)
+                    if (v) commitCustomHex(v)
                   }}
                 />
               </div>
