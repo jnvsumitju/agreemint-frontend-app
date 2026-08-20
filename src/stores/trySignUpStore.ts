@@ -4,7 +4,9 @@ import { create } from 'zustand'
  * Why the visitor was stopped. Drives the modal's copy — "sign up" reads very
  * differently depending on whether they clicked Save or Download.
  */
-export type TrySignUpReason = 'save' | 'download' | 'preview'
+// 'preview' was removed when the sandbox gained its own render path — preview
+// no longer stops anyone, so nothing could raise it.
+export type TrySignUpReason = 'save' | 'download'
 
 interface TrySignUpState {
   reason: TrySignUpReason | null
