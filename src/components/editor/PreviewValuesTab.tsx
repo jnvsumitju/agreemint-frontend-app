@@ -5,6 +5,7 @@ import { extractVariableKeys, uniqueTableDataKeys } from '../../lib/variables'
 import { scalarVariableKeys } from '../../lib/previewFormData'
 import { variableMergeFieldSurfaceLabel } from '../../lib/layoutBehaviourResolve'
 import { PreviewTableEditor } from './PreviewTableEditor'
+import { parseTableVariableData } from '../../lib/tableDataFormat'
 
 /**
  * Right-hand tab while previewing: the values the document renders with.
@@ -84,15 +85,56 @@ export function PreviewValuesTab() {
           <h3 className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Tables
           </h3>
-          {tableKeys.map((key) => (
-            <PreviewTableEditor
-              key={key}
-              dataKey={key}
-              elements={elements}
-              value={values[key] ?? ''}
-              onChange={(json) => setVariableValue(key, json)}
-            />
-          ))}
+          {/*
+            A structured table must NOT be handed to PreviewTableEditor.
+
+            That editor speaks the legacy shape — an array of row objects.
+            Given a structured value ({"data":[[…]],"cellStyle":…}) it parses to
+            a single blank row, and the first keystroke commits
+            serializeTableRows over the top: the grid, cellStyle and borderStyle
+            are gone, silently, from clicking into a cell on this tab.
+            VariablesSection already guards the same value this way; this tab
+            did not, and it is the one people open while filling a document in.
+          */}
+          {tableKeys.map((key) => {
+            const raw = values[key] ?? ''
+            const structured = parseTableVariableData(raw)
+            if (structured) {
+              const headers = structured.data[0] ?? []
+              const bodyRows = Math.max(0, structured.data.length - 1)
+              return (
+                <div
+                  key={key}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20"
+                >
+                  <p className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300">{key}</p>
+                  <span className="mt-1.5 inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200">
+                    {headers.length} col{headers.length !== 1 ? 's' : ''} &times; {bodyRows} row
+                    {bodyRows !== 1 ? 's' : ''}
+                  </span>
+                  {headers.length > 0 && (
+                    <p className="mt-1.5 text-[11px] leading-snug text-emerald-700 dark:text-emerald-300">
+                      <span className="font-medium">Headers:</span>{' '}
+                      <span className="font-mono text-[10px]">{headers.join(', ')}</span>
+                    </p>
+                  )}
+                  <p className="mt-2 text-[10px] text-zinc-500 dark:text-zinc-400">
+                    Edit this table on the canvas — editing it here would drop its cell and
+                    border styling.
+                  </p>
+                </div>
+              )
+            }
+            return (
+              <PreviewTableEditor
+                key={key}
+                dataKey={key}
+                elements={elements}
+                value={raw}
+                onChange={(json) => setVariableValue(key, json)}
+              />
+            )
+          })}
         </section>
       )}
     </div>

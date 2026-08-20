@@ -15,6 +15,7 @@ import { useCollabConnectionStore, type CollabConnectionStatus } from '../../sto
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import { usePreviewStore } from '../../stores/previewStore'
 import { useTrySignUpStore } from '../../stores/trySignUpStore'
+import { diffVariableValues } from '../../lib/variablePatch'
 import { hasUsedFreePdf, markFreePdfUsed } from '../../lib/sandboxDownload'
 import { TEMPLATE_GALLERY_URL } from '../../lib/tryTemplates'
 import {
@@ -549,10 +550,28 @@ export function Toolbar() {
       if (s.templateId !== tid) return
       const current = JSON.stringify(s.variableValues)
       if (current === lastSaved) return
-      lastSaved = current
-      void putDraftVariables(tid, s.variableValues).catch(() => {
-        /* offline or server down — next change will retry */
-      })
+
+      // Diff against what we last successfully sent, so this PUT asserts only
+      // the keys THIS editor touched. Sending the whole map made every save
+      // clobber a collaborator's unrelated edit.
+      const patch = diffVariableValues(
+        JSON.parse(lastSaved) as Record<string, string>,
+        s.variableValues
+      )
+      if (Object.keys(patch.set).length === 0 && patch.remove.length === 0) return
+
+      const attempted = current
+      void putDraftVariables(tid, patch)
+        .then(() => {
+          // Advance the baseline only on success. Updating it optimistically
+          // would drop this change from the next diff, so a failed request
+          // would lose the edit permanently rather than retrying it.
+          lastSaved = attempted
+        })
+        .catch(() => {
+          /* offline or server down — the next change re-diffs from the old
+             baseline and carries this one along with it */
+        })
     }
     const unsubscribe = useEditorStore.subscribe((state, prev) => {
       if (state.templateId !== tid) return
