@@ -92,13 +92,17 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}
         aria-describedby={description ? 'modal-desc' : undefined}
-        className={`relative w-full rounded-xl border border-zinc-200 bg-white shadow-xl
+        // max-h + flex column so a modal whose content outgrows the screen
+        // scrolls internally instead of running off the bottom and taking its
+        // footer buttons with it. The outer wrapper has p-4, hence the 2rem.
+        className={`relative flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-xl
+          border border-zinc-200 bg-white shadow-xl
           dark:border-zinc-700 dark:bg-zinc-900
           animate-in zoom-in-95 fade-in duration-200 ${sizeClasses[size]}`}
       >
         {/* Header */}
         {(title || description) && (
-          <div className="border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+          <div className="shrink-0 border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
             {title && (
               <h2 id="modal-title" className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                 {title}
@@ -123,8 +127,8 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
           </div>
         )}
 
-        {/* Body */}
-        <div className="px-6 py-4">{children}</div>
+        {/* Body — the part that scrolls when content exceeds the panel. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
       </div>
     </div>
   )

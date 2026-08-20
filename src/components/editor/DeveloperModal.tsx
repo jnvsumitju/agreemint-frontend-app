@@ -143,7 +143,19 @@ export function DeveloperModal({
 
       <div className="mt-3">
         <label className="mb-1 block text-xs font-medium text-zinc-700 dark:text-zinc-300">cURL</label>
-        <pre className="overflow-x-auto rounded-md bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">
+        {/*
+          A fixed height, scrolling on both axes.
+
+          It only had overflow-x before, so its height was whatever the payload
+          happened to be. That was survivable while table rows were one long
+          escaped string; now they expand to a real array, a five-row table is
+          forty lines and the dialog grew past the viewport — taking the Close
+          and Copy buttons with it.
+
+          overscroll-contain so reaching the end of the snippet does not start
+          scrolling the editor behind the modal.
+        */}
+        <pre className="max-h-96 overflow-auto overscroll-contain rounded-md bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">
 {curl}
         </pre>
       </div>
