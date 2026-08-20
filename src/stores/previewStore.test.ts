@@ -19,6 +19,7 @@ const revoked: string[] = []
 
 vi.mock('../lib/api', () => ({
   generatePreviewPdf: vi.fn(async () => new Blob(['%PDF-1.7'], { type: 'application/pdf' })),
+  generateSandboxPdf: vi.fn(async () => new Blob(['%PDF-1.7 wm'], { type: 'application/pdf' })),
   measureLayout: vi.fn(async () => ({ measurements: {} })),
 }))
 

@@ -281,6 +281,44 @@ export async function commitDraft(templateId: string): Promise<TemplateVersionDt
   return res.json() as Promise<TemplateVersionDto>
 }
 
+/**
+ * Render a PDF for a signed-out visitor in the /try sandbox.
+ *
+ * <p>Plain `fetch`, deliberately NOT `authFetch`. There is no session to send,
+ * and `authFetch` on a 401 with a stale refresh token triggers a logout and a
+ * hard navigation — which in the sandbox would throw away the visitor's unsaved
+ * document, the exact failure `loadTryTemplate` already avoids for the same
+ * reason.
+ *
+ * <p>The endpoint always watermarks and is rate limited per client address, so
+ * a 429 here is expected traffic rather than an error condition; its message is
+ * written for a person and is surfaced verbatim.
+ */
+export async function generateSandboxPdf(
+  layout: Record<string, unknown>,
+  data: Record<string, unknown>
+): Promise<Blob> {
+  const cleanedData = stripSystemVariableKeysFromData(data)
+  const res = await fetch(`${API_BASE}/api/public/sandbox/pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ layout, data: cleanedData }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    let msg = text
+    try {
+      const j = JSON.parse(text) as { error?: string; message?: string }
+      if (j.error) msg = j.error
+      else if (j.message) msg = j.message
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || res.statusText)
+  }
+  return res.blob()
+}
+
 export async function generatePreviewPdf(
   layout: Record<string, unknown>,
   data: Record<string, unknown>

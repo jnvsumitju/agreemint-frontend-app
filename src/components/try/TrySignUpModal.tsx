@@ -11,14 +11,12 @@ const COPY: Record<TrySignUpReason, { title: string; body: string; cta: string }
     cta: 'Sign up and save',
   },
   download: {
-    title: 'Create a free account to download the PDF',
-    body: 'Generating a real PDF runs on our servers, so it needs an account. Sign up free — no card — and this template comes with you.',
+    title: 'You have used your free download',
+    // Reached only AFTER a PDF has been taken, so it must not claim a download
+    // needs an account — the visitor is holding one. What an account buys is
+    // more of them, without the watermark.
+    body: 'That one is yours to keep. Sign up free — no card — to generate more without the watermark, and this template comes with you.',
     cta: 'Sign up and download',
-  },
-  preview: {
-    title: 'Create a free account to preview the PDF',
-    body: 'The PDF preview is rendered by the same engine that produces your final documents, so it needs an account. Sign up free — no card.',
-    cta: 'Sign up and preview',
   },
 }
 

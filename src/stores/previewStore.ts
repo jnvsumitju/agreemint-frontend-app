@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { generatePreviewPdf, measureLayout } from '../lib/api'
+import { generatePreviewPdf, generateSandboxPdf, measureLayout } from '../lib/api'
 import { buildLayoutJson, type LayoutJson } from '../types/layout'
 import { variableValuesToDataTree } from '../lib/layoutBehaviourResolve'
 import { findOverflowingElements, type Overflow } from '../lib/overflowCheck'
@@ -39,6 +39,8 @@ export interface PreviewState {
   enter: () => void
   exit: () => void
   generate: () => Promise<void>
+  /** Render and save one watermarked PDF for a signed-out sandbox visitor. */
+  downloadSandbox: () => Promise<void>
   markStale: () => void
 }
 
@@ -84,6 +86,44 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
     set({ active: false, pdfUrl: null, overflows: [], error: null, stale: false })
   },
 
+  downloadSandbox: async () => {
+    // Renders fresh rather than reusing `pdfUrl`: the visitor may never have
+    // opened the preview pane, and if they did the layout may have moved on
+    // since. Saving a document that does not match what is on screen would be
+    // a worse bug than a second render.
+    set({ loading: true, error: null })
+    try {
+      const ed = useEditorStore.getState()
+      const layout = buildLayoutJson(
+        ed.pages,
+        ed.pageSpec,
+        ed.globalVariableDefinitions
+      ) as unknown as Record<string, unknown>
+
+      const blob = await generateSandboxPdf(layout, buildPreviewData())
+
+      // Same client-side save the authenticated viewer uses — an object URL and
+      // a synthetic click. No second round trip, and nothing touches storage.
+      const url = URL.createObjectURL(blob)
+      try {
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${ed.templateName || 'document'}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } finally {
+        // Revoking synchronously after click() is safe: the browser has already
+        // taken its reference to the blob by then.
+        URL.revokeObjectURL(url)
+      }
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Could not generate the PDF' })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   markStale: () => {
     if (get().pdfUrl) set({ stale: true })
   },
@@ -99,7 +139,12 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
       ) as unknown as Record<string, unknown>
 
       const data = buildPreviewData()
-      const blob = await generatePreviewPdf(layout, data)
+      // A signed-out sandbox visitor has no token to send, so the render
+      // goes through the public endpoint instead. Same request body, always
+      // watermarked, rate limited per address.
+      const blob = ed.sandbox
+        ? await generateSandboxPdf(layout, data)
+        : await generatePreviewPdf(layout, data)
 
       set((s) => {
         // Revoke the PREVIOUS url as the new one replaces it. Missing this
@@ -110,7 +155,13 @@ export const usePreviewStore = create<PreviewState>((set, get) => ({
 
       // Where the renderer clipped. A soft assist: a measurement failure must
       // not discard a PDF that rendered perfectly well.
-      if (pixelParityEnabled()) {
+      // Skipped in the sandbox, matching EditorCanvas: /api/generate/measure
+      // is authenticated, so an anonymous visitor would spend a round trip to
+      // be told 401 — and a visitor carrying a STALE refresh token from an old
+      // session would send authFetch into a refresh attempt that fails. The
+      // cost of skipping is the overflow badges, which is the same trade the
+      // canvas already makes here.
+      if (!ed.sandbox && pixelParityEnabled()) {
         try {
           const resp = await measureLayout(layout, data)
           set({

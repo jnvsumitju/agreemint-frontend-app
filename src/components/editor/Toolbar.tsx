@@ -15,6 +15,7 @@ import { useCollabConnectionStore, type CollabConnectionStatus } from '../../sto
 import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import { usePreviewStore } from '../../stores/previewStore'
 import { useTrySignUpStore } from '../../stores/trySignUpStore'
+import { hasUsedFreePdf, markFreePdfUsed } from '../../lib/sandboxDownload'
 import { TEMPLATE_GALLERY_URL } from '../../lib/tryTemplates'
 import {
   IconUndo, IconRedo, IconEye, IconSave, IconMoreVertical,
@@ -399,6 +400,7 @@ export function Toolbar() {
   const previewActive = usePreviewStore((s) => s.active)
   const enterPreview = usePreviewStore((s) => s.enter)
   const exitPreview = usePreviewStore((s) => s.exit)
+  const downloadSandboxPdf = usePreviewStore((s) => s.downloadSandbox)
   const promptSignUp = useTrySignUpStore((s) => s.promptSignUp)
 
   const [saving, setSaving] = useState(false)
@@ -796,17 +798,19 @@ export function Toolbar() {
           <button
             type="button"
             className="flex h-7 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-[11px] font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 lg:h-8 lg:px-3 lg:text-xs dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            title={sandbox ? 'Sign up to preview the PDF' : 'Preview PDF from current editor state'}
+            title={
+              sandbox
+                ? 'Preview the PDF — free, watermarked'
+                : 'Preview PDF from current editor state'
+            }
             disabled={!templateId}
-            // PDF rendering runs on the server, so this is the sign-up wall
-            // rather than a hidden button — it is the moment the visitor most
-            // wants an account, and hiding it would just look like a missing
-            // feature.
+            // No longer a sign-up wall. A signed-out visitor arrives here from
+            // a crixaa.com page whose search result promised "edit and download
+            // free", so being stopped at the moment of intent was the worst
+            // possible place to ask for an account. The render goes through the
+            // public endpoint, which always watermarks and is rate limited per
+            // address; the account is what removes the watermark.
             onClick={() => {
-              if (sandbox) {
-                promptSignUp('preview')
-                return
-              }
               previewActive ? exitPreview() : enterPreview()
             }}
           >
@@ -886,12 +890,22 @@ export function Toolbar() {
                     type="button"
                     role="menuitem"
                     className="block w-full px-3 py-2 text-left text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    // One free watermarked PDF, then the wall. `hasUsedFreePdf`
+                    // is a localStorage flag and defeating it is trivial — see
+                    // the note in lib/sandboxDownload.ts. It is a courtesy for
+                    // an ordinary visitor, and the per-IP limit on the render
+                    // endpoint is what actually bounds cost.
                     onClick={() => {
                       setMenuOpen(false)
-                      promptSignUp('download')
+                      if (hasUsedFreePdf()) {
+                        promptSignUp('download')
+                        return
+                      }
+                      markFreePdfUsed()
+                      void downloadSandboxPdf()
                     }}
                   >
-                    Download PDF
+                    {hasUsedFreePdf() ? 'Download PDF' : 'Download PDF — free'}
                   </button>
                 ) : (
                   <button
@@ -911,7 +925,9 @@ export function Toolbar() {
                 )}
                 <p className="border-t border-zinc-100 px-3 py-1.5 text-[10px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                   {sandbox
-                    ? 'Rendering a PDF needs a free account.'
+                    ? hasUsedFreePdf()
+                      ? 'Create a free account to generate more.'
+                      : 'One free PDF, watermarked. An account removes the mark.'
                     : 'Uses committed layout with current variable values.'}
                 </p>
                 {!viewOnly && (
