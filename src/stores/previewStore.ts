@@ -7,6 +7,7 @@ import { pixelParityEnabled } from '../lib/features'
 import { selectAllTemplateElements, useEditorStore } from './editorStore'
 import { getTableColumnsForDataKey, parseTableRowsFromJson, tableRowsToPayload } from '../lib/previewFormData'
 import { defaultSampleTableRowsJson, uniqueTableDataKeys } from '../lib/variables'
+import { detectTableDataFormatFromJson, parseTableVariableData } from '../lib/tableDataFormat'
 
 /**
  * State for the inline PDF preview.
@@ -202,8 +203,26 @@ export function buildPreviewData(): Record<string, unknown> {
   const data = variableValuesToDataTree(scalars) as Record<string, unknown>
 
   for (const tk of tableKeys) {
-    const cols = getTableColumnsForDataKey(elements, tk).map((c) => c.key)
     const raw = values[tk]?.trim() ? values[tk]! : defaultSampleTableRowsJson()
+
+    // Structured tables are forwarded whole, exactly as
+    // buildGenerationDataFromVariableValues does.
+    //
+    // These two builders feed the same renderer and MUST agree. They did not:
+    // this one ran every value through parseTableRowsFromJson, which returns a
+    // single blank row for a structured object — promptly filtered out below —
+    // so the inline preview showed an EMPTY table for one the generated PDF
+    // renders in full. The pane whose whole job is "see exactly what the PDF
+    // will look like" was the one lying.
+    if (detectTableDataFormatFromJson(raw) === 'structured') {
+      const tvd = parseTableVariableData(raw)
+      if (tvd) {
+        data[tk] = tvd
+        continue
+      }
+    }
+
+    const cols = getTableColumnsForDataKey(elements, tk).map((c) => c.key)
     // Blank rows are dropped HERE rather than when the editor saves them: a row
     // the author is still filling in has to survive in the editor, but must not
     // print as an empty line in the document.

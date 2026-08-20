@@ -245,9 +245,32 @@ export function Documentation() {
   --header 'Content-Type: application/json' \\
   --data '{
     "data": {
-      "name": "Chinni"
+      "company.name": "Acme Corp",
+      "invoice.number": "INV-2026-0042",
+      "invoice.total": 2400
     }
   }'`} />
+            {/*
+              Dotted keys in the sample on purpose. Most variables in a real
+              template are dotted, the editor prints the placeholder exactly
+              that way, and a flat sample here taught people to send a shape
+              that used to render every field blank without complaining.
+            */}
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+              <p>
+                <strong className="text-zinc-800 dark:text-zinc-200">
+                  Use the key exactly as the canvas shows it.
+                </strong>{' '}
+                A placeholder written <C>{'{{company.name}}'}</C> is sent as{' '}
+                <C>"company.name"</C>. Nested objects are equivalent —{' '}
+                <C>{'{ "company": { "name": "Acme" } }'}</C> — and the two can be mixed in one
+                payload. Extra keys the template doesn't reference are ignored.
+              </p>
+              <p className="mt-2">
+                <C>currentDate</C>, <C>pageNumber</C> and <C>totalPages</C> are computed by the
+                renderer; sending them has no effect.
+              </p>
+            </div>
             <p>Returns <C>201 Created</C>:</p>
             <CodeBlock language="json" code={`{
   "documentId": "1f2dd3b4-0420-4710-8a09-77b72372a9ce",

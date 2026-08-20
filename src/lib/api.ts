@@ -248,16 +248,30 @@ export async function putDraft(
  * endpoint preserves the collab-flushed layout so this can't race the
  * collab flush.
  */
+/**
+ * Send only the variables this editor changed.
+ *
+ * <p>Used to PUT the entire map, which made every save last-writer-wins across
+ * every key: two people editing different variables within the same debounce
+ * window meant the second request silently erased the first one's work, with no
+ * error and no log — the value just reverted a moment after they typed it.
+ *
+ * <p>`remove` is not optional cleverness. The editor deletes keys for real —
+ * renaming a variable drops the old one, and mergeVariableValues prunes keys
+ * the layout no longer references — so an add-only patch would resurrect a
+ * renamed key the next time any other client saved.
+ */
 export async function putDraftVariables(
   templateId: string,
-  variables: Record<string, string>
+  patch: { set: Record<string, string>; remove: string[] }
 ): Promise<void> {
   await authFetch(`${API_BASE}/api/templates/${templateId}/draft/variables`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(variables),
+    body: JSON.stringify(patch),
   })
 }
+
 
 export async function commitDraft(templateId: string): Promise<TemplateVersionDto> {
   const res = await authFetch(`${API_BASE}/api/templates/${templateId}/draft/commit`, {
