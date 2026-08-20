@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
+import { useShallow } from 'zustand/shallow'
 import { Link } from 'react-router-dom'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { useAuthStore } from '../../stores/authStore'
-import { useEditorStore } from '../../stores/editorStore'
+import { selectAllTemplateElements, useEditorStore } from '../../stores/editorStore'
 import { API_BASE } from '../../lib/api'
 import { stripSystemVariableKeysFromData } from '../../lib/systemTemplateVariables'
+import { uniqueListDataKeys, uniqueTableDataKeys } from '../../lib/variables'
+import { getTableColumnsForDataKey, parseTableRowsFromJson } from '../../lib/previewFormData'
+import { parseTableVariableData, structuredToLegacyRows } from '../../lib/tableDataFormat'
 
 /**
  * Editor's 3-dot menu → "Developer". Shows a ready-to-run cURL snippet for the
@@ -36,6 +40,11 @@ export function DeveloperModal({
     return window.location.origin
   }, [])
 
+  // useShallow: selectAllTemplateElements builds a new array on every call, so
+  // passing it unwrapped re-renders forever. selectorStability.test.ts guards
+  // this and caught it here.
+  const elements = useEditorStore(useShallow(selectAllTemplateElements))
+
   const curl = useMemo(() => {
     if (!templateId) return ''
     // Strip system-computed keys (pageNumber / totalPages / currentDate /
@@ -43,7 +52,60 @@ export function DeveloperModal({
     // anyway, and including them in the sample cURL misleads authors
     // into thinking they need to supply a value.
     const cleanedData = stripSystemVariableKeysFromData(variableValues ?? {})
-    const jsonData = JSON.stringify({ data: cleanedData }, null, 2)
+
+    // Emit tables and lists as REAL arrays, not as the JSON strings we store.
+    //
+    // variableValues is a flat key-to-string map, so a table's rows live in it
+    // as a stringified array. Serialising that map directly produced a snippet
+    // where every quote inside the rows was escaped — and a rich-text cell,
+    // whose value is itself JSON, came out escaped twice. It was technically
+    // correct and nobody would hand-write it.
+    //
+    // This is a snippet for a person to read and edit, so it shows the shape a
+    // person would write. The backend accepts it: VariableDataTree.tableRows
+    // takes a real array as-is.
+    const snippetData: Record<string, unknown> = { ...cleanedData }
+
+    for (const key of uniqueTableDataKeys(elements)) {
+      const raw = cleanedData[key]
+      const columns = getTableColumnsForDataKey(elements, key)
+      const structured = typeof raw === 'string' ? parseTableVariableData(raw) : null
+      const parsed = structured
+        ? structuredToLegacyRows(structured, columns)
+        : typeof raw === 'string' && raw.trim()
+          ? parseTableRowsFromJson(raw, columns.map((c) => c.key))
+          : []
+      // Blank rows are dropped, matching what the renderer does — and a table
+      // the author has not filled in is stored as a grid of blank rows, so
+      // this is what makes "unfilled" come out as [].
+      const rows = parsed.filter((r) =>
+        Object.values(r).some((v) => String(v ?? '').trim() !== '')
+      )
+      // ALWAYS assign, even when empty. Falling through on a table with no
+      // usable rows left the raw stored STRING in the payload — the escaped
+      // form this whole change exists to remove, showing up exactly on the
+      // tables a new author is most likely to be looking at.
+      snippetData[key] = rows
+    }
+
+    for (const key of uniqueListDataKeys(elements)) {
+      const raw = cleanedData[key]
+      let items: unknown[] = []
+      if (typeof raw === 'string' && raw.trim()) {
+        try {
+          const parsed: unknown = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            items = parsed.filter((v) => String(v ?? '').trim() !== '')
+          }
+        } catch {
+          /* unparseable — treat as unfilled rather than pasting broken JSON
+             into a snippet the reader is meant to run */
+        }
+      }
+      snippetData[key] = items
+    }
+
+    const jsonData = JSON.stringify({ data: snippetData }, null, 2)
       .split('\n')
       .map((line, i) => (i === 0 ? line : '    ' + line))
       .join('\n')
@@ -51,7 +113,7 @@ export function DeveloperModal({
   -H "X-Api-Key: $CRIXAA_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '${jsonData}'`
-  }, [apiBase, templateId, variableValues])
+  }, [apiBase, templateId, variableValues, elements])
 
   function copyCurl() {
     navigator.clipboard.writeText(curl)
